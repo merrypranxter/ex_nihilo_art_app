@@ -121,7 +121,7 @@ export class CrystalColony {
       }
     }
     this.generation++;
-    if(births.length||mature.length)this.changed=true;
+    // Births, erosion and state maturation already set changed exactly when needed.
   }
   clear(){
     this.cells.fill(0);this.ages.fill(0);this.colors.fill(0);
