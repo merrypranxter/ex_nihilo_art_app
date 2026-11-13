@@ -3,6 +3,7 @@ import { NutrientField } from './ecology.js';
 import { CrystalColony } from './colony.js';
 import { MorphogenesisVolume } from './morphogenesis.js';
 import { resolveCrystalMovement, traceChemicalMembrane } from './structural.js';
+import { formField, FORM_NAMES } from './art-direction.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -26,7 +27,8 @@ export class GrowthEngine {
       speed: 1, agents: 180, branching: .45, feedback: .55, thickness: .04,
       topology: 'cathedral', force: 1, frequency: 1.2, evolution: .4, palette: 'acid',
       nutrientDrive: 1.2, diffusion: .6, supply: .5,
-      contactMode: 'slide', contactBranching: .32, wallPermeability: .08, membraneTrace: .55
+      contactMode: 'slide', contactBranching: .32, wallPermeability: .08, membraneTrace: .55,
+      form:'coral',formStrength:.85,formTwist:.6
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -118,6 +120,9 @@ export class GrowthEngine {
     candidate.contactBranching = clamp(safe(+candidate.contactBranching),0,1);
     candidate.wallPermeability = clamp(safe(+candidate.wallPermeability),0,1);
     candidate.membraneTrace = clamp(safe(+candidate.membraneTrace),0,1);
+    candidate.formStrength=clamp(safe(+candidate.formStrength),0,2);
+    candidate.formTwist=clamp(safe(+candidate.formTwist),0,2);
+    if(!FORM_NAMES[candidate.form])candidate.form='wild';
     if(!['off','slide','deflect'].includes(candidate.contactMode)) candidate.contactMode='slide';
     if(!['cathedral','vortex','braid','serpentine','bloom'].includes(candidate.topology)) candidate.topology='cathedral';
     if(!PALETTES[candidate.palette]) candidate.palette='acid';
@@ -209,6 +214,9 @@ export class GrowthEngine {
       const g=this.morphogenesis.gradientB(pos);
       f.add(v(g.x,g.y,g.z).multiplyScalar(this.morphogenesis.settings.chemotaxis*5));
     }
+    // Artistic silhouette is an advective force, never a prebuilt path/mesh.
+    const grammar=formField(pos,this.time,c);
+    f.add(v(grammar.x,grammar.y,grammar.z));
     // Field nodes are actual forces, persisted and independently editable.
     for(const node of this.nodes){
       const delta=node.pos.clone().sub(pos);
@@ -451,7 +459,11 @@ export class GrowthEngine {
     if(hasColony)this.colony.validateSnapshot(data.colony);
     if(isV3)this.morphogenesis.validateSnapshot(data.morphogenesis);
     // All checks happen before mutating the existing live artwork.
-    this.setConfig(data.dna.config);
+    // Older checkpoints predate sculptural vector laws. Use their original
+    // unconstrained behavior instead of changing the historical physics.
+    const legacyForm=data.dna.config.form===undefined
+      ?{...data.dna.config,form:'wild',formStrength:0}:data.dna.config;
+    this.setConfig(legacyForm);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
