@@ -448,6 +448,28 @@ $('morph-clear').addEventListener('click',()=>{
   refreshMorphSurface(performance.now(),true);
 });
 
+function updateStructuralControls(){
+  const c=engine.config;
+  $('structure-mode').value=c.contactMode;
+  $('structure-branching').value=Math.round(c.contactBranching*100);
+  $('structure-branching-value').textContent=Math.round(c.contactBranching*100)+'%';
+  $('structure-permeability').value=Math.round(c.wallPermeability*100);
+  $('structure-permeability-value').textContent=Math.round(c.wallPermeability*100)+'%';
+  $('structure-membrane').value=Math.round(c.membraneTrace*100);
+  $('structure-membrane-value').textContent=Math.round(c.membraneTrace*100)+'%';
+}
+function readStructuralControls(){
+  engine.setConfig({
+    contactMode:$('structure-mode').value,
+    contactBranching:Number($('structure-branching').value)/100,
+    wallPermeability:Number($('structure-permeability').value)/100,
+    membraneTrace:Number($('structure-membrane').value)/100
+  });
+  updateStructuralControls();
+}
+['structure-mode','structure-branching','structure-permeability','structure-membrane']
+  .forEach(id=>$(id).addEventListener('input',readStructuralControls));
+
 const ranges={
   speed:{format:n=>n.toFixed(1)+'×',read:n=>n},
   agents:{format:n=>String(n),read:n=>n},
@@ -481,6 +503,8 @@ function updateControlsFromDNA(){
   $('palette').value=engine.config.palette;
   $('topology').value=engine.config.topology;
   updateCrystalControls();
+  updateMorphControls();
+  updateStructuralControls();
 }
 for(const key of Object.keys(ranges))$(key).addEventListener('input',readControls);
 $('palette').addEventListener('change',readControls);
@@ -614,7 +638,7 @@ function fit(){
 }
 new ResizeObserver(fit).observe(canvas);
 window.addEventListener('resize',fit);
-fit();readControls();updateCrystalControls();updateMorphControls();
+fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();
 let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
@@ -641,7 +665,7 @@ function frame(now){
   renderer.render(scene,camera);
   if(now-lastStatus>600){
     $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+engine.colony.population.toLocaleString()+' CELLS';
-    $('crystal-stats').textContent=engine.colony.population.toLocaleString()+' CRYSTALS · '+engine.colony.generation+' GENERATIONS';
+    $('crystal-stats').textContent=engine.colony.population.toLocaleString()+' CRYSTALS · '+engine.colony.generation+' GENERATIONS · '+engine.contactEvents.toLocaleString()+' FIBER CONTACTS';
     $('morph-stats').textContent=engine.morphogenesis.generation.toLocaleString()+' CHEMICAL STEPS · '+morphTriangles.toLocaleString()+' SURFACE TRIANGLES'
       +(morphClipped?' · MESH BUDGET CAPPED':'');
     lastStatus=now;
