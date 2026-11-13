@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { NutrientField } from './ecology.js';
 import { CrystalColony } from './colony.js';
+import { MorphogenesisVolume } from './morphogenesis.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -52,6 +53,14 @@ export class GrowthEngine {
     if(!this.colony)this.colony=new CrystalColony(GRID,WORLD);
     else this.colony.clear();
     this.colonyElapsed=0;
+    if(!this.morphogenesis)this.morphogenesis=new MorphogenesisVolume();
+    else this.morphogenesis.reset();
+    this.morphElapsed=0;
+    this.colony.onBirth=(p)=>{
+      if(this.morphogenesis.settings.enabled){
+        this.morphogenesis.consumeAt(p,.08*this.morphogenesis.settings.crystalSink);
+      }
+    };
     this.onReset();
     this.seedAt(v(0,0,0),Math.min(16,this.config.agents));
   }
@@ -110,7 +119,7 @@ export class GrowthEngine {
   }
 
   getDNA() {
-    return {format:'ex-nihilo/dna-v1', experiment:'nerve-cathedral', seed:this.seed, config:{...this.config}, colony:{...this.colony.settings}};
+    return {format:'ex-nihilo/dna-v1', experiment:'nerve-cathedral', seed:this.seed, config:{...this.config}, colony:{...this.colony.settings}, morphogenesis:{...this.morphogenesis.settings}};
   }
 
   loadDNA(dna) {
@@ -119,6 +128,7 @@ export class GrowthEngine {
     }
     this.setConfig(dna.config);
     if(dna.colony)this.colony.setSettings(dna.colony);
+    if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
   }
 
@@ -187,6 +197,11 @@ export class GrowthEngine {
     // A genuinely evolving, consumed scalar field steers growth up food gradients.
     const foodGradient=this.nutrients.gradient(pos);
     f.add(v(foodGradient.x,foodGradient.y,foodGradient.z).multiplyScalar(c.nutrientDrive*13));
+    if(this.morphogenesis.settings.enabled){
+      // Genuine chemical chemotaxis: active B gradients redirect the filaments.
+      const g=this.morphogenesis.gradientB(pos);
+      f.add(v(g.x,g.y,g.z).multiplyScalar(this.morphogenesis.settings.chemotaxis*5));
+    }
     // Field nodes are actual forces, persisted and independently editable.
     for(const node of this.nodes){
       const delta=node.pos.clone().sub(pos);
@@ -211,6 +226,9 @@ export class GrowthEngine {
     this.segments[j+3]=b.x;this.segments[j+4]=b.y;this.segments[j+5]=b.z;
     this.mark(b);
     this.nutrients.consume(b,.048);
+    if(this.morphogenesis.settings.enabled && this.totalDeposits%5===0){
+      this.morphogenesis.catalyze(b,.033*this.morphogenesis.settings.fiberCatalysis);
+    }
     const color=this.pickColor(agent);
     const radius=this.config.thickness*(.65+agent.identity*.75);
     this.segmentColors[slot*3]=Math.round(clamp(color.r,0,1)*255);
@@ -233,10 +251,17 @@ export class GrowthEngine {
       this.nutrientElapsed-=.1;
     }
     const c=this.config;
+    if(this.morphogenesis.settings.enabled){
+      this.morphElapsed+=dt;
+      while(this.morphElapsed>=.2){
+        this.morphogenesis.tick(this.nutrients);
+        this.morphElapsed-=.2;
+      }
+    }
     if(this.colony.settings.enabled){
       this.colonyElapsed+=dt;
       while(this.colonyElapsed>=.32){
-        this.colony.update(this.nutrients,PALETTES[c.palette],()=>this.random());
+        this.colony.update(this.nutrients,PALETTES[c.palette],()=>this.random(),this.morphogenesis);
         this.colonyElapsed-=.32;
       }
     }
@@ -328,6 +353,14 @@ export class GrowthEngine {
     return this.colony.seedAt(pos,this.nutrients,PALETTES[this.config.palette],()=>this.random());
   }
 
+  seedChemical(pos,radius=.53){
+    return this.morphogenesis.seedAt(pos,radius);
+  }
+  clearChemical(){
+    this.morphogenesis.reset();
+    this.morphElapsed=0;
+  }
+
   getCheckpoint(){
     const n=this.segmentCount;
     const agentRecord=a=>({
@@ -335,9 +368,9 @@ export class GrowthEngine {
       traveled:a.traveled,age:a.age,life:a.life,identity:a.identity
     });
     return {
-      format:'ex-nihilo/checkpoint-v2',
+      format:'ex-nihilo/checkpoint-v3',
       dna:this.getDNA(),time:this.time,rngState:this.rngState>>>0,
-      nutrientElapsed:this.nutrientElapsed,colonyElapsed:this.colonyElapsed,totalDeposits:this.totalDeposits,
+      nutrientElapsed:this.nutrientElapsed,colonyElapsed:this.colonyElapsed,morphElapsed:this.morphElapsed,totalDeposits:this.totalDeposits,
       segmentCount:n,cursor:this.cursor,
       segments:Array.from(this.segments.subarray(0,n*6)),
       colors:Array.from(this.segmentColors.subarray(0,n*3)),
@@ -345,6 +378,7 @@ export class GrowthEngine {
       density:Array.from(this.density),
       nutrients:Array.from(this.nutrients.values),
       colony:this.colony.snapshot(),
+      morphogenesis:this.morphogenesis.snapshot(),
       nodes:this.snapshotNodes(),
       agents:this.agents.map(agentRecord)
     };
@@ -359,14 +393,17 @@ export class GrowthEngine {
     const node=n=>n&&Number.isInteger(n.id)&&
       (n.type==='attract'||n.type==='repel')&&point(n.pos)&&finite(n.strength);
     const isV2=data?.format==='ex-nihilo/checkpoint-v2';
-    if((!isV2&&data?.format!=='ex-nihilo/checkpoint-v1')||
+    const isV3=data?.format==='ex-nihilo/checkpoint-v3';
+    const hasColony=isV2||isV3;
+    if((!hasColony&&data?.format!=='ex-nihilo/checkpoint-v1')||
       data?.dna?.format!=='ex-nihilo/dna-v1'||data?.dna?.experiment!=='nerve-cathedral'||
       !data.dna.config||!Number.isInteger(data.dna.seed)||
       !Number.isInteger(data.segmentCount)||data.segmentCount<0||data.segmentCount>this.maxSegments||
       !Number.isInteger(data.cursor)||data.cursor<0||data.cursor>=this.maxSegments||
       !finite(data.time)||data.time<0||!Number.isInteger(data.rngState)||
       !finite(data.nutrientElapsed)||data.nutrientElapsed<0||
-      (isV2&&(!finite(data.colonyElapsed)||data.colonyElapsed<0||data.colonyElapsed>.32))||
+      (hasColony&&(!finite(data.colonyElapsed)||data.colonyElapsed<0||data.colonyElapsed>.32))||
+      (isV3&&(!finite(data.morphElapsed)||data.morphElapsed<0||data.morphElapsed>.2))||
       !Number.isInteger(data.totalDeposits)||data.totalDeposits<0||
       !validArray(data.segments,data.segmentCount*6,n=>finite(n)&&Math.abs(n)<=100)||
       !validArray(data.colors,data.segmentCount*3,n=>Number.isInteger(n)&&n>=0&&n<=255)||
@@ -377,14 +414,16 @@ export class GrowthEngine {
       !Array.isArray(data.agents)||data.agents.length>360||!data.agents.every(agent)){
       throw new Error('Invalid, damaged, or unsupported Nerve Cathedral checkpoint.');
     }
-    if(isV2)this.colony.validateSnapshot(data.colony);
+    if(hasColony)this.colony.validateSnapshot(data.colony);
+    if(isV3)this.morphogenesis.validateSnapshot(data.morphogenesis);
     // All checks happen before mutating the existing live artwork.
     this.setConfig(data.dna.config);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
     this.nutrientElapsed=data.nutrientElapsed;
-    this.colonyElapsed=isV2?data.colonyElapsed:0;
+    this.colonyElapsed=hasColony?data.colonyElapsed:0;
+    this.morphElapsed=isV3?data.morphElapsed:0;
     this.totalDeposits=data.totalDeposits;
     this.segmentCount=data.segmentCount;
     this.cursor=data.cursor;
@@ -393,8 +432,10 @@ export class GrowthEngine {
     this.segmentRadii.set(data.radii);
     this.density.set(data.density);
     this.nutrients.setValues(data.nutrients);
-    if(isV2)this.colony.restore(data.colony);
+    if(hasColony)this.colony.restore(data.colony);
     else this.colony.setSettings({enabled:false});
+    if(isV3)this.morphogenesis.restore(data.morphogenesis);
+    else this.morphogenesis.setSettings({enabled:false});
     this.restoreNodes(data.nodes);
     this.agents=data.agents.map(a=>({
       p:v(...a.p),prev:v(...a.prev),dir:v(...a.dir),
