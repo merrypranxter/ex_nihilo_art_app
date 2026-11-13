@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
+import { extractIsosurface } from './surface.js';
 import './styles.css';
 
 const $ = id => document.getElementById(id);
@@ -24,6 +25,43 @@ orbit.enabled=false;
 orbit.update();
 
 const engine = new GrowthEngine();
+
+// Morphogenesis is a geometric isosurface of the live Gray–Scott B field.
+// CPU mesh extraction is capped and throttled, with adjustable stride.
+const morphMaterial=new THREE.MeshPhysicalMaterial({
+  vertexColors:true,metalness:.12,roughness:.24,clearcoat:.6,clearcoatRoughness:.14,
+  side:THREE.DoubleSide,transparent:false
+});
+const morphMesh=new THREE.Mesh(new THREE.BufferGeometry(),morphMaterial);
+morphMesh.frustumCulled=false;
+scene.add(morphMesh);
+const morphologyAmbient=new THREE.AmbientLight('#b5a2ff',1.3);
+const morphologyKey=new THREE.DirectionalLight('#ffffff',2);
+morphologyKey.position.set(3,5,6);
+const morphologyFill=new THREE.DirectionalLight('#65ffd6',1.1);
+morphologyFill.position.set(-5,-2,-3);
+scene.add(morphologyAmbient,morphologyKey,morphologyFill);
+let showMorph=true,lastMorphMesh=-Infinity,morphTriangles=0,morphClipped=false;
+function refreshMorphSurface(now,force=false){
+  const field=engine.morphogenesis;
+  if(!force&&(!field.changed||now-lastMorphMesh<650))return;
+  lastMorphMesh=now;
+  const raw=extractIsosurface(field,field.settings.iso,{
+    stride:Number($('morph-mesh').value)||2,maxTriangles:14000,
+    palette:PALETTES[engine.config.palette]
+  });
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(raw.positions,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(raw.colors,3));
+  if(raw.triangles)geo.computeVertexNormals();
+  const old=morphMesh.geometry;
+  morphMesh.geometry=geo;
+  old.dispose();
+  morphTriangles=raw.triangles;
+  morphClipped=raw.clipped;
+  morphMesh.visible=showMorph&&morphTriangles>0;
+  field.changed=false;
+}
 
 // Scientific preview of the actual nutrient scalar field, sampled at lattice
 // points. This layer is optional and does not contribute to the sculpture.
@@ -237,6 +275,7 @@ const hints={
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
+  chemical:'DRAG TO INOCULATE THE 3D CHEMICAL FIELD',
   crystal:'TOUCH TO SEED THREE-DIMENSIONAL CELLS',
   feed:'DRAG TO INJECT NUTRIENTS INTO 3D SPACE',
   orbit:'DRAG TO ORBIT · PINCH TO ZOOM',
@@ -266,6 +305,7 @@ canvas.addEventListener('pointerdown',e=>{
   const pos=positionFromEvent(e);
   if(tool==='feed'){engine.feedAt(pos);if(showFood)updateFoodCloud();return;}
   if(tool==='crystal'){engine.seedCrystal(pos);syncCrystals();return;}
+  if(tool==='chemical'){engine.seedChemical(pos,.42);return;}
   if(tool==='seed'){
     const count=18;
     if(engine.agents.length>engine.config.agents-count) engine.agents.splice(0,Math.min(count,engine.agents.length));
@@ -282,6 +322,7 @@ canvas.addEventListener('pointerdown',e=>{
 canvas.addEventListener('pointermove',e=>{
   if(e.pointerId!==activePointer)return;
   if(tool==='feed'){engine.feedAt(positionFromEvent(e));return;}
+  if(tool==='chemical'){engine.seedChemical(positionFromEvent(e),.30);return;}
   if(!draggedNode)return;
   draggedNode.pos.copy(positionFromEvent(e));
   syncNodes();
@@ -325,6 +366,7 @@ function readCrystalControls(){
     crystallization:Number($('colony-crystallization').value)
   });
   updateCrystalControls();
+  updateMorphControls();
 }
 ['colony-growth','colony-erosion','colony-crystallization'].forEach(id=>
   $(id).addEventListener('input',readCrystalControls));
@@ -344,6 +386,66 @@ $('crystal-clear').addEventListener('click',()=>{
 });
 $('colony-geometry').addEventListener('change',()=>{
   crystals.geometry=crystalShapes[$('colony-geometry').value];
+});
+
+const morphologyControls={
+  feed:{id:'morph-feed',format:n=>n.toFixed(4),read:n=>n},
+  kill:{id:'morph-kill',format:n=>n.toFixed(4),read:n=>n},
+  diffA:{id:'morph-diffA',format:n=>n.toFixed(3),read:n=>n},
+  diffB:{id:'morph-diffB',format:n=>n.toFixed(3),read:n=>n},
+  iterations:{id:'morph-iterations',format:n=>String(n),read:n=>n},
+  iso:{id:'morph-iso',format:n=>n.toFixed(2),read:n=>n},
+  chemotaxis:{id:'morph-chemotaxis',format:n=>Math.round(n)+'%',read:n=>n/100},
+  fiberCatalysis:{id:'morph-fiberCatalysis',format:n=>Math.round(n)+'%',read:n=>n/100},
+  crystalSink:{id:'morph-crystalSink',format:n=>Math.round(n)+'%',read:n=>n/100}
+};
+function updateMorphControls(){
+  const c=engine.morphogenesis.settings;
+  for(const [key,opt] of Object.entries(morphologyControls)){
+    const number=['chemotaxis','fiberCatalysis','crystalSink'].includes(key)?c[key]*100:c[key];
+    $(opt.id).value=String(number);
+    $(opt.id+'-value').textContent=opt.format(number);
+  }
+  $('morph-toggle').textContent=c.enabled?'Ⅱ PAUSE CHEMISTRY':'✳ START / RESUME CHEMISTRY';
+  $('morph-toggle').setAttribute('aria-pressed',String(c.enabled));
+}
+function readMorphControls(){
+  const settings={};
+  for(const [key,opt] of Object.entries(morphologyControls)){
+    const number=Number($(opt.id).value);
+    settings[key]=opt.read(number);
+    $(opt.id+'-value').textContent=opt.format(number);
+  }
+  engine.morphogenesis.setSettings(settings);
+  updateMorphControls();
+}
+Object.values(morphologyControls).forEach(opt=>$(opt.id).addEventListener('input',readMorphControls));
+const chemistryProfiles={reef:[.0367,.0649],labyrinth:[.029,.057],spots:[.038,.062]};
+$('morph-profile').addEventListener('change',()=>{
+  const [feed,kill]=chemistryProfiles[$('morph-profile').value];
+  engine.morphogenesis.setSettings({feed,kill});
+  updateMorphControls();
+});
+$('morph-toggle').addEventListener('click',()=>{
+  const field=engine.morphogenesis;
+  const enabled=!field.settings.enabled;
+  if(enabled && !field.v.some(v=>v>.06))engine.seedChemical(new THREE.Vector3(),.72);
+  field.setSettings({enabled});
+  updateMorphControls();
+  refreshMorphSurface(performance.now(),true);
+});
+$('morph-paint').addEventListener('click',()=>setTool('chemical'));
+$('morph-show').addEventListener('click',()=>{
+  showMorph=!showMorph;
+  morphMesh.visible=showMorph&&morphTriangles>0;
+  $('morph-show').textContent=showMorph?'◉ HIDE SURFACE':'◇ SHOW SURFACE';
+  $('morph-show').setAttribute('aria-pressed',String(showMorph));
+});
+$('morph-mesh').addEventListener('change',()=>refreshMorphSurface(performance.now(),true));
+$('morph-clear').addEventListener('click',()=>{
+  if(!window.confirm('Clear ONLY the chemical concentrations? Fibers and crystals remain intact.'))return;
+  engine.clearChemical();
+  refreshMorphSurface(performance.now(),true);
 });
 
 const ranges={
@@ -404,7 +506,8 @@ $('new').addEventListener('click',()=>{
   if(!window.confirm('Erase this living organism and start a NEW universe? This cannot be undone.'))return;
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
   if(engine.colony.settings.enabled)engine.seedCrystal(new THREE.Vector3());
-  syncNodes();syncCrystals();setPaused(false);
+  if(engine.morphogenesis.settings.enabled)engine.seedChemical(new THREE.Vector3(),.72);
+  syncNodes();syncCrystals();refreshMorphSurface(performance.now(),true);setPaused(false);
 });
 $('dna-save').addEventListener('click',async()=>{
   const text=JSON.stringify(engine.getDNA(),null,2);
@@ -511,7 +614,7 @@ function fit(){
 }
 new ResizeObserver(fit).observe(canvas);
 window.addEventListener('resize',fit);
-fit();readControls();updateCrystalControls();
+fit();readControls();updateCrystalControls();updateMorphControls();
 let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
@@ -532,12 +635,15 @@ function frame(now){
   }
   updateTips();
   syncCrystals();
+  refreshMorphSurface(now);
   if(showFood&&now-lastFoodRefresh>700){updateFoodCloud();lastFoodRefresh=now;}
   orbit.update();
   renderer.render(scene,camera);
   if(now-lastStatus>600){
     $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+engine.colony.population.toLocaleString()+' CELLS';
     $('crystal-stats').textContent=engine.colony.population.toLocaleString()+' CRYSTALS · '+engine.colony.generation+' GENERATIONS';
+    $('morph-stats').textContent=engine.morphogenesis.generation.toLocaleString()+' CHEMICAL STEPS · '+morphTriangles.toLocaleString()+' SURFACE TRIANGLES'
+      +(morphClipped?' · MESH BUDGET CAPPED':'');
     lastStatus=now;
   }
 }

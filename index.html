@@ -35,7 +35,7 @@
         </div>
         <nav class="tabs" aria-label="Control sections">
           <button class="tab active" data-tab="growth" aria-selected="true">GROWTH</button>
-          <button class="tab" data-tab="field" aria-selected="false">FIELDS</button><button class="tab" data-tab="ecology" aria-selected="false">ECOLOGY</button><button class="tab" data-tab="colony" aria-selected="false">CRYSTALS</button>
+          <button class="tab" data-tab="field" aria-selected="false">FIELDS</button><button class="tab" data-tab="ecology" aria-selected="false">ECOLOGY</button><button class="tab" data-tab="colony" aria-selected="false">CRYSTALS</button><button class="tab" data-tab="morph" aria-selected="false">MORPH</button>
           <button class="tab" data-tab="touch" aria-selected="false">TOUCH</button>
           <button class="tab" data-tab="light" aria-selected="false">LIGHT</button>
           <button class="tab" data-tab="wolfram" aria-selected="false">WOLFRAM</button>
@@ -92,12 +92,46 @@
             </div>
             <p class="help"><span id="crystal-stats">0 CRYSTALS · 0 GENERATIONS</span>. Pausing the crystal engine keeps its structure visible. Resetting only crystals requires confirmation and won't erase your fiber artwork.</p>
           </div>
+          <div class="panel" data-panel="morph" hidden>
+            <p class="help first">Two chemicals react and diffuse through a real 3D volume. The evolving B concentration generates its own surface; chemistry—not a canned object—decides where matter appears.</p>
+            <button id="morph-toggle" type="button" class="primary" aria-pressed="false">✳ START CHEMICAL GROWTH</button>
+            <div class="control-grid morph-essentials">
+              <label class="control select-control"><span>Starting equations (change laws, not state)</span><select id="morph-profile">
+                <option value="reef">CORAL REEF / F 0.0367 K 0.0649</option>
+                <option value="labyrinth">LABYRINTH / F 0.029 K 0.057</option>
+                <option value="spots">SPOTS / F 0.038 K 0.062</option>
+              </select></label>
+              <label class="control"><span>Feed F <output id="morph-feed-value">0.0367</output></span><input id="morph-feed" type="range" min=".004" max=".095" step=".0001" value=".0367"></label>
+              <label class="control"><span>Kill k <output id="morph-kill-value">0.0649</output></span><input id="morph-kill" type="range" min=".018" max=".095" step=".0001" value=".0649"></label>
+              <label class="control"><span>Surface threshold <output id="morph-iso-value">0.21</output></span><input id="morph-iso" type="range" min=".04" max=".72" step=".01" value=".21"></label>
+            </div>
+            <details class="morph-advanced">
+              <summary>ADVANCED — DIFFUSION, CROSS-COUPLING &amp; PERFORMANCE</summary>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control"><span>Diffuse A <output id="morph-diffA-value">0.160</output></span><input id="morph-diffA" type="range" min=".04" max=".16" step=".005" value=".16"></label>
+                <label class="control"><span>Diffuse B <output id="morph-diffB-value">0.080</output></span><input id="morph-diffB" type="range" min=".015" max=".16" step=".005" value=".08"></label>
+                <label class="control"><span>Steps per beat <output id="morph-iterations-value">5</output></span><input id="morph-iterations" type="range" min="1" max="7" step="1" value="5"></label>
+                <label class="control"><span>Chemical attraction <output id="morph-chemotaxis-value">70%</output></span><input id="morph-chemotaxis" type="range" min="0" max="200" step="5" value="70"></label>
+                <label class="control"><span>Fibers seed catalyst <output id="morph-fiberCatalysis-value">35%</output></span><input id="morph-fiberCatalysis" type="range" min="0" max="100" step="5" value="35"></label>
+                <label class="control"><span>Crystals consume B <output id="morph-crystalSink-value">25%</output></span><input id="morph-crystalSink" type="range" min="0" max="100" step="5" value="25"></label>
+                <label class="control select-control"><span>Surface detail / CPU budget</span><select id="morph-mesh">
+                <option value="2">BALANCED · DEFAULT</option><option value="3">FAST MOBILE</option><option value="1">FINE DETAIL · HEAVIER</option>
+              </select></label>
+              </div>
+            </details>
+            <div class="small-actions ecology-actions">
+              <button id="morph-paint" class="choice" type="button">✳ PAINT CHEMICAL B</button>
+              <button id="morph-show" class="choice" type="button" aria-pressed="true">◉ HIDE SURFACE</button>
+              <button id="morph-clear" class="mini danger" type="button">CLEAR CHEMICALS</button>
+            </div>
+            <p class="help"><span id="morph-stats">0 STEPS · EMPTY FIELD</span>. Chemistry pauses independently. CLEAR CHEMICALS requires confirmation and does not erase the fibers or crystals. Surface detail changes mesh extraction only.</p>
+          </div>
           <div class="panel" data-panel="touch" hidden>
             <p class="help first">Finger or mouse actions modify the physics. Place and drag nodes. Select Orbit to turn the world and pinch to zoom.</p>
             <div class="choice-grid" id="tools">
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
-              <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button>
+              <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button><button data-tool="chemical" class="choice">◉ PAINT CHEMICAL</button>
               <button data-tool="orbit" class="choice">◎ ORBIT</button>
               <button data-tool="erase" class="choice">✕ ERASE NODE</button>
             </div>
