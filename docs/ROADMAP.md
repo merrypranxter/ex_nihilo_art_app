@@ -37,14 +37,19 @@
 - [x] Touch seeding, independent crystal controls and alternate cell geometries.
 - [x] Checkpoint v2 stores both independent growth engines; v1 checkpoints remain readable.
 - [ ] Test crystal/fiber renderer and controls on an actual mobile browser.
-- [ ] Gray–Scott and alternative reaction–diffusion systems with GPU or sparse 3D update paths.
-- [ ] Marching-cubes or dual-contouring mesh extraction; transparent volumetric rendering where feasible.
-- [ ] Performance modes and explicit mobile resolution/step budgets.
+- [x] First genuine 3D Gray–Scott two-chemical finite-difference solver (CPU reference, reflecting boundaries, explicit fractional Euler).
+- [x] Nutrient-controlled feed, B chemotaxis, fiber catalysis and crystal consumption.
+- [ ] Additional reaction systems, GPU path, sparse/adaptive 3D grids and higher resolutions.
+- [x] Capped marching-tetrahedra isosurface with adjustable stride and a material for real chemical boundaries.
+- [ ] Smoother normal reconstruction, true transmission, optional GPU raymarching and other optical materials.
+- [x] Chemical solver step budget (1–7 steps per beat), 28³ lattice, adjustable mesh stride and triangle cap.
+- [ ] Actual mobile FPS/memory profiling and adaptive quality based on runtime load.
 
 ## Phase 03 — Cross-coupled Feedback
 
-- RD gradients steer agent growth; deposits consume chemicals.
-- Cellular structures obstruct/redirect fields and give agents surfaces to attach to.
+- [x] Chemical gradients steer growing agents; deposited fibers catalyze the chemical B field.
+- [x] Crystal birth consumes chemical B; chemical B biases local crystal birth probability.
+- [ ] Cellular structures obstruct/redirect vector fields and give agents surfaces to attach to.
 - Graph-based nutrient transport and state-dependent branching.
 - Conservation/loss terms and visual diagnosis to avoid arbitrary simulation magic.
 
@@ -66,5 +71,7 @@
 - Deliberate high-resolution 1:1, 9:16, 16:9 still export.
 - GIF and high-bitrate MP4 with smooth repeat loops; verify iOS compatibility.
 - Optional low-key animated backgrounds that never overpower the grown matter.
+
+Checkpoint format v3 now includes the independent morphogen volume, with legacy v1 and v2 restore paths. Headless deterministic replay and source/DOM checks passed; production build and real browser testing remain outstanding.
 
 No deployment or paid external API activity is automatic.
