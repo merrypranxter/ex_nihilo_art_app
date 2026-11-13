@@ -3,7 +3,7 @@ import { NutrientField } from './ecology.js';
 import { CrystalColony } from './colony.js';
 import { MorphogenesisVolume } from './morphogenesis.js';
 import { resolveCrystalMovement, traceChemicalMembrane } from './structural.js';
-import { formField, FORM_NAMES } from './art-direction.js';
+import { formField, FORM_NAMES, FINISHES } from './art-direction.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -28,7 +28,7 @@ export class GrowthEngine {
       topology: 'cathedral', force: 1, frequency: 1.2, evolution: .4, palette: 'acid',
       nutrientDrive: 1.2, diffusion: .6, supply: .5,
       contactMode: 'slide', contactBranching: .32, wallPermeability: .08, membraneTrace: .55,
-      form:'coral',formStrength:.85,formTwist:.6
+      form:'coral',formStrength:.85,formTwist:.6,finish:'opal',glow:.6
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -122,6 +122,8 @@ export class GrowthEngine {
     candidate.membraneTrace = clamp(safe(+candidate.membraneTrace),0,1);
     candidate.formStrength=clamp(safe(+candidate.formStrength),0,2);
     candidate.formTwist=clamp(safe(+candidate.formTwist),0,2);
+    candidate.glow=clamp(safe(+candidate.glow),0,1);
+    if(!FINISHES[candidate.finish])candidate.finish='opal';
     if(!FORM_NAMES[candidate.form])candidate.form='wild';
     if(!['off','slide','deflect'].includes(candidate.contactMode)) candidate.contactMode='slide';
     if(!['cathedral','vortex','braid','serpentine','bloom'].includes(candidate.topology)) candidate.topology='cathedral';
@@ -462,7 +464,7 @@ export class GrowthEngine {
     // Older checkpoints predate sculptural vector laws. Use their original
     // unconstrained behavior instead of changing the historical physics.
     const legacyForm=data.dna.config.form===undefined
-      ?{...data.dna.config,form:'wild',formStrength:0}:data.dna.config;
+      ?{...data.dna.config,form:'wild',formStrength:0,glow:.6,finish:'opal'}:data.dna.config;
     this.setConfig(legacyForm);
     this.reset(data.dna.seed);
     this.time=data.time;
