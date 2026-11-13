@@ -17,22 +17,35 @@ export function extractIsosurface(volume,threshold=.21,opts={}){
     const v=parseInt(h.replace('#',''),16);
     return [((v>>16)&255)/255,((v>>8)&255)/255,(v&255)/255];
   });
-  const positions=[],colors=[];
+  const positions=[],colors=[],normals=[];
   let triangles=0,clipped=false;
-  const p=new Array(8),val=new Array(8);
+  const p=new Array(8),val=new Array(8),grad=new Array(8);
+  const sample=(x,y,z)=>V[
+    Math.max(0,Math.min(n-1,x))+
+    n*(Math.max(0,Math.min(n-1,y))+n*Math.max(0,Math.min(n-1,z)))
+  ];
   const surfacePoint=(a,b)=>{
     const va=val[a],vb=val[b],den=vb-va;
     const t=Math.abs(den)>1e-9?Math.max(0,Math.min(1,(threshold-va)/den)):.5;
-    return [
+    const pos=[
       p[a][0]+(p[b][0]-p[a][0])*t,
       p[a][1]+(p[b][1]-p[a][1])*t,
       p[a][2]+(p[b][2]-p[a][2])*t
     ];
+    const g=[
+      grad[a][0]*(1-t)+grad[b][0]*t,
+      grad[a][1]*(1-t)+grad[b][1]*t,
+      grad[a][2]*(1-t)+grad[b][2]*t
+    ];
+    const length=Math.hypot(...g);
+    return {pos,normal:length>1e-8?g.map(c=>c/length):[0,1,0]};
   };
   const pushTriangle=(a,b,c)=>{
     if(triangles>=maxTriangles){clipped=true;return false;}
-    for(const pos of [a,b,c]){
+    for(const vertex of [a,b,c]){
+      const pos=vertex.pos;
       positions.push(pos[0],pos[1],pos[2]);
+      normals.push(...vertex.normal);
       // Surface chemistry is the shape; the spatial palette is only appearance.
       const phase=(.13*pos[0]+.19*pos[1]-.11*pos[2]+3);
       const mix=phase-Math.floor(phase);
@@ -59,6 +72,13 @@ export function extractIsosurface(volume,threshold=.21,opts={}){
       low=Math.min(low,v);high=Math.max(high,v);
       const factor=extent/n;
       p[c]=[(xx+.5)*factor-extent/2,(yy+.5)*factor-extent/2,(zz+.5)*factor-extent/2];
+      // Interpolate the actual scalar-field gradient instead of assigning
+      // each unshared triangle an arbitrary flat geometric normal.
+      grad[c]=[
+        sample(xx-1,yy,zz)-sample(xx+1,yy,zz),
+        sample(xx,yy-1,zz)-sample(xx,yy+1,zz),
+        sample(xx,yy,zz-1)-sample(xx,yy,zz+1)
+      ];
     }
     if(low>=threshold||high<threshold)continue;
     for(const tet of TETS){
@@ -81,10 +101,12 @@ export function extractIsosurface(volume,threshold=.21,opts={}){
       }
     }
   }
-  if(positions.some(x=>!finite(x)))throw new Error('Nonfinite chemical isosurface.');
+  if(positions.some(x=>!finite(x))||normals.some(x=>!finite(x)))
+    throw new Error('Nonfinite chemical isosurface.');
   return {
     positions:new Float32Array(positions),
     colors:new Float32Array(colors),
+    normals:new Float32Array(normals),
     triangles,clipped,stride:step
   };
 }
