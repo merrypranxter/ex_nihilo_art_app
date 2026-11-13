@@ -140,7 +140,10 @@ export class GrowthEngine {
     if(dna?.format !== 'ex-nihilo/dna-v1' || dna?.experiment !== 'nerve-cathedral' || typeof dna.config !== 'object') {
       throw new Error('This is not Nerve Cathedral DNA.');
     }
-    this.setConfig(dna.config);
+    // Historical DNA from before visual composition should remain unconstrained.
+    this.setConfig(dna.config.form===undefined
+      ?{...dna.config,form:'wild',formStrength:0,finish:'opal',glow:.6}
+      :dna.config);
     if(dna.colony)this.colony.setSettings(dna.colony);
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
