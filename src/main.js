@@ -55,7 +55,7 @@ tipGeometry.setAttribute('position',new THREE.BufferAttribute(tipPositions,3).se
 tipGeometry.setAttribute('color',new THREE.BufferAttribute(tipColors,3).setUsage(THREE.DynamicDrawUsage));
 tipGeometry.setDrawRange(0,0);
 const tipShader = new THREE.ShaderMaterial({
-  vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
   uniforms:{pointScale:{value:window.devicePixelRatio > 1?13:9}},
   vertexShader:[
     'attribute vec3 color;',
