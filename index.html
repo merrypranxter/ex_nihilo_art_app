@@ -12,6 +12,7 @@
     <header class="masthead">
       <div class="brand"><span class="star">✳</span><div><h1>EX NIHILO</h1><p>MATHEMATICAL GENESIS LAB <span class="edition">/ 001 NERVE CATHEDRAL</span></p></div></div>
       <div class="top-actions">
+        <button class="mini" id="frame-art" title="Frame the living artwork in the camera">◎ FRAME</button>
         <button class="mini" id="pause" title="Pause growth" aria-pressed="false">Ⅱ PAUSE</button>
         <button class="mini danger" id="new" title="Start from nothing with confirmation">↻ NEW</button>
       </div>
@@ -35,6 +36,7 @@
         </div>
         <nav class="tabs" aria-label="Control sections">
           <button class="tab active" data-tab="growth" aria-selected="true">GROWTH</button>
+          <button class="tab" data-tab="form" aria-selected="false">FORM &amp; FINISH</button>
           <button class="tab" data-tab="field" aria-selected="false">FIELDS</button><button class="tab" data-tab="ecology" aria-selected="false">ECOLOGY</button><button class="tab" data-tab="colony" aria-selected="false">CRYSTALS</button><button class="tab" data-tab="morph" aria-selected="false">MORPH</button>
           <button class="tab" data-tab="touch" aria-selected="false">TOUCH</button>
           <button class="tab" data-tab="light" aria-selected="false">LIGHT</button>
@@ -50,6 +52,32 @@
               <label class="control"><span>Fiber thickness <output id="thickness-value">0.040</output></span><input id="thickness" type="range" min="1" max="12" step="1" value="4"></label>
             </div>
             <p class="help">Older material changes where future strands grow. Tweaking controls never wipes the existing organism.</p>
+          </div>
+          <div class="panel" data-panel="form" hidden>
+            <p class="help first">Give the growing system a compositional intention. These are physical forces, not prebuilt shapes. Switching forms changes FUTURE growth; your existing artwork stays exactly where it is.</p>
+            <div class="control-grid">
+              <label class="control select-control"><span>Sculptural growth grammar</span><select id="form">
+                <option value="coral">ASYMMETRIC CORAL · SCULPTURAL BRANCHES</option>
+                <option value="crown">RADIANT CROWN · RADIAL FAN</option>
+                <option value="reliquary">HOLLOW RELIQUARY · ORBITING SHELL</option>
+                <option value="spire">TWISTED SPIRE · RISING COLUMNS</option>
+                <option value="fan">BILATERAL FAN · VEILED WINGS</option>
+                <option value="wild">UNCONSTRAINED · ORIGINAL PHYSICS</option>
+              </select></label>
+              <label class="control"><span>Silhouette influence <output id="formStrength-value">85%</output></span><input id="formStrength" type="range" min="0" max="200" step="5" value="85"/></label>
+              <label class="control"><span>Flow twist <output id="formTwist-value">60%</output></span><input id="formTwist" type="range" min="0" max="200" step="5" value="60"/></label>
+              <label class="control select-control"><span>Optical material finish</span><select id="finish">
+                <option value="opal">OPALESCENT MINERAL</option>
+                <option value="enamel">LIQUID ENAMEL</option>
+                <option value="satin">SATIN CERAMIC</option>
+                <option value="spectral">SPECTRAL ALLOY</option>
+              </select></label>
+              <label class="control"><span>Fiber luminosity <output id="glow-value">60%</output></span><input id="glow" type="range" min="0" max="100" step="5" value="60"/></label>
+            </div>
+            <div class="small-actions ecology-actions">
+              <button id="compose-frame" class="choice" type="button">◎ FRAME SCULPTURE</button>
+            </div>
+            <p class="help">Materials and glow adjust the view immediately, without touching the underlying chemistry. For a fresh silhouette using the new rules, press NEW (with confirmation) when you actually want a new universe.</p>
           </div>
           <div class="panel" data-panel="field" hidden>
             <div class="control-grid">
