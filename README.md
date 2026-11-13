@@ -16,6 +16,7 @@ An interactive, mobile-first 3D mathematical art laboratory. Its first experimen
 - Separate **Crystal Colony** cellular automaton: six-neighbor frontier growth, mineralization, configurable erosion, touch-placed cell seeds, independent pause, and three cell glyph geometries. The fiber and cellular engines share nutrient chemistry.
 - **Morphogenesis Chamber**: two persistent chemical concentrations (A/B), a stabilized 3D Gray–Scott reaction–diffusion solver, input-dependent nutrient feed, chemical injection by touch, live reaction law controls, and marching-tetrahedra isosurface generation with a CPU/mesh budget.
 - Cross-ecosystem feedback: fiber deposits catalyze chemical B; crystal births locally deplete it and react to B levels; fibers follow chemical gradients. These are genuine state modifications, not compositing filters.
+- **Structural feedback**: growing fibers collide with actual occupied crystal voxels, then slide or deflect; crystal contacts may nucleate new branches; fibers may trace live chemical membranes; crystal voxels restrict nutrient and A/B chemical flux, and mineral growth favors active chemical interfaces.
 - Optional visible nutrient volume for investigating where growth is headed.
 - Optional server-side Wolfram|Alpha local Jacobian/eigenvalue analysis; no API key in the browser.
 
@@ -50,13 +51,14 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 - `src/colony.js` — synchronous 3D cellular automaton with nutrient-weighted births, mineralization and erosion; no prebuilt object.
 - `src/morphogenesis.js` — 3D Gray–Scott reaction–diffusion, local chemistry and nutrient coupling.
 - `src/surface.js` — bounded marching-tetrahedra mesh extraction from the B concentration field.
-- `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js` — chemistry, cellular dynamics, surface and v1/v2/v3 checkpoint regression tests (`npm test`).
+- `src/structural.js` — solid-cell collision solver and trajectory guidance along the evolving chemical isosurface.
+- `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, surface and v1/v2/v3 checkpoint regression tests (`npm test`).
 - `src/main.js` — Three.js renderer, inputs, camera, views and exporting.
 - `src/styles.css` — mobile-first control layout.
 - `netlify/functions/wolfram.mjs` — credential-protected, allowlisted computational request.
 - `docs/ROADMAP.md` — next real simulation and material milestones.
 
-Current limitations: CPU-side growth and chemistry updates, a fixed 28³ morphogen grid, periodic CPU isosurface extraction capped at 14,000 triangles, and finite geometry capacity. This is a first true volumetric reaction–diffusion solver, **not** a fluid dynamics engine or a GPU volume renderer. Undo applies to field-node editing, **not** rewinding all simulation time; save/load uses JSON checkpoints (v3 saves all three engines); PNG export captures the current canvas, not high-resolution cinematic video. We keep these boundaries explicit.
+Current limitations: CPU-side growth and chemistry updates, a fixed 28³ morphogen grid, periodic CPU isosurface extraction capped at 14,000 triangles, and finite geometry capacity. This is a first true volumetric reaction–diffusion solver, **not** a fluid dynamics engine or a GPU volume renderer. Crystal collisions use a conservative voxel envelope, not triangle-mesh rigid-body physics; porous walls are implemented as flux reduction across shared cell faces. Undo applies to field-node editing, **not** rewinding all simulation time; save/load uses JSON checkpoints (v3 saves all three engines); PNG export captures the current canvas, not high-resolution cinematic video. We keep these boundaries explicit.
 
 **Principle:** construction DNA (reproducible rules/seed) is different from lived simulation state (where this particular organism has grown).
 
