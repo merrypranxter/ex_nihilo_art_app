@@ -2,7 +2,7 @@
 
 **From nothing, mathematics grows matter.**
 
-An interactive, mobile-first 3D mathematical art laboratory. Its first experiment, **Nerve Cathedral**, grows persistent luminous fibers from particle trajectories moving through actual vector fields. A second engine, **Crystal Colony**, grows a genuinely three-dimensional cellular automaton with local birth, maturation and erosion rules. The third engine, **Morphogenesis Chamber**, solves a coupled 3D Gray–Scott reaction–diffusion system and extracts its evolving chemical isosurface. The artwork is *constructed over time*, not loaded as a prebuilt 3D model.
+An interactive, mobile-first 3D mathematical art laboratory. Its first experiment, **Nerve Cathedral**, grows persistent luminous fibers from particle trajectories moving through actual vector fields. A second engine, **Crystal Colony**, grows a genuinely three-dimensional cellular automaton with local birth, maturation and erosion rules. The third engine, **Morphogenesis Chamber**, solves a coupled 3D Gray–Scott reaction–diffusion system and extracts its evolving chemical isosurface. The artwork is *constructed over time*, not loaded as a prebuilt 3D model. **FORM & FINISH** offers real-time mathematical growth grammars and physically based material choices: sculptural intention without prebuilt sculptures.
 
 ## First playable proof — Nerve Cathedral
 
@@ -16,6 +16,8 @@ An interactive, mobile-first 3D mathematical art laboratory. Its first experimen
 - Separate **Crystal Colony** cellular automaton: six-neighbor frontier growth, mineralization, configurable erosion, touch-placed cell seeds, independent pause, and three cell glyph geometries. The fiber and cellular engines share nutrient chemistry.
 - **Morphogenesis Chamber**: two persistent chemical concentrations (A/B), a stabilized 3D Gray–Scott reaction–diffusion solver, input-dependent nutrient feed, chemical injection by touch, live reaction law controls, and marching-tetrahedra isosurface generation with a CPU/mesh budget.
 - Cross-ecosystem feedback: fiber deposits catalyze chemical B; crystal births locally deplete it and react to B levels; fibers follow chemical gradients. These are genuine state modifications, not compositing filters.
+- **Constructive composition**: six genuinely different vector-field silhouette grammars (unconstrained, asymmetrical coral, radiant crown, hollow reliquary, twisted spire, bilateral fan). Changing them affects *future* growth and never deletes existing artwork. An explicit FRAME action centers the camera on the evolved sculpture.
+- **Surface and light finishing**: continuous concentration-gradient normals for morphogenesis surfaces; adjustable opal, liquid enamel, satin ceramic, and spectral alloy material responses; light-reactive fibers and artist-adjustable halo intensity. No prebuilt surface or expensive default bloom pass.
 - **Structural feedback**: growing fibers collide with actual occupied crystal voxels, then slide or deflect; crystal contacts may nucleate new branches; fibers may trace live chemical membranes; crystal voxels restrict nutrient and A/B chemical flux, and mineral growth favors active chemical interfaces.
 - Optional visible nutrient volume for investigating where growth is headed.
 - Optional server-side Wolfram|Alpha local Jacobian/eigenvalue analysis; no API key in the browser.
@@ -52,7 +54,8 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 - `src/morphogenesis.js` — 3D Gray–Scott reaction–diffusion, local chemistry and nutrient coupling.
 - `src/surface.js` — bounded marching-tetrahedra mesh extraction from the B concentration field.
 - `src/structural.js` — solid-cell collision solver and trajectory guidance along the evolving chemical isosurface.
-- `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, surface and v1/v2/v3 checkpoint regression tests (`npm test`).
+- `src/art-direction.js` — procedural vector laws for visual silhouette and artist-facing material configurations.
+- `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js`, `tests/art-direction.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, smooth surface normals, composition laws and checkpoint regression tests (`npm test`).
 - `src/main.js` — Three.js renderer, inputs, camera, views and exporting.
 - `src/styles.css` — mobile-first control layout.
 - `netlify/functions/wolfram.mjs` — credential-protected, allowlisted computational request.
@@ -64,4 +67,4 @@ Current limitations: CPU-side growth and chemistry updates, a fixed 28³ morphog
 
 ## What not to assume
 
-No live browser/device benchmark or production Vite build has been run yet. The environment could not reach GitHub to clone the repo for a local npm install, so code/DOM parsing and standalone headless mathematical-state tests were performed instead. These commits include source-level validation and a headless mathematical-state replay check, but need a normal `npm install && npm test && npm run build` followed by a real iPhone Safari smoke test before release.
+No live browser/device benchmark or production Vite build has been run yet. Artistic finish choices are first-pass light-response settings and must be judged on actual devices; no claim of polished final visuals is made. The environment could not reach GitHub to clone the repo for a local npm install, so code/DOM parsing and standalone headless mathematical-state tests were performed instead. These commits include source-level validation and a headless mathematical-state replay check, but need a normal `npm install && npm test && npm run build` followed by a real iPhone Safari smoke test before release.

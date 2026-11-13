@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { extractIsosurface } from './surface.js';
+import { FINISHES } from './art-direction.js';
 import './styles.css';
 
 const $ = id => document.getElementById(id);
@@ -29,7 +30,8 @@ const engine = new GrowthEngine();
 // Morphogenesis is a geometric isosurface of the live Gray–Scott B field.
 // CPU mesh extraction is capped and throttled, with adjustable stride.
 const morphMaterial=new THREE.MeshPhysicalMaterial({
-  vertexColors:true,metalness:.12,roughness:.24,clearcoat:.6,clearcoatRoughness:.14,
+  vertexColors:true,metalness:.12,roughness:.23,clearcoat:.92,clearcoatRoughness:.12,
+  iridescence:.85,iridescenceIOR:1.32,iridescenceThicknessRange:[110,420],
   side:THREE.DoubleSide,transparent:false
 });
 const morphMesh=new THREE.Mesh(new THREE.BufferGeometry(),morphMaterial);
@@ -53,7 +55,9 @@ function refreshMorphSurface(now,force=false){
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.BufferAttribute(raw.positions,3));
   geo.setAttribute('color',new THREE.BufferAttribute(raw.colors,3));
-  if(raw.triangles)geo.computeVertexNormals();
+  if(raw.normals?.length===raw.positions.length){
+    geo.setAttribute('normal',new THREE.BufferAttribute(raw.normals,3));
+  }else if(raw.triangles)geo.computeVertexNormals();
   const old=morphMesh.geometry;
   morphMesh.geometry=geo;
   old.dispose();
@@ -108,7 +112,11 @@ const crystalShapes={
   cube:new THREE.BoxGeometry(crystalCellSize*.66,crystalCellSize*.66,crystalCellSize*.66),
   sphere:new THREE.IcosahedronGeometry(crystalCellSize*.62,1)
 };
-const crystalMaterial=new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false});
+const crystalMaterial=new THREE.MeshPhysicalMaterial({
+  color:'#ffffff',metalness:.12,roughness:.23,clearcoat:.92,
+  clearcoatRoughness:.12,iridescence:.85,iridescenceIOR:1.32,
+  iridescenceThicknessRange:[110,420]
+});
 const crystals=new THREE.InstancedMesh(crystalShapes.octa,crystalMaterial,engine.colony.maxCells);
 crystals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 crystals.frustumCulled=false;
@@ -148,7 +156,10 @@ function syncCrystals(){
 }
 
 const fiberGeometry = new THREE.CylinderGeometry(1,1,1,5,1,true);
-const fiberMaterial = new THREE.MeshBasicMaterial({color:'#ffffff',side:THREE.DoubleSide,toneMapped:false});
+const fiberMaterial = new THREE.MeshStandardMaterial({
+  color:'#ffffff',side:THREE.DoubleSide,metalness:.20,roughness:.35,
+  emissive:'#12071d',emissiveIntensity:.22
+});
 const fibers = new THREE.InstancedMesh(fiberGeometry,fiberMaterial,engine.maxSegments);
 fibers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 fibers.frustumCulled = false;
@@ -470,6 +481,86 @@ function readStructuralControls(){
 ['structure-mode','structure-branching','structure-permeability','structure-membrane']
   .forEach(id=>$(id).addEventListener('input',readStructuralControls));
 
+function applyArtistFinish(){
+  const finish=FINISHES[engine.config.finish]||FINISHES.opal;
+  for(const material of [morphMaterial,crystalMaterial]){
+    material.metalness=finish.metalness;
+    material.roughness=finish.roughness;
+    material.clearcoat=finish.clearcoat;
+    material.clearcoatRoughness=Math.max(.06,finish.roughness*.65);
+    material.iridescence=finish.iridescence;
+    material.needsUpdate=true;
+  }
+  fiberMaterial.metalness=Math.min(.65,finish.metalness+.09);
+  fiberMaterial.roughness=Math.max(.2,Math.min(.7,finish.roughness+.14));
+  fiberMaterial.needsUpdate=true;
+  halos.material.opacity=.07+.75*engine.config.glow;
+  tipShader.uniforms.pointScale.value=(window.devicePixelRatio>1?8:6)+10*engine.config.glow;
+}
+function updateArtistControls(){
+  const c=engine.config;
+  $('form').value=c.form;
+  $('formStrength').value=Math.round(c.formStrength*100);
+  $('formStrength-value').textContent=Math.round(c.formStrength*100)+'%';
+  $('formTwist').value=Math.round(c.formTwist*100);
+  $('formTwist-value').textContent=Math.round(c.formTwist*100)+'%';
+  $('finish').value=c.finish;
+  $('glow').value=Math.round(c.glow*100);
+  $('glow-value').textContent=Math.round(c.glow*100)+'%';
+}
+function readArtistControls(){
+  engine.setConfig({
+    form:$('form').value,formStrength:Number($('formStrength').value)/100,
+    formTwist:Number($('formTwist').value)/100,finish:$('finish').value,
+    glow:Number($('glow').value)/100
+  });
+  updateArtistControls();
+  applyArtistFinish();
+}
+['form','formStrength','formTwist','finish','glow'].forEach(
+  id=>$(id).addEventListener('input',readArtistControls)
+);
+
+// Explicit camera framing is a view operation, never a simulation reset.
+function frameArtwork(){
+  const bounds=new THREE.Box3();
+  const point=new THREE.Vector3();
+  for(let i=0;i<engine.segmentCount;i++){
+    const k=i*6;
+    for(let endpoint=0;endpoint<2;endpoint++){
+      const j=k+endpoint*3;
+      point.set(engine.segments[j],engine.segments[j+1],engine.segments[j+2]);
+      bounds.expandByPoint(point);
+    }
+  }
+  const colony=engine.colony;
+  for(let i=0;i<colony.capacity;i++){
+    if(!colony.cells[i])continue;
+    const [x,y,z]=colony.decode(i);
+    const pos=colony.worldPos(x,y,z);
+    bounds.expandByPoint(point.set(pos.x,pos.y,pos.z));
+  }
+  if(morphTriangles>0 && morphMesh.geometry.attributes.position){
+    bounds.union(new THREE.Box3().setFromBufferAttribute(morphMesh.geometry.attributes.position));
+  }
+  if(bounds.isEmpty()){
+    orbit.target.set(0,0,0);
+    camera.position.set(6.5,4.7,10.5);
+    orbit.update();
+    return;
+  }
+  const center=bounds.getCenter(new THREE.Vector3());
+  const radius=Math.max(.7,bounds.getSize(new THREE.Vector3()).length()*.5);
+  const fovRadians=THREE.MathUtils.degToRad(camera.fov);
+  const distance=Math.max(3,radius/Math.sin(fovRadians*.5)*1.22);
+  const direction=camera.position.clone().sub(orbit.target).normalize();
+  orbit.target.copy(center);
+  camera.position.copy(center).addScaledVector(direction,Math.min(orbit.maxDistance,distance));
+  orbit.update();
+}
+$('frame-art').addEventListener('click',frameArtwork);
+$('compose-frame').addEventListener('click',frameArtwork);
+
 const ranges={
   speed:{format:n=>n.toFixed(1)+'×',read:n=>n},
   agents:{format:n=>String(n),read:n=>n},
@@ -505,6 +596,8 @@ function updateControlsFromDNA(){
   updateCrystalControls();
   updateMorphControls();
   updateStructuralControls();
+  updateArtistControls();
+  applyArtistFinish();
 }
 for(const key of Object.keys(ranges))$(key).addEventListener('input',readControls);
 $('palette').addEventListener('change',readControls);
@@ -638,7 +731,7 @@ function fit(){
 }
 new ResizeObserver(fit).observe(canvas);
 window.addEventListener('resize',fit);
-fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();
+fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();applyArtistFinish();
 let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
