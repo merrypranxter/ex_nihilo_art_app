@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { NutrientField } from './ecology.js';
 import { CrystalColony } from './colony.js';
 import { MorphogenesisVolume } from './morphogenesis.js';
+import { resolveCrystalMovement, traceChemicalMembrane } from './structural.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -24,7 +25,8 @@ export class GrowthEngine {
     this.config = {
       speed: 1, agents: 180, branching: .45, feedback: .55, thickness: .04,
       topology: 'cathedral', force: 1, frequency: 1.2, evolution: .4, palette: 'acid',
-      nutrientDrive: 1.2, diffusion: .6, supply: .5
+      nutrientDrive: 1.2, diffusion: .6, supply: .5,
+      contactMode: 'slide', contactBranching: .32, wallPermeability: .08, membraneTrace: .55
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -38,6 +40,7 @@ export class GrowthEngine {
     this.rngState = this.seed;
     this.time = 0;
     this.totalDeposits = 0;
+    this.contactEvents = 0;
     this.segmentCount = 0;
     this.cursor = 0;
     this.agents = [];
@@ -112,6 +115,10 @@ export class GrowthEngine {
     candidate.nutrientDrive = clamp(safe(+candidate.nutrientDrive),0,2);
     candidate.diffusion = clamp(safe(+candidate.diffusion),0,1);
     candidate.supply = clamp(safe(+candidate.supply),0,1);
+    candidate.contactBranching = clamp(safe(+candidate.contactBranching),0,1);
+    candidate.wallPermeability = clamp(safe(+candidate.wallPermeability),0,1);
+    candidate.membraneTrace = clamp(safe(+candidate.membraneTrace),0,1);
+    if(!['off','slide','deflect'].includes(candidate.contactMode)) candidate.contactMode='slide';
     if(!['cathedral','vortex','braid','serpentine','bloom'].includes(candidate.topology)) candidate.topology='cathedral';
     if(!PALETTES[candidate.palette]) candidate.palette='acid';
     this.config=candidate;
@@ -245,16 +252,18 @@ export class GrowthEngine {
     dt=clamp(dt,0,.05);
     if(!dt)return;
     this.time+=dt;
+    const c=this.config;
     this.nutrientElapsed+=dt;
     while(this.nutrientElapsed>=.1){
-      this.nutrients.tick(this.config.diffusion,this.config.supply);
+      this.nutrients.tick(c.diffusion,c.supply,
+        this.colony.population?this.colony.cells:null,c.wallPermeability);
       this.nutrientElapsed-=.1;
     }
-    const c=this.config;
     if(this.morphogenesis.settings.enabled){
       this.morphElapsed+=dt;
       while(this.morphElapsed>=.2){
-        this.morphogenesis.tick(this.nutrients);
+        this.morphogenesis.tick(this.nutrients,
+          this.colony.population?this.colony:null,c.wallPermeability);
         this.morphElapsed-=.2;
       }
     }
@@ -276,8 +285,32 @@ export class GrowthEngine {
       a.dir.lerp(field,.09).addScaledVector(this.randomVector(),.017).normalize();
       const food=this.nutrients.sample(a.p);
       const growthRate=dt*c.speed*.95*(.35+.85*food);
-      a.p.addScaledVector(a.dir,growthRate);
-      a.traveled+=growthRate;
+      const oldPosition=a.p.clone();
+      const direct=a.dir.clone().multiplyScalar(growthRate);
+      const guided=traceChemicalMembrane(this.morphogenesis,a.p,direct,c.membraneTrace);
+      if(guided.tracing){
+        a.dir.set(guided.motion.x,guided.motion.y,guided.motion.z).normalize();
+      }
+      const proposed=a.p.clone().add(v(guided.motion.x,guided.motion.y,guided.motion.z));
+      const contact=resolveCrystalMovement(this.colony,a.p,proposed,c.contactMode);
+      a.p.set(contact.position.x,contact.position.y,contact.position.z);
+      a.traveled+=a.p.distanceTo(oldPosition);
+      if(contact.contact){
+        this.contactEvents++;
+        // Surface contact changes later trajectories and can nucleate new tips.
+        const normal=v(contact.normal.x,contact.normal.y,contact.normal.z);
+        const into=a.dir.dot(normal);
+        if(into<0){
+          a.dir.addScaledVector(normal,-into*(c.contactMode==='deflect'?2:1));
+          if(a.dir.lengthSq()<1e-8){
+            a.dir.set(normal.z,normal.x,normal.y);
+          }
+          a.dir.normalize();
+        }
+        if(this.agents.length<c.agents && this.random()<.012*c.contactBranching){
+          this.addAgent(a.p,a.dir.clone().addScaledVector(this.randomVector(),.7));
+        }
+      }
       if(a.traveled >= .105){
         this.deposit(a.prev,a.p,a);
         a.prev.copy(a.p);
@@ -370,7 +403,7 @@ export class GrowthEngine {
     return {
       format:'ex-nihilo/checkpoint-v3',
       dna:this.getDNA(),time:this.time,rngState:this.rngState>>>0,
-      nutrientElapsed:this.nutrientElapsed,colonyElapsed:this.colonyElapsed,morphElapsed:this.morphElapsed,totalDeposits:this.totalDeposits,
+      nutrientElapsed:this.nutrientElapsed,colonyElapsed:this.colonyElapsed,morphElapsed:this.morphElapsed,totalDeposits:this.totalDeposits,contactEvents:this.contactEvents,
       segmentCount:n,cursor:this.cursor,
       segments:Array.from(this.segments.subarray(0,n*6)),
       colors:Array.from(this.segmentColors.subarray(0,n*3)),
@@ -405,6 +438,7 @@ export class GrowthEngine {
       (hasColony&&(!finite(data.colonyElapsed)||data.colonyElapsed<0||data.colonyElapsed>.32))||
       (isV3&&(!finite(data.morphElapsed)||data.morphElapsed<0||data.morphElapsed>.2))||
       !Number.isInteger(data.totalDeposits)||data.totalDeposits<0||
+      (data.contactEvents!==undefined&&(!Number.isInteger(data.contactEvents)||data.contactEvents<0))||
       !validArray(data.segments,data.segmentCount*6,n=>finite(n)&&Math.abs(n)<=100)||
       !validArray(data.colors,data.segmentCount*3,n=>Number.isInteger(n)&&n>=0&&n<=255)||
       !validArray(data.radii,data.segmentCount,n=>finite(n)&&n>=0&&n<=1)||
@@ -425,6 +459,7 @@ export class GrowthEngine {
     this.colonyElapsed=hasColony?data.colonyElapsed:0;
     this.morphElapsed=isV3?data.morphElapsed:0;
     this.totalDeposits=data.totalDeposits;
+    this.contactEvents=data.contactEvents??0;
     this.segmentCount=data.segmentCount;
     this.cursor=data.cursor;
     this.segments.set(data.segments);
