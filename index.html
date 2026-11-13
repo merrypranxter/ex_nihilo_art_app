@@ -95,7 +95,7 @@
           <div class="panel" data-panel="morph" hidden>
             <p class="help first">Two chemicals react and diffuse through a real 3D volume. The evolving B concentration generates its own surface; chemistry—not a canned object—decides where matter appears.</p>
             <button id="morph-toggle" type="button" class="primary" aria-pressed="false">✳ START CHEMICAL GROWTH</button>
-            <div class="control-grid colony-controls">
+            <div class="control-grid morph-essentials">
               <label class="control select-control"><span>Starting equations (change laws, not state)</span><select id="morph-profile">
                 <option value="reef">CORAL REEF / F 0.0367 K 0.0649</option>
                 <option value="labyrinth">LABYRINTH / F 0.029 K 0.057</option>
@@ -103,17 +103,22 @@
               </select></label>
               <label class="control"><span>Feed F <output id="morph-feed-value">0.0367</output></span><input id="morph-feed" type="range" min=".004" max=".095" step=".0001" value=".0367"></label>
               <label class="control"><span>Kill k <output id="morph-kill-value">0.0649</output></span><input id="morph-kill" type="range" min=".018" max=".095" step=".0001" value=".0649"></label>
-              <label class="control"><span>Diffuse A <output id="morph-diffA-value">0.160</output></span><input id="morph-diffA" type="range" min=".04" max=".16" step=".005" value=".16"></label>
-              <label class="control"><span>Diffuse B <output id="morph-diffB-value">0.080</output></span><input id="morph-diffB" type="range" min=".015" max=".16" step=".005" value=".08"></label>
-              <label class="control"><span>Steps per beat <output id="morph-iterations-value">5</output></span><input id="morph-iterations" type="range" min="1" max="7" step="1" value="5"></label>
               <label class="control"><span>Surface threshold <output id="morph-iso-value">0.21</output></span><input id="morph-iso" type="range" min=".04" max=".72" step=".01" value=".21"></label>
-              <label class="control"><span>Chemical attraction <output id="morph-chemotaxis-value">70%</output></span><input id="morph-chemotaxis" type="range" min="0" max="200" step="5" value="70"></label>
-              <label class="control"><span>Fibers seed catalyst <output id="morph-fiberCatalysis-value">35%</output></span><input id="morph-fiberCatalysis" type="range" min="0" max="100" step="5" value="35"></label>
-              <label class="control"><span>Crystals consume B <output id="morph-crystalSink-value">25%</output></span><input id="morph-crystalSink" type="range" min="0" max="100" step="5" value="25"></label>
-              <label class="control select-control"><span>Surface detail / CPU budget</span><select id="morph-mesh">
+            </div>
+            <details class="morph-advanced">
+              <summary>ADVANCED — DIFFUSION, CROSS-COUPLING &amp; PERFORMANCE</summary>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control"><span>Diffuse A <output id="morph-diffA-value">0.160</output></span><input id="morph-diffA" type="range" min=".04" max=".16" step=".005" value=".16"></label>
+                <label class="control"><span>Diffuse B <output id="morph-diffB-value">0.080</output></span><input id="morph-diffB" type="range" min=".015" max=".16" step=".005" value=".08"></label>
+                <label class="control"><span>Steps per beat <output id="morph-iterations-value">5</output></span><input id="morph-iterations" type="range" min="1" max="7" step="1" value="5"></label>
+                <label class="control"><span>Chemical attraction <output id="morph-chemotaxis-value">70%</output></span><input id="morph-chemotaxis" type="range" min="0" max="200" step="5" value="70"></label>
+                <label class="control"><span>Fibers seed catalyst <output id="morph-fiberCatalysis-value">35%</output></span><input id="morph-fiberCatalysis" type="range" min="0" max="100" step="5" value="35"></label>
+                <label class="control"><span>Crystals consume B <output id="morph-crystalSink-value">25%</output></span><input id="morph-crystalSink" type="range" min="0" max="100" step="5" value="25"></label>
+                <label class="control select-control"><span>Surface detail / CPU budget</span><select id="morph-mesh">
                 <option value="2">BALANCED · DEFAULT</option><option value="3">FAST MOBILE</option><option value="1">FINE DETAIL · HEAVIER</option>
               </select></label>
-            </div>
+              </div>
+            </details>
             <div class="small-actions ecology-actions">
               <button id="morph-paint" class="choice" type="button">✳ PAINT CHEMICAL B</button>
               <button id="morph-show" class="choice" type="button" aria-pressed="true">◉ HIDE SURFACE</button>
