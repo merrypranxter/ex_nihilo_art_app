@@ -31,11 +31,11 @@
       <section class="console" aria-label="Growth laboratory controls">
         <div class="console-head">
           <div><span class="eyebrow">EXPERIMENT 001</span><h2>NERVE CATHEDRAL</h2><p>Growth is a process. Shape is its memory.</p></div>
-          <div class="small-actions"><button id="dna-save" class="mini">COPY DNA</button><button id="dna-load" class="mini">LOAD DNA</button><button id="png" class="mini">PNG ↗</button></div>
+          <div class="small-actions"><button id="dna-save" class="mini">COPY DNA</button><button id="dna-load" class="mini">LOAD DNA</button><button id="checkpoint-save" class="mini" title="Download the complete living organism">↓ SAVE WORLD</button><button id="checkpoint-load" class="mini" title="Restore a saved living organism">↑ LOAD WORLD</button><input id="checkpoint-file" type="file" accept=".json,.exnihilo,application/json" hidden/><button id="png" class="mini">PNG ↗</button></div>
         </div>
         <nav class="tabs" aria-label="Control sections">
           <button class="tab active" data-tab="growth" aria-selected="true">GROWTH</button>
-          <button class="tab" data-tab="field" aria-selected="false">FIELDS</button>
+          <button class="tab" data-tab="field" aria-selected="false">FIELDS</button><button class="tab" data-tab="ecology" aria-selected="false">ECOLOGY</button>
           <button class="tab" data-tab="touch" aria-selected="false">TOUCH</button>
           <button class="tab" data-tab="light" aria-selected="false">LIGHT</button>
           <button class="tab" data-tab="wolfram" aria-selected="false">WOLFRAM</button>
@@ -64,17 +64,30 @@
             </div>
             <p class="help">These are different vector-field equations, not filters. Their influence couples with matter density and placed field nodes.</p>
           </div>
+          <div class="panel" data-panel="ecology" hidden>
+            <p class="help first">This is a real three-dimensional nutrient field. Food diffuses between neighboring cells, growing fibers consume it, and food gradients steer the next branches.</p>
+            <div class="control-grid">
+              <label class="control"><span>Nutrient drive <output id="nutrientDrive-value">1.2×</output></span><input id="nutrientDrive" type="range" min="0" max="2" step=".1" value="1.2"></label>
+              <label class="control"><span>Diffusion <output id="diffusion-value">60%</output></span><input id="diffusion" type="range" min="0" max="100" step="5" value="60"></label>
+              <label class="control"><span>Replenishment <output id="supply-value">50%</output></span><input id="supply" type="range" min="0" max="100" step="5" value="50"></label>
+            </div>
+            <div class="small-actions ecology-actions">
+              <button class="choice" id="food-tool" type="button">✳ PAINT FOOD BY TOUCH</button>
+              <button class="choice" id="food-view" type="button" aria-pressed="false">◇ SHOW NUTRIENT VOLUME</button>
+            </div>
+            <p class="help">Food injections change the organism's living state. Use SAVE WORLD to preserve the result before experimenting.</p>
+          </div>
           <div class="panel" data-panel="touch" hidden>
             <p class="help first">Finger or mouse actions modify the physics. Place and drag nodes. Select Orbit to turn the world and pinch to zoom.</p>
             <div class="choice-grid" id="tools">
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
-              <button data-tool="seed" class="choice">✳ SEED GROWTH</button>
+              <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button>
               <button data-tool="orbit" class="choice">◎ ORBIT</button>
               <button data-tool="erase" class="choice">✕ ERASE NODE</button>
             </div>
             <div class="small-actions"><button id="undo" class="mini">↶ UNDO EDIT</button><button id="redo" class="mini">↷ REDO EDIT</button><button id="clear-nodes" class="mini">CLEAR NODES</button></div>
-            <p class="help">Undo/redo applies to field-node edits only. It does not rewind the continuously evolving organism.</p>
+            <p class="help">Undo/redo applies to field-node edits only. For the entire evolving organism, use SAVE WORLD and LOAD WORLD. Neither changes your work without confirmation.</p>
           </div>
           <div class="panel" data-panel="light" hidden>
             <div class="control-grid">
