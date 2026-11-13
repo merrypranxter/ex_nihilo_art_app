@@ -22,13 +22,13 @@ test('3D local cellular automaton grows from neighbors using shared nutrient che
   assert.ok(world.colony.cells.some(n=>n===2),'Growing cells must mineralize');
 });
 
-test('complete v2 world save restores both engines, replay, chemistry and cell colors',()=>{
+test('complete v3 world save restores both engines, replay, chemistry and cell colors',()=>{
   const world=new GrowthEngine(2468);
   world.colony.setSettings({enabled:true,growth:1.7});
   world.seedCrystal(new Vector3());
   for(let i=0;i<780;i++)world.step(1/60);
   const state=world.getCheckpoint();
-  assert.equal(state.format,'ex-nihilo/checkpoint-v2');
+  assert.equal(state.format,'ex-nihilo/checkpoint-v3');
   const restored=new GrowthEngine(400);
   restored.restoreCheckpoint(state);
   assert.deepEqual(restored.getCheckpoint(),state);
