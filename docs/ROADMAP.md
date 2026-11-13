@@ -58,6 +58,16 @@
 - [x] Nutrient barrier flux stays conservative when replenishment is off (symmetric face-permeability coupling).
 - [ ] Global conservation/loss diagnostics and on-canvas scientific readouts.
 
+## Phase 03B — Compositional Art Direction
+
+- [x] Six distinct silhouette fields exert real forces on growing agents (no prebuilt sculptures).
+- [x] FORM & FINISH controls preserve existing growth; settings persist through DNA and checkpoints.
+- [x] Smooth scalar-gradient normals for evolving chemical isosurfaces.
+- [x] Light-responsive crystal, chemical membrane, and fiber materials with adjustable finishes and luminous halos.
+- [x] Camera framing based on actually deposited geometry.
+- [ ] Real iPhone visual inspection and tuning, including default growth density, composition and quality-performance tradeoffs.
+- [ ] More substantial morphology-based growth control, selective coloring by material age, and improved low-cost glow treatment.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
