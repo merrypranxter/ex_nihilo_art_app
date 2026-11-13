@@ -35,7 +35,7 @@
         </div>
         <nav class="tabs" aria-label="Control sections">
           <button class="tab active" data-tab="growth" aria-selected="true">GROWTH</button>
-          <button class="tab" data-tab="field" aria-selected="false">FIELDS</button><button class="tab" data-tab="ecology" aria-selected="false">ECOLOGY</button>
+          <button class="tab" data-tab="field" aria-selected="false">FIELDS</button><button class="tab" data-tab="ecology" aria-selected="false">ECOLOGY</button><button class="tab" data-tab="colony" aria-selected="false">CRYSTALS</button>
           <button class="tab" data-tab="touch" aria-selected="false">TOUCH</button>
           <button class="tab" data-tab="light" aria-selected="false">LIGHT</button>
           <button class="tab" data-tab="wolfram" aria-selected="false">WOLFRAM</button>
@@ -77,12 +77,27 @@
             </div>
             <p class="help">Food injections change the organism's living state. Use SAVE WORLD to preserve the result before experimenting.</p>
           </div>
+          <div class="panel" data-panel="colony" hidden>
+            <p class="help first">A second living engine: a synchronous three-dimensional cellular automaton. New cells need neighboring cells and available nutrients; older cells mineralize or erode. This grows a genuine lattice, not a prebuilt mesh.</p>
+            <button id="colony-toggle" type="button" class="primary" aria-pressed="false">◇ START CRYSTAL COLONY</button>
+            <div class="control-grid colony-controls">
+              <label class="control"><span>Birth rate <output id="colony-growth-value">75%</output></span><input id="colony-growth" type="range" min="0" max="200" step="5" value="75"></label>
+              <label class="control"><span>Erosion <output id="colony-erosion-value">8%</output></span><input id="colony-erosion" type="range" min="0" max="100" step="1" value="8"></label>
+              <label class="control"><span>Mineralization <output id="colony-crystallization-value">4 steps</output></span><input id="colony-crystallization" type="range" min="2" max="12" step="1" value="4"></label>
+              <label class="control select-control"><span>Crystal cell geometry</span><select id="colony-geometry"><option value="octa">SHARP OCTAHEDRA</option><option value="cube">MINERAL CUBES</option><option value="sphere">ROUNDED NODULES</option></select></label>
+            </div>
+            <div class="small-actions ecology-actions">
+              <button id="crystal-seed" class="choice" type="button">✳ TOUCH TO SEED CELLS</button>
+              <button id="crystal-clear" class="mini danger" type="button">ERASE CRYSTAL COLONY</button>
+            </div>
+            <p class="help"><span id="crystal-stats">0 CRYSTALS · 0 GENERATIONS</span>. Pausing the crystal engine keeps its structure visible. Resetting only crystals requires confirmation and won't erase your fiber artwork.</p>
+          </div>
           <div class="panel" data-panel="touch" hidden>
             <p class="help first">Finger or mouse actions modify the physics. Place and drag nodes. Select Orbit to turn the world and pinch to zoom.</p>
             <div class="choice-grid" id="tools">
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
-              <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button>
+              <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button>
               <button data-tool="orbit" class="choice">◎ ORBIT</button>
               <button data-tool="erase" class="choice">✕ ERASE NODE</button>
             </div>
