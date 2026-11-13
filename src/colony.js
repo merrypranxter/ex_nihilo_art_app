@@ -85,7 +85,7 @@ export class CrystalColony {
       const [x,y,z]=this.decode(i);
       // Cells age independently; stable mineral walls persist after maturation.
       if(this.ages[i]<255)this.ages[i]++;
-      if(this.cells[i]===1&&this.ages[i]>=this.settings.crystallization)this.cells[i]=2;
+      if(this.cells[i]===1&&this.ages[i]>=this.settings.crystallization){this.cells[i]=2;this.changed=true;}
       else if(this.cells[i]===2&&this.settings.erosion>0)mature.push(i);
       for(const [dx,dy,dz] of DIRS){
         const nx=x+dx,ny=y+dy,nz=z+dz;
