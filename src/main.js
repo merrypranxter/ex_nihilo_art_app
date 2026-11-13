@@ -481,6 +481,86 @@ function readStructuralControls(){
 ['structure-mode','structure-branching','structure-permeability','structure-membrane']
   .forEach(id=>$(id).addEventListener('input',readStructuralControls));
 
+function applyArtistFinish(){
+  const finish=FINISHES[engine.config.finish]||FINISHES.opal;
+  for(const material of [morphMaterial,crystalMaterial]){
+    material.metalness=finish.metalness;
+    material.roughness=finish.roughness;
+    material.clearcoat=finish.clearcoat;
+    material.clearcoatRoughness=Math.max(.06,finish.roughness*.65);
+    material.iridescence=finish.iridescence;
+    material.needsUpdate=true;
+  }
+  fiberMaterial.metalness=Math.min(.65,finish.metalness+.09);
+  fiberMaterial.roughness=Math.max(.2,Math.min(.7,finish.roughness+.14));
+  fiberMaterial.needsUpdate=true;
+  halos.material.opacity=.07+.75*engine.config.glow;
+  tipShader.uniforms.pointScale.value=(window.devicePixelRatio>1?8:6)+10*engine.config.glow;
+}
+function updateArtistControls(){
+  const c=engine.config;
+  $('form').value=c.form;
+  $('formStrength').value=Math.round(c.formStrength*100);
+  $('formStrength-value').textContent=Math.round(c.formStrength*100)+'%';
+  $('formTwist').value=Math.round(c.formTwist*100);
+  $('formTwist-value').textContent=Math.round(c.formTwist*100)+'%';
+  $('finish').value=c.finish;
+  $('glow').value=Math.round(c.glow*100);
+  $('glow-value').textContent=Math.round(c.glow*100)+'%';
+}
+function readArtistControls(){
+  engine.setConfig({
+    form:$('form').value,formStrength:Number($('formStrength').value)/100,
+    formTwist:Number($('formTwist').value)/100,finish:$('finish').value,
+    glow:Number($('glow').value)/100
+  });
+  updateArtistControls();
+  applyArtistFinish();
+}
+['form','formStrength','formTwist','finish','glow'].forEach(
+  id=>$(id).addEventListener('input',readArtistControls)
+);
+
+// Explicit camera framing is a view operation, never a simulation reset.
+function frameArtwork(){
+  const bounds=new THREE.Box3();
+  const point=new THREE.Vector3();
+  for(let i=0;i<engine.segmentCount;i++){
+    const k=i*6;
+    for(let endpoint=0;endpoint<2;endpoint++){
+      const j=k+endpoint*3;
+      point.set(engine.segments[j],engine.segments[j+1],engine.segments[j+2]);
+      bounds.expandByPoint(point);
+    }
+  }
+  const colony=engine.colony;
+  for(let i=0;i<colony.capacity;i++){
+    if(!colony.cells[i])continue;
+    const [x,y,z]=colony.decode(i);
+    const pos=colony.worldPos(x,y,z);
+    bounds.expandByPoint(point.set(pos.x,pos.y,pos.z));
+  }
+  if(morphTriangles>0 && morphMesh.geometry.attributes.position){
+    bounds.union(new THREE.Box3().setFromBufferAttribute(morphMesh.geometry.attributes.position));
+  }
+  if(bounds.isEmpty()){
+    orbit.target.set(0,0,0);
+    camera.position.set(6.5,4.7,10.5);
+    orbit.update();
+    return;
+  }
+  const center=bounds.getCenter(new THREE.Vector3());
+  const radius=Math.max(.7,bounds.getSize(new THREE.Vector3()).length()*.5);
+  const fovRadians=THREE.MathUtils.degToRad(camera.fov);
+  const distance=Math.max(3,radius/Math.sin(fovRadians*.5)*1.22);
+  const direction=camera.position.clone().sub(orbit.target).normalize();
+  orbit.target.copy(center);
+  camera.position.copy(center).addScaledVector(direction,Math.min(orbit.maxDistance,distance));
+  orbit.update();
+}
+$('frame-art').addEventListener('click',frameArtwork);
+$('compose-frame').addEventListener('click',frameArtwork);
+
 const ranges={
   speed:{format:n=>n.toFixed(1)+'×',read:n=>n},
   agents:{format:n=>String(n),read:n=>n},
@@ -516,6 +596,8 @@ function updateControlsFromDNA(){
   updateCrystalControls();
   updateMorphControls();
   updateStructuralControls();
+  updateArtistControls();
+  applyArtistFinish();
 }
 for(const key of Object.keys(ranges))$(key).addEventListener('input',readControls);
 $('palette').addEventListener('change',readControls);
@@ -649,7 +731,7 @@ function fit(){
 }
 new ResizeObserver(fit).observe(canvas);
 window.addEventListener('resize',fit);
-fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();
+fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();applyArtistFinish();
 let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
