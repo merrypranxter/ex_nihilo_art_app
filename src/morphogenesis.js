@@ -24,7 +24,7 @@ export class MorphogenesisVolume {
     this.cachedNutrientSize=0;
     this.settings={
       enabled:false,feed:.0367,kill:.0649,diffA:.16,diffB:.08,
-      iterations:3,iso:.21,chemotaxis:.7,fiberCatalysis:.35,crystalSink:.25
+      iterations:5,iso:.21,chemotaxis:.7,fiberCatalysis:.35,crystalSink:.25
     };
     this.generation=0;
     this.changed=true;
@@ -140,7 +140,8 @@ export class MorphogenesisVolume {
   tick(nutrient){
     if(!this.settings.enabled)return;
     this.indexNutrients(nutrient);
-    const n=this.count,neighbors=this.neighbors,settings=this.settings;
+    // A fractional explicit Euler step prevents nonphysical oscillatory saturation.
+    const n=this.count,neighbors=this.neighbors,settings=this.settings,dt=.25;
     const food=nutrient?.values;
     for(let iteration=0;iteration<settings.iterations;iteration++){
       const U=this.u,V=this.v,NU=this.nextU,NV=this.nextV;
@@ -157,8 +158,8 @@ export class MorphogenesisVolume {
         // The independent nutrient world supplies chemical A replenishment.
         const nutrientFactor=food?(.68+.72*food[this.nutrientIndex[i]]):1;
         const f=settings.feed*nutrientFactor;
-        NU[i]=clamp(u+settings.diffA*lu-reaction+f*(1-u),0,1);
-        NV[i]=clamp(v+settings.diffB*lv+reaction-(f+settings.kill)*v,0,1);
+        NU[i]=clamp(u+dt*(settings.diffA*lu-reaction+f*(1-u)),0,1);
+        NV[i]=clamp(v+dt*(settings.diffB*lv+reaction-(f+settings.kill)*v),0,1);
         if(NV[i]>settings.iso)count++;
       }
       this.u=NU;this.v=NV;this.nextU=U;this.nextV=V;
