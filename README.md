@@ -55,4 +55,7 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 Current limitations: CPU-side growth updates and finite mesh capacity; the crystal colony is a discrete local-rule cellular automaton, **not yet** a volumetric reaction–diffusion simulator; undo handles field-node editing, **not** rewinding all simulation time; saving/loading a world uses a JSON file; screenshots export the current canvas, not high-resolution cinematic video. We keep these boundaries explicit.
 
 **Principle:** construction DNA (reproducible rules/seed) is different from lived simulation state (where this particular organism has grown).
-\n## What not to assume\n\nNo live browser/device benchmark or production Vite build has been run yet. These commits include source-level validation and a headless mathematical-state replay check, but need a normal `npm install && npm test && npm run build` followed by a real iPhone Safari smoke test before release.\n
+
+## What not to assume
+
+No live browser/device benchmark or production Vite build has been run yet. These commits include source-level validation and a headless mathematical-state replay check, but need a normal `npm install && npm test && npm run build` followed by a real iPhone Safari smoke test before release.
