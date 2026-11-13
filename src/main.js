@@ -81,6 +81,7 @@ const crystalPosition=new THREE.Vector3();
 const crystalRotation=new THREE.Quaternion();
 const crystalScale=new THREE.Vector3(1,1,1);
 const crystalColor=new THREE.Color();
+const crystalWhite=new THREE.Color('#ffffff');
 function syncCrystals(){
   if(!engine.colony.changed)return;
   let visible=0;
@@ -97,7 +98,7 @@ function syncCrystals(){
     crystals.setMatrixAt(visible,crystalTransform);
     const k=i*3;
     crystalColor.setRGB(colony.colors[k]/255,colony.colors[k+1]/255,colony.colors[k+2]/255);
-    if(!mature)crystalColor.lerp(new THREE.Color('#ffffff'),.17);
+    if(!mature)crystalColor.lerp(crystalWhite,.17);
     crystals.setColorAt(visible,crystalColor);
     visible++;
     if(visible>=colony.maxCells)break;
@@ -402,7 +403,8 @@ $('pause').addEventListener('click',()=>setPaused(!paused));
 $('new').addEventListener('click',()=>{
   if(!window.confirm('Erase this living organism and start a NEW universe? This cannot be undone.'))return;
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
-  syncNodes();setPaused(false);
+  if(engine.colony.settings.enabled)engine.seedCrystal(new THREE.Vector3());
+  syncNodes();syncCrystals();setPaused(false);
 });
 $('dna-save').addEventListener('click',async()=>{
   const text=JSON.stringify(engine.getDNA(),null,2);
