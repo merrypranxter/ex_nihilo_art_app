@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#080812"/>
+  <meta name="description" content="EX NIHILO — a mathematical genesis lab. Grow luminous structures from living vector fields."/>
+  <title>EX NIHILO // Mathematical Genesis Lab</title>
+</head>
+<body>
+  <div id="app">
+    <header class="masthead">
+      <div class="brand"><span class="star">✳</span><div><h1>EX NIHILO</h1><p>MATHEMATICAL GENESIS LAB <span class="edition">/ 001 NERVE CATHEDRAL</span></p></div></div>
+      <div class="top-actions">
+        <button class="mini" id="pause" title="Pause growth" aria-pressed="false">Ⅱ PAUSE</button>
+        <button class="mini danger" id="new" title="Start from nothing with confirmation">↻ NEW</button>
+      </div>
+    </header>
+    <main>
+      <section class="stage" aria-label="Interactive 3D growth canvas">
+        <canvas id="world" aria-label="Living 3D mathematical organism"></canvas>
+        <div class="stage-top">
+          <div class="tag"><span class="pulse"></span><span id="live">GERMINATING</span></div>
+          <div class="tag coordinates" id="stats">0 STRANDS</div>
+        </div>
+        <div class="stage-bottom">
+          <span id="hint">DRAG TO ATTRACT GROWTH · ORBIT MODE TO ROTATE</span>
+          <span class="experimental">REAL-TIME EMERGENCE / NOT PREBUILT</span>
+        </div>
+      </section>
+      <section class="console" aria-label="Growth laboratory controls">
+        <div class="console-head">
+          <div><span class="eyebrow">EXPERIMENT 001</span><h2>NERVE CATHEDRAL</h2><p>Growth is a process. Shape is its memory.</p></div>
+          <div class="small-actions"><button id="dna-save" class="mini">COPY DNA</button><button id="dna-load" class="mini">LOAD DNA</button><button id="png" class="mini">PNG ↗</button></div>
+        </div>
+        <nav class="tabs" aria-label="Control sections">
+          <button class="tab active" data-tab="growth" aria-selected="true">GROWTH</button>
+          <button class="tab" data-tab="field" aria-selected="false">FIELDS</button>
+          <button class="tab" data-tab="touch" aria-selected="false">TOUCH</button>
+          <button class="tab" data-tab="light" aria-selected="false">LIGHT</button>
+          <button class="tab" data-tab="wolfram" aria-selected="false">WOLFRAM</button>
+        </nav>
+        <div class="panels">
+          <div class="panel active" data-panel="growth">
+            <div class="control-grid">
+              <label class="control"><span>Growth speed <output id="speed-value">1.0×</output></span><input id="speed" type="range" min="0.1" max="3.0" step="0.1" value="1.0"></label>
+              <label class="control"><span>Active tips <output id="agents-value">180</output></span><input id="agents" type="range" min="30" max="360" step="10" value="180"></label>
+              <label class="control"><span>Branching <output id="branching-value">45%</output></span><input id="branching" type="range" min="0" max="100" step="1" value="45"></label>
+              <label class="control"><span>Material memory <output id="feedback-value">55%</output></span><input id="feedback" type="range" min="0" max="100" step="1" value="55"></label>
+              <label class="control"><span>Fiber thickness <output id="thickness-value">0.040</output></span><input id="thickness" type="range" min="1" max="12" step="1" value="4"></label>
+            </div>
+            <p class="help">Older material changes where future strands grow. Tweaking controls never wipes the existing organism.</p>
+          </div>
+          <div class="panel" data-panel="field" hidden>
+            <div class="control-grid">
+              <label class="control select-control"><span>Field topology</span><select id="topology">
+                <option value="cathedral">CURL CATHEDRAL</option><option value="vortex">VORTEX CROWN</option>
+                <option value="braid">OPPOSED BRAID</option><option value="serpentine">SERPENTINE RIVER</option>
+                <option value="bloom">SYMMETRY BLOOM</option>
+              </select></label>
+              <label class="control"><span>Field intensity <output id="force-value">1.0×</output></span><input id="force" type="range" min="0" max="3" step=".1" value="1"></label>
+              <label class="control"><span>Curl frequency <output id="frequency-value">1.2</output></span><input id="frequency" type="range" min=".3" max="3.5" step=".1" value="1.2"></label>
+              <label class="control"><span>Field evolution <output id="evolution-value">0.4</output></span><input id="evolution" type="range" min="0" max="2" step=".1" value=".4"></label>
+            </div>
+            <p class="help">These are different vector-field equations, not filters. Their influence couples with matter density and placed field nodes.</p>
+          </div>
+          <div class="panel" data-panel="touch" hidden>
+            <p class="help first">Finger or mouse actions modify the physics. Place and drag nodes. Select Orbit to turn the world and pinch to zoom.</p>
+            <div class="choice-grid" id="tools">
+              <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
+              <button data-tool="repel" class="choice">⊖ REPEL</button>
+              <button data-tool="seed" class="choice">✳ SEED GROWTH</button>
+              <button data-tool="orbit" class="choice">◎ ORBIT</button>
+              <button data-tool="erase" class="choice">✕ ERASE NODE</button>
+            </div>
+            <div class="small-actions"><button id="undo" class="mini">↶ UNDO EDIT</button><button id="redo" class="mini">↷ REDO EDIT</button><button id="clear-nodes" class="mini">CLEAR NODES</button></div>
+            <p class="help">Undo/redo applies to field-node edits only. It does not rewind the continuously evolving organism.</p>
+          </div>
+          <div class="panel" data-panel="light" hidden>
+            <div class="control-grid">
+              <label class="control select-control"><span>Growth palette</span><select id="palette">
+                <option value="acid">ULTRAVIOLET ACID</option>
+                <option value="molten">MOLTEN PRISM</option>
+                <option value="biolume">BIOLUMINESCENT</option>
+                <option value="candy">TOXIC CANDY</option>
+                <option value="ivory">GHOST FILAMENT</option>
+              </select></label>
+              <label class="control select-control"><span>Void color</span><select id="background">
+                <option value="void">DEEP VOID</option>
+                <option value="ink">BLUE BLACK</option>
+                <option value="plum">DARK PLUM</option>
+                <option value="milk">PALE MIST</option>
+              </select></label>
+            </div>
+            <div class="small-actions"><button id="palette-roll" class="mini">⚄ SHUFFLE PALETTE</button><button id="camera-reset" class="mini">◎ RESET CAMERA</button></div>
+            <p class="help">New fibers inherit the current palette; old growth keeps its colors. Lighting changes never reset the physics.</p>
+          </div>
+          <div class="panel" data-panel="wolfram" hidden>
+            <p class="help first">Ask Wolfram|Alpha for the eigenvalues of the actual local vector-field Jacobian. One manual request, never a per-frame API call.</p>
+            <div class="wolfram-grid">
+              <label class="control"><span>Analysis point</span><select id="analysis-point"><option value="origin">WORLD CENTER</option><option value="tip">ACTIVE GROWTH TIP</option><option value="node">LATEST FIELD NODE</option></select></label>
+              <label class="control"><span>Access token (not your Wolfram AppID)</span><input id="wolfram-token" type="password" placeholder="Your private app access token" autocomplete="off"></label>
+            </div>
+            <button class="primary" id="analyze">∑ ANALYZE LOCAL FIELD</button>
+            <pre class="results" id="wolfram-result">The living artwork works without Wolfram. To enable this optional feature, configure WOLFRAM_APP_ID and WOLFRAM_ACCESS_TOKEN on your Netlify site.</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
