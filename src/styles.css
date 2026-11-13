@@ -84,3 +84,12 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
   .coordinates{display:none}
 }
 @media(prefers-reduced-motion:reduce){.pulse{box-shadow:none}}
+
+/* Keep the primary morphogenesis laws visible, advanced controls optional.
+   Native details/summary never mutates or resets the running simulation. */
+.morph-essentials{margin-top:14px}
+.morph-advanced{margin:18px 0 18px;border:1px solid #67527c;border-radius:8px;background:#14122382}
+.morph-advanced>summary{padding:12px 11px;color:#efb9f7;cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.035em;line-height:1.6}
+.morph-advanced>summary:hover{background:#943da31d}
+.morph-advanced-grid{padding:7px 13px 17px}
+.ecology-actions{margin-top:16px}
