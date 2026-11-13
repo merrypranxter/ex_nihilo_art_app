@@ -24,6 +24,44 @@ orbit.enabled=false;
 orbit.update();
 
 const engine = new GrowthEngine();
+
+// Scientific preview of the actual nutrient scalar field, sampled at lattice
+// points. This layer is optional and does not contribute to the sculpture.
+const foodCapacity=6000;
+const foodPositions=new Float32Array(foodCapacity*3);
+const foodColors=new Float32Array(foodCapacity*3);
+const foodGeometry=new THREE.BufferGeometry();
+foodGeometry.setAttribute('position',new THREE.BufferAttribute(foodPositions,3).setUsage(THREE.DynamicDrawUsage));
+foodGeometry.setAttribute('color',new THREE.BufferAttribute(foodColors,3).setUsage(THREE.DynamicDrawUsage));
+foodGeometry.setDrawRange(0,0);
+const foodCloud=new THREE.Points(foodGeometry,new THREE.PointsMaterial({
+  size:.065,sizeAttenuation:true,vertexColors:true,
+  transparent:true,opacity:.28,depthWrite:false,blending:THREE.AdditiveBlending
+}));
+foodCloud.visible=false;
+foodCloud.frustumCulled=false;
+scene.add(foodCloud);
+let showFood=false,lastFoodRefresh=0;
+function updateFoodCloud(){
+  if(!showFood)return;
+  const volume=engine.nutrients,n=volume.size;
+  let count=0;
+  for(let z=0;z<n;z+=2)for(let y=0;y<n;y+=2)for(let x=0;x<n;x+=2){
+    const strength=volume.values[volume.index(x,y,z)];
+    if(strength<.19||count>=foodCapacity)continue;
+    const k=count*3;
+    foodPositions[k]=((x+.5)/n-.5)*volume.extent;
+    foodPositions[k+1]=((y+.5)/n-.5)*volume.extent;
+    foodPositions[k+2]=((z+.5)/n-.5)*volume.extent;
+    foodColors[k]=strength*.23;
+    foodColors[k+1]=.3+strength*.9;
+    foodColors[k+2]=.65+strength*.4;
+    count++;
+  }
+  foodGeometry.setDrawRange(0,count);
+  foodGeometry.attributes.position.needsUpdate=true;
+  foodGeometry.attributes.color.needsUpdate=true;
+}
 const fiberGeometry = new THREE.CylinderGeometry(1,1,1,5,1,true);
 const fiberMaterial = new THREE.MeshBasicMaterial({color:'#ffffff',side:THREE.DoubleSide,toneMapped:false});
 const fibers = new THREE.InstancedMesh(fiberGeometry,fiberMaterial,engine.maxSegments);
@@ -152,6 +190,7 @@ const hints={
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
+  feed:'DRAG TO INJECT NUTRIENTS INTO 3D SPACE',
   orbit:'DRAG TO ORBIT · PINCH TO ZOOM',
   erase:'TAP A FIELD NODE TO ERASE IT'
 };
@@ -162,12 +201,22 @@ function setTool(next){
   for(const btn of document.querySelectorAll('[data-tool]'))btn.classList.toggle('active',btn.dataset.tool===tool);
 }
 document.querySelectorAll('[data-tool]').forEach(btn=>btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
+$('food-tool').addEventListener('click',()=>setTool('feed'));
+$('food-view').addEventListener('click',()=>{
+  showFood=!showFood;
+  foodCloud.visible=showFood;
+  $('food-view').classList.toggle('active',showFood);
+  $('food-view').setAttribute('aria-pressed',String(showFood));
+  $('food-view').textContent=showFood?'◈ HIDE NUTRIENT VOLUME':'◇ SHOW NUTRIENT VOLUME';
+  if(showFood)updateFoodCloud();
+});
 canvas.addEventListener('pointerdown',e=>{
   if(tool==='orbit'||(activePointer!==null))return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   activePointer=e.pointerId;
   canvas.setPointerCapture(e.pointerId);
   const pos=positionFromEvent(e);
+  if(tool==='feed'){engine.feedAt(pos);if(showFood)updateFoodCloud();return;}
   if(tool==='seed'){
     const count=18;
     if(engine.agents.length>engine.config.agents-count) engine.agents.splice(0,Math.min(count,engine.agents.length));
@@ -182,7 +231,9 @@ canvas.addEventListener('pointerdown',e=>{
   syncNodes();
 });
 canvas.addEventListener('pointermove',e=>{
-  if(e.pointerId!==activePointer||!draggedNode)return;
+  if(e.pointerId!==activePointer)return;
+  if(tool==='feed'){engine.feedAt(positionFromEvent(e));return;}
+  if(!draggedNode)return;
   draggedNode.pos.copy(positionFromEvent(e));
   syncNodes();
 });
@@ -215,7 +266,10 @@ const ranges={
   thickness:{format:n=>(n/100).toFixed(3),read:n=>n/100},
   force:{format:n=>n.toFixed(1)+'×',read:n=>n},
   frequency:{format:n=>n.toFixed(1),read:n=>n},
-  evolution:{format:n=>n.toFixed(1),read:n=>n}
+  evolution:{format:n=>n.toFixed(1),read:n=>n},
+  nutrientDrive:{format:n=>n.toFixed(1)+'×',read:n=>n},
+  diffusion:{format:n=>Math.round(n)+'%',read:n=>n/100},
+  supply:{format:n=>Math.round(n)+'%',read:n=>n/100}
 };
 function readControls(){
   const config={};
@@ -230,7 +284,7 @@ function readControls(){
 }
 function updateControlsFromDNA(){
   for(const [key,opt] of Object.entries(ranges)){
-    const number=key==='branching'||key==='feedback'||key==='thickness'?engine.config[key]*100:engine.config[key];
+    const number=['branching','feedback','thickness','diffusion','supply'].includes(key)?engine.config[key]*100:engine.config[key];
     $(key).value=String(number);
     $(key+'-value').textContent=opt.format(number);
   }
@@ -273,6 +327,42 @@ $('dna-load').addEventListener('click',()=>{
   if(!input)return;
   try{engine.loadDNA(JSON.parse(input));updateControlsFromDNA();}
   catch(err){window.alert('DNA could not be read: '+err.message);}
+});
+$('checkpoint-save').addEventListener('click',()=>{
+  const button=$('checkpoint-save');
+  button.disabled=true;
+  try{
+    const snapshot=engine.getCheckpoint();
+    const blob=new Blob([JSON.stringify(snapshot)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;
+    link.download='ex-nihilo-world-'+new Date().toISOString().replaceAll(':','-')+'.exnihilo';
+    link.click();
+    window.setTimeout(()=>URL.revokeObjectURL(url),2000);
+    button.textContent='WORLD SAVED ✓';
+    window.setTimeout(()=>{button.textContent='↓ SAVE WORLD';},1700);
+  }catch(error){window.alert('World save failed: '+error.message);}
+  finally{button.disabled=false;}
+});
+$('checkpoint-load').addEventListener('click',()=>$('checkpoint-file').click());
+$('checkpoint-file').addEventListener('change',async(e)=>{
+  const file=e.target.files?.[0];
+  e.target.value='';
+  if(!file)return;
+  if(file.size>32*1024*1024){window.alert('Checkpoint exceeds the 32 MB safety limit.');return;}
+  try{
+    const text=await file.text();
+    const snapshot=JSON.parse(text);
+    if(!window.confirm('LOAD WORLD will replace the current living organism with the saved one. Save the current world first if you want to keep it. Continue?'))return;
+    // Invalid data is rejected *before* resetting the current creature.
+    engine.restoreCheckpoint(snapshot);
+    updateControlsFromDNA();
+    syncNodes();
+    setPaused(true);
+    if(showFood)updateFoodCloud();
+    window.alert('Living world restored, PAUSED. Press RESUME to keep growing.');
+  }catch(error){window.alert('Could not load world: '+error.message);}
 });
 $('png').addEventListener('click',()=>{
   renderer.render(scene,camera);
@@ -351,10 +441,11 @@ function frame(now){
     geometryDirty=false;
   }
   updateTips();
+  if(showFood&&now-lastFoodRefresh>700){updateFoodCloud();lastFoodRefresh=now;}
   orbit.update();
   renderer.render(scene,camera);
   if(now-lastStatus>600){
-    $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS';
+    $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+Math.round(engine.nutrients.getStatistics().mean*100)+'% FOOD';
     lastStatus=now;
   }
 }
