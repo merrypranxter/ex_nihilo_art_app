@@ -33,10 +33,13 @@
 
 ## Phase 02 — Living Matter
 
-- 3D cellular automata as a sparse occupancy volume with truly local birth/death rules.
-- Gray–Scott and alternative reaction–diffusion systems with GPU or sparse 3D update paths.
-- Marching-cubes or dual-contouring mesh extraction; transparent volumetric rendering where feasible.
-- Performance modes and explicit mobile resolution/step budgets.
+- [x] 3D cellular automata with six-neighbor local birth rules, nutrient coupling, maturation and erosion.
+- [x] Touch seeding, independent crystal controls and alternate cell geometries.
+- [x] Checkpoint v2 stores both independent growth engines; v1 checkpoints remain readable.
+- [ ] Test crystal/fiber renderer and controls on an actual mobile browser.
+- [ ] Gray–Scott and alternative reaction–diffusion systems with GPU or sparse 3D update paths.
+- [ ] Marching-cubes or dual-contouring mesh extraction; transparent volumetric rendering where feasible.
+- [ ] Performance modes and explicit mobile resolution/step budgets.
 
 ## Phase 03 — Cross-coupled Feedback
 

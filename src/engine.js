@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { NutrientField } from './ecology.js';
+import { CrystalColony } from './colony.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -48,6 +49,9 @@ export class GrowthEngine {
     this.segmentRadii = new Float32Array(this.maxSegments);
     this.nutrients = new NutrientField(GRID,WORLD);
     this.nutrientElapsed = 0;
+    if(!this.colony)this.colony=new CrystalColony(GRID,WORLD);
+    else this.colony.clear();
+    this.colonyElapsed=0;
     this.onReset();
     this.seedAt(v(0,0,0),Math.min(16,this.config.agents));
   }
@@ -106,7 +110,7 @@ export class GrowthEngine {
   }
 
   getDNA() {
-    return {format:'ex-nihilo/dna-v1', experiment:'nerve-cathedral', seed:this.seed, config:{...this.config}};
+    return {format:'ex-nihilo/dna-v1', experiment:'nerve-cathedral', seed:this.seed, config:{...this.config}, colony:{...this.colony.settings}};
   }
 
   loadDNA(dna) {
@@ -114,6 +118,7 @@ export class GrowthEngine {
       throw new Error('This is not Nerve Cathedral DNA.');
     }
     this.setConfig(dna.config);
+    if(dna.colony)this.colony.setSettings(dna.colony);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
   }
 
@@ -228,6 +233,13 @@ export class GrowthEngine {
       this.nutrientElapsed-=.1;
     }
     const c=this.config;
+    if(this.colony.settings.enabled){
+      this.colonyElapsed+=dt;
+      while(this.colonyElapsed>=.32){
+        this.colony.update(this.nutrients,PALETTES[c.palette],()=>this.random());
+        this.colonyElapsed-=.32;
+      }
+    }
     // Grow the colony gradually rather than building every agent at t=0.
     if(this.agents.length<c.agents && this.random() < .18) this.addAgent(this.randomPointOnFibers());
     for(let i=0;i<this.agents.length;i++){
@@ -312,6 +324,9 @@ export class GrowthEngine {
   feedAt(pos){
     this.nutrients.inject(pos);
   }
+  seedCrystal(pos){
+    return this.colony.seedAt(pos,this.nutrients,PALETTES[this.config.palette],()=>this.random());
+  }
 
   getCheckpoint(){
     const n=this.segmentCount;
@@ -320,15 +335,16 @@ export class GrowthEngine {
       traveled:a.traveled,age:a.age,life:a.life,identity:a.identity
     });
     return {
-      format:'ex-nihilo/checkpoint-v1',
+      format:'ex-nihilo/checkpoint-v2',
       dna:this.getDNA(),time:this.time,rngState:this.rngState>>>0,
-      nutrientElapsed:this.nutrientElapsed,totalDeposits:this.totalDeposits,
+      nutrientElapsed:this.nutrientElapsed,colonyElapsed:this.colonyElapsed,totalDeposits:this.totalDeposits,
       segmentCount:n,cursor:this.cursor,
       segments:Array.from(this.segments.subarray(0,n*6)),
       colors:Array.from(this.segmentColors.subarray(0,n*3)),
       radii:Array.from(this.segmentRadii.subarray(0,n)),
       density:Array.from(this.density),
       nutrients:Array.from(this.nutrients.values),
+      colony:this.colony.snapshot(),
       nodes:this.snapshotNodes(),
       agents:this.agents.map(agentRecord)
     };
@@ -342,13 +358,15 @@ export class GrowthEngine {
       ['traveled','age','life','identity'].every(k=>finite(a[k]));
     const node=n=>n&&Number.isInteger(n.id)&&
       (n.type==='attract'||n.type==='repel')&&point(n.pos)&&finite(n.strength);
-    if(data?.format!=='ex-nihilo/checkpoint-v1'||
+    const isV2=data?.format==='ex-nihilo/checkpoint-v2';
+    if((!isV2&&data?.format!=='ex-nihilo/checkpoint-v1')||
       data?.dna?.format!=='ex-nihilo/dna-v1'||data?.dna?.experiment!=='nerve-cathedral'||
       !data.dna.config||!Number.isInteger(data.dna.seed)||
       !Number.isInteger(data.segmentCount)||data.segmentCount<0||data.segmentCount>this.maxSegments||
       !Number.isInteger(data.cursor)||data.cursor<0||data.cursor>=this.maxSegments||
       !finite(data.time)||data.time<0||!Number.isInteger(data.rngState)||
       !finite(data.nutrientElapsed)||data.nutrientElapsed<0||
+      (isV2&&(!finite(data.colonyElapsed)||data.colonyElapsed<0||data.colonyElapsed>.32))||
       !Number.isInteger(data.totalDeposits)||data.totalDeposits<0||
       !validArray(data.segments,data.segmentCount*6,n=>finite(n)&&Math.abs(n)<=100)||
       !validArray(data.colors,data.segmentCount*3,n=>Number.isInteger(n)&&n>=0&&n<=255)||
@@ -359,12 +377,14 @@ export class GrowthEngine {
       !Array.isArray(data.agents)||data.agents.length>360||!data.agents.every(agent)){
       throw new Error('Invalid, damaged, or unsupported Nerve Cathedral checkpoint.');
     }
+    if(isV2)this.colony.validateSnapshot(data.colony);
     // All checks happen before mutating the existing live artwork.
     this.setConfig(data.dna.config);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
     this.nutrientElapsed=data.nutrientElapsed;
+    this.colonyElapsed=isV2?data.colonyElapsed:0;
     this.totalDeposits=data.totalDeposits;
     this.segmentCount=data.segmentCount;
     this.cursor=data.cursor;
@@ -373,6 +393,8 @@ export class GrowthEngine {
     this.segmentRadii.set(data.radii);
     this.density.set(data.density);
     this.nutrients.setValues(data.nutrients);
+    if(isV2)this.colony.restore(data.colony);
+    else this.colony.setSettings({enabled:false});
     this.restoreNodes(data.nodes);
     this.agents=data.agents.map(a=>({
       p:v(...a.p),prev:v(...a.prev),dir:v(...a.dir),

@@ -62,6 +62,53 @@ function updateFoodCloud(){
   foodGeometry.attributes.position.needsUpdate=true;
   foodGeometry.attributes.color.needsUpdate=true;
 }
+// Cellular colony has its own geometry and history. Both engines share
+// nutrients, but neither is merely a visual filter over the other.
+const crystalCellSize=8/34;
+const crystalShapes={
+  octa:new THREE.OctahedronGeometry(crystalCellSize*.66,0),
+  cube:new THREE.BoxGeometry(crystalCellSize*.66,crystalCellSize*.66,crystalCellSize*.66),
+  sphere:new THREE.IcosahedronGeometry(crystalCellSize*.62,1)
+};
+const crystalMaterial=new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false});
+const crystals=new THREE.InstancedMesh(crystalShapes.octa,crystalMaterial,engine.colony.maxCells);
+crystals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+crystals.frustumCulled=false;
+crystals.count=0;
+scene.add(crystals);
+const crystalTransform=new THREE.Matrix4();
+const crystalPosition=new THREE.Vector3();
+const crystalRotation=new THREE.Quaternion();
+const crystalScale=new THREE.Vector3(1,1,1);
+const crystalColor=new THREE.Color();
+const crystalWhite=new THREE.Color('#ffffff');
+function syncCrystals(){
+  if(!engine.colony.changed)return;
+  let visible=0;
+  const colony=engine.colony;
+  for(let i=0;i<colony.capacity;i++){
+    if(!colony.cells[i])continue;
+    const [x,y,z]=colony.decode(i);
+    const point=colony.worldPos(x,y,z);
+    crystalPosition.set(point.x,point.y,point.z);
+    const mature=colony.cells[i]===2;
+    const scale=mature?1:Math.max(.36,Math.min(1,(colony.ages[i]+1)/colony.settings.crystallization));
+    crystalScale.setScalar(scale);
+    crystalTransform.compose(crystalPosition,crystalRotation,crystalScale);
+    crystals.setMatrixAt(visible,crystalTransform);
+    const k=i*3;
+    crystalColor.setRGB(colony.colors[k]/255,colony.colors[k+1]/255,colony.colors[k+2]/255);
+    if(!mature)crystalColor.lerp(crystalWhite,.17);
+    crystals.setColorAt(visible,crystalColor);
+    visible++;
+    if(visible>=colony.maxCells)break;
+  }
+  crystals.count=visible;
+  crystals.instanceMatrix.needsUpdate=true;
+  if(crystals.instanceColor)crystals.instanceColor.needsUpdate=true;
+  colony.changed=false;
+}
+
 const fiberGeometry = new THREE.CylinderGeometry(1,1,1,5,1,true);
 const fiberMaterial = new THREE.MeshBasicMaterial({color:'#ffffff',side:THREE.DoubleSide,toneMapped:false});
 const fibers = new THREE.InstancedMesh(fiberGeometry,fiberMaterial,engine.maxSegments);
@@ -190,6 +237,7 @@ const hints={
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
+  crystal:'TOUCH TO SEED THREE-DIMENSIONAL CELLS',
   feed:'DRAG TO INJECT NUTRIENTS INTO 3D SPACE',
   orbit:'DRAG TO ORBIT · PINCH TO ZOOM',
   erase:'TAP A FIELD NODE TO ERASE IT'
@@ -217,6 +265,7 @@ canvas.addEventListener('pointerdown',e=>{
   canvas.setPointerCapture(e.pointerId);
   const pos=positionFromEvent(e);
   if(tool==='feed'){engine.feedAt(pos);if(showFood)updateFoodCloud();return;}
+  if(tool==='crystal'){engine.seedCrystal(pos);syncCrystals();return;}
   if(tool==='seed'){
     const count=18;
     if(engine.agents.length>engine.config.agents-count) engine.agents.splice(0,Math.min(count,engine.agents.length));
@@ -258,6 +307,45 @@ document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>
     panel.classList.toggle('active',selected);
   }
 }));
+function updateCrystalControls(){
+  const c=engine.colony.settings;
+  $('colony-growth').value=Math.round(c.growth*100);
+  $('colony-growth-value').textContent=Math.round(c.growth*100)+'%';
+  $('colony-erosion').value=Math.round(c.erosion*100);
+  $('colony-erosion-value').textContent=Math.round(c.erosion*100)+'%';
+  $('colony-crystallization').value=c.crystallization;
+  $('colony-crystallization-value').textContent=c.crystallization+' steps';
+  $('colony-toggle').textContent=c.enabled?'Ⅱ PAUSE CRYSTAL GROWTH':'◇ START CRYSTAL COLONY';
+  $('colony-toggle').setAttribute('aria-pressed',String(c.enabled));
+}
+function readCrystalControls(){
+  engine.colony.setSettings({
+    growth:Number($('colony-growth').value)/100,
+    erosion:Number($('colony-erosion').value)/100,
+    crystallization:Number($('colony-crystallization').value)
+  });
+  updateCrystalControls();
+}
+['colony-growth','colony-erosion','colony-crystallization'].forEach(id=>
+  $(id).addEventListener('input',readCrystalControls));
+$('colony-toggle').addEventListener('click',()=>{
+  const enabled=!engine.colony.settings.enabled;
+  engine.colony.setSettings({enabled});
+  if(enabled&&engine.colony.population===0)engine.seedCrystal(new THREE.Vector3());
+  updateCrystalControls();
+  syncCrystals();
+});
+$('crystal-seed').addEventListener('click',()=>setTool('crystal'));
+$('crystal-clear').addEventListener('click',()=>{
+  if(!engine.colony.population)return;
+  if(!window.confirm('Erase the crystal colony only? Your fiber structures and nutrient world will remain.'))return;
+  engine.colony.clear();
+  syncCrystals();
+});
+$('colony-geometry').addEventListener('change',()=>{
+  crystals.geometry=crystalShapes[$('colony-geometry').value];
+});
+
 const ranges={
   speed:{format:n=>n.toFixed(1)+'×',read:n=>n},
   agents:{format:n=>String(n),read:n=>n},
@@ -290,6 +378,7 @@ function updateControlsFromDNA(){
   }
   $('palette').value=engine.config.palette;
   $('topology').value=engine.config.topology;
+  updateCrystalControls();
 }
 for(const key of Object.keys(ranges))$(key).addEventListener('input',readControls);
 $('palette').addEventListener('change',readControls);
@@ -314,7 +403,8 @@ $('pause').addEventListener('click',()=>setPaused(!paused));
 $('new').addEventListener('click',()=>{
   if(!window.confirm('Erase this living organism and start a NEW universe? This cannot be undone.'))return;
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
-  syncNodes();setPaused(false);
+  if(engine.colony.settings.enabled)engine.seedCrystal(new THREE.Vector3());
+  syncNodes();syncCrystals();setPaused(false);
 });
 $('dna-save').addEventListener('click',async()=>{
   const text=JSON.stringify(engine.getDNA(),null,2);
@@ -421,7 +511,7 @@ function fit(){
 }
 new ResizeObserver(fit).observe(canvas);
 window.addEventListener('resize',fit);
-fit();readControls();
+fit();readControls();updateCrystalControls();
 let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
@@ -441,11 +531,13 @@ function frame(now){
     geometryDirty=false;
   }
   updateTips();
+  syncCrystals();
   if(showFood&&now-lastFoodRefresh>700){updateFoodCloud();lastFoodRefresh=now;}
   orbit.update();
   renderer.render(scene,camera);
   if(now-lastStatus>600){
-    $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+Math.round(engine.nutrients.getStatistics().mean*100)+'% FOOD';
+    $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+engine.colony.population.toLocaleString()+' CELLS';
+    $('crystal-stats').textContent=engine.colony.population.toLocaleString()+' CRYSTALS · '+engine.colony.generation+' GENERATIONS';
     lastStatus=now;
   }
 }
