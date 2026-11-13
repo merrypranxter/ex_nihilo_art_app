@@ -19,8 +19,17 @@
 - [x] Controls, palettes, PNG, JSON DNA, deliberate resets
 - [x] Optional guarded Wolfram field Jacobian eigenvalue analysis
 - [ ] Real-world iPhone Safari performance characterization
-- [ ] Snapshot/restore of entire lived simulation state
-- [ ] Robust deterministic replay verification under varying frame rates
+- [x] Snapshot/restore of entire lived simulation state (local JSON checkpoint)
+- [x] Fixed-step deterministic replay from checkpoint (logic regression)
+- [ ] Real-world cross-device consistency/performance testing
+
+## Phase 01B — Living Ecology
+
+- [x] Three-dimensional nutrient concentration and six-neighbor diffusion
+- [x] Nutrient-directed growth with consumption and replenishment
+- [x] Touch-painted nutrient injection and optional visible nutrient cloud
+- [x] Complete JSON world checkpoint and restored growth-state continuity
+- [x] Headless logic regression checks (deployment/browser validation still outstanding)
 
 ## Phase 02 — Living Matter
 
