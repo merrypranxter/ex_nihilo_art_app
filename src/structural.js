@@ -62,7 +62,8 @@ export function resolveCrystalMovement(colony,start,end,mode='slide'){
   const move=subtract(end,start);
   if(norm(move)<1e-10)return {position:end,contact:false,normal:null};
   const [ax,ay,az]=colony.coords(start),[bx,by,bz]=colony.coords(end);
-  const width=colony.extent/colony.size,half=width*.43;
+  // Use the whole occupied voxel (not just the smaller visual crystal glyph).
+  const width=colony.extent/colony.size,half=width*.5;
   let hit=null;
   for(let z=Math.max(1,Math.min(az,bz)-2);z<=Math.min(colony.size-2,Math.max(az,bz)+2);z++)
     for(let y=Math.max(1,Math.min(ay,by)-2);y<=Math.min(colony.size-2,Math.max(ay,by)+2);y++)
