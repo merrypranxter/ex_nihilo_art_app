@@ -22,6 +22,9 @@ export class MorphogenesisVolume {
     this.neighbors=new Uint32Array(this.count*6);
     this.nutrientIndex=new Uint32Array(this.count);
     this.cachedNutrientSize=0;
+    // Projection from the 28³ chemical lattice into the 34³ crystal world.
+    this.solidIndex=new Uint32Array(this.count);
+    this.cachedSolidSize=0;
     this.settings={
       enabled:false,feed:.0367,kill:.0649,diffA:.16,diffB:.08,
       iterations:5,iso:.21,chemotaxis:.7,fiberCatalysis:.35,crystalSink:.25
@@ -67,6 +70,17 @@ export class MorphogenesisVolume {
       this.nutrientIndex[this.index(x,y,z)]=nx+s*(ny+s*nz);
     }
     this.cachedNutrientSize=nutrient.size;
+  }
+  indexSolids(solids){
+    if(!solids || this.cachedSolidSize===solids.size)return;
+    const n=this.size,s=solids.size;
+    for(let z=0;z<n;z++)for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+      const cx=clamp(Math.floor((x+.5)/n*s),0,s-1);
+      const cy=clamp(Math.floor((y+.5)/n*s),0,s-1);
+      const cz=clamp(Math.floor((z+.5)/n*s),0,s-1);
+      this.solidIndex[this.index(x,y,z)]=cx+s*(cy+s*cz);
+    }
+    this.cachedSolidSize=solids.size;
   }
   reset(){
     this.u.fill(1);this.v.fill(0);
@@ -137,29 +151,45 @@ export class MorphogenesisVolume {
       z:(b[this.index(x,y,Math.min(n-1,z+1))]-b[this.index(x,y,Math.max(0,z-1))])*.5
     };
   }
-  tick(nutrient){
+  tick(nutrient,solids=null,wallPermeability=1){
     if(!this.settings.enabled)return;
     this.indexNutrients(nutrient);
-    // A fractional explicit Euler step prevents nonphysical oscillatory saturation.
+    const wall=solids?.population?solids.cells:null;
+    if(wall)this.indexSolids(solids);
+    // Fractional explicit Euler; material faces scale the diffusive flux
+    // symmetrically. Reactions still occur at every chemical lattice site.
     const n=this.count,neighbors=this.neighbors,settings=this.settings,dt=.25;
     const food=nutrient?.values;
+    const perm=clamp(wallPermeability,0,1);
     for(let iteration=0;iteration<settings.iterations;iteration++){
       const U=this.u,V=this.v,NU=this.nextU,NV=this.nextV;
       let count=0;
       for(let i=0;i<n;i++){
         const u=U[i],v=V[i],k=i*6;
-        const lu=U[neighbors[k]]+U[neighbors[k+1]]
-          +U[neighbors[k+2]]+U[neighbors[k+3]]
-          +U[neighbors[k+4]]+U[neighbors[k+5]]-6*u;
-        const lv=V[neighbors[k]]+V[neighbors[k+1]]
-          +V[neighbors[k+2]]+V[neighbors[k+3]]
-          +V[neighbors[k+4]]+V[neighbors[k+5]]-6*v;
+        let lu=0,lv=0;
+        if(!wall){
+          lu=U[neighbors[k]]+U[neighbors[k+1]]+
+            U[neighbors[k+2]]+U[neighbors[k+3]]+
+            U[neighbors[k+4]]+U[neighbors[k+5]]-6*u;
+          lv=V[neighbors[k]]+V[neighbors[k+1]]+
+            V[neighbors[k+2]]+V[neighbors[k+3]]+
+            V[neighbors[k+4]]+V[neighbors[k+5]]-6*v;
+        }else{
+          const blocked=wall[this.solidIndex[i]];
+          for(let q=0;q<6;q++){
+            const j=neighbors[k+q];
+            const scale=blocked||wall[this.solidIndex[j]]?perm:1;
+            lu+=scale*(U[j]-u);
+            lv+=scale*(V[j]-v);
+          }
+        }
         const reaction=u*v*v;
-        // The independent nutrient world supplies chemical A replenishment.
         const nutrientFactor=food?(.68+.72*food[this.nutrientIndex[i]]):1;
         const f=settings.feed*nutrientFactor;
+        const blocked=wall&&wall[this.solidIndex[i]];
+        const sink=blocked?dt*.015*settings.crystalSink:0;
         NU[i]=clamp(u+dt*(settings.diffA*lu-reaction+f*(1-u)),0,1);
-        NV[i]=clamp(v+dt*(settings.diffB*lv+reaction-(f+settings.kill)*v),0,1);
+        NV[i]=clamp(v+dt*(settings.diffB*lv+reaction-(f+settings.kill)*v)-sink,0,1);
         if(NV[i]>settings.iso)count++;
       }
       this.u=NU;this.v=NV;this.nextU=U;this.nextV=V;

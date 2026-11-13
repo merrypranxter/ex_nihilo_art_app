@@ -49,9 +49,14 @@
 
 - [x] Chemical gradients steer growing agents; deposited fibers catalyze the chemical B field.
 - [x] Crystal birth consumes chemical B; chemical B biases local crystal birth probability.
-- [ ] Cellular structures obstruct/redirect vector fields and give agents surfaces to attach to.
+- [x] Solid crystal cell voxels redirect or slide growing tips along material boundaries, with contact branching.
+- [x] Chemical gradients and live isosurface tracing change actual fiber trajectories.
+- [x] Occupied crystal cells restrict six-face nutrient flux and chemical A/B diffusion.
+- [x] Structural rule controls and physical-contact history persist in complete world saves.
+- [ ] Chemically mediated attachment/release and explicit persistent cell-surface adhesion.
 - Graph-based nutrient transport and state-dependent branching.
-- Conservation/loss terms and visual diagnosis to avoid arbitrary simulation magic.
+- [x] Nutrient barrier flux stays conservative when replenishment is off (symmetric face-permeability coupling).
+- [ ] Global conservation/loss diagnostics and on-canvas scientific readouts.
 
 ## Phase 04 — Wolfram Oracle
 

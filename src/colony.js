@@ -110,8 +110,16 @@ export class CrystalColony {
       // new growth, creating holes instead of filling a rectangular volume.
       const contact=neighbors===1?.85:neighbors===2?1.1:neighbors===3?.55:0;
       const spatial=1+.24*Math.sin(x*.41+y*.19-z*.33+this.generation*.033);
-      const chemicalBias=chemical?.settings.enabled
-        ?(.72+Math.min(1,chemical.sampleB(p))*1.35):1;
+      let chemicalBias=1;
+      if(chemical?.settings.enabled){
+        const b=chemical.sampleB(p);
+        const g=chemical.gradientB(p);
+        const steepness=Math.min(1,Math.hypot(g.x,g.y,g.z)*5);
+        const nearBoundary=Math.max(0,1-Math.abs(b-chemical.settings.iso)/.12);
+        // Cells favor genuine chemical interfaces (iso-B boundaries).
+        // This biases *local birth probabilities*; it does not insert shapes.
+        chemicalBias=(.72+Math.min(1,b)*1.35)*(1+1.7*nearBoundary*steepness);
+      }
       const probability=lim(.19*this.settings.growth*contact*food*spatial*chemicalBias,0,.86);
       if(rng()<probability)births.push(i);
     }
