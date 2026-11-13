@@ -68,6 +68,8 @@ export class CrystalColony {
     const food=nutrient.sample(p);
     this.colorAt(i,food,palette,rng);
     nutrient.consume(p,.095);
+    // Chemical cross-coupling callback provided by the world when enabled.
+    if(this.onBirth)this.onBirth(p);
     this.changed=true;
     return true;
   }
@@ -76,7 +78,7 @@ export class CrystalColony {
     if(!this.inside(x,y,z))return false;
     return this.birth(this.index(x,y,z),nutrient,palette,rng);
   }
-  update(nutrient,palette,rng){
+  update(nutrient,palette,rng,chemical=null){
     if(!this.settings.enabled||this.population===0)return;
     const candidates=new Map();
     const mature=[];
@@ -108,7 +110,9 @@ export class CrystalColony {
       // new growth, creating holes instead of filling a rectangular volume.
       const contact=neighbors===1?.85:neighbors===2?1.1:neighbors===3?.55:0;
       const spatial=1+.24*Math.sin(x*.41+y*.19-z*.33+this.generation*.033);
-      const probability=lim(.19*this.settings.growth*contact*food*spatial,0,.86);
+      const chemicalBias=chemical?.settings.enabled
+        ?(.72+Math.min(1,chemical.sampleB(p))*1.35):1;
+      const probability=lim(.19*this.settings.growth*contact*food*spatial*chemicalBias,0,.86);
       if(rng()<probability)births.push(i);
     }
     for(const i of births)this.birth(i,nutrient,palette,rng);
