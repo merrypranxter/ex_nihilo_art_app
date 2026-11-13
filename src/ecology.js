@@ -82,23 +82,35 @@ export class NutrientField {
         }
   }
 
-  tick(diffusion=.6,supply=.5){
+  tick(diffusion=.6,supply=.5,solids=null,wallPermeability=1){
     const n=this.size,old=this.values,next=this.scratch;
-    // Three-dimensional explicit diffusion stability: alpha < 1/6.
+    // Finite-volume six-face flux: dense crystal voxels slow or block exchange.
+    // With permeability 1, this is mathematically identical to the original
+    // six-neighbor Laplacian. The flux on each shared face is symmetric.
     const alpha=Math.min(.145,Math.max(0,diffusion)*.11);
     const restore=Math.min(.04,Math.max(0,supply)*.013);
     const extent=this.extent;
+    const wall=solids?.length===this.count?solids:null;
+    const perm=clamp(wallPermeability,0,1);
     for(let z=0;z<n;z++)for(let y=0;y<n;y++)for(let x=0;x<n;x++){
       const i=this.index(x,y,z),here=old[i];
-      const neighbors=
-        old[this.index(x-1,y,z)]+old[this.index(x+1,y,z)]
-        +old[this.index(x,y-1,z)]+old[this.index(x,y+1,z)]
-        +old[this.index(x,y,z-1)]+old[this.index(x,y,z+1)];
+      let flux=0;
+      for(let q=0;q<6;q++){
+        const j=q===0?this.index(x-1,y,z)
+          :q===1?this.index(x+1,y,z)
+          :q===2?this.index(x,y-1,z)
+          :q===3?this.index(x,y+1,z)
+          :q===4?this.index(x,y,z-1):this.index(x,y,z+1);
+        const p=wall&&(wall[i]||wall[j])?perm:1;
+        flux+=p*(old[j]-here);
+      }
       const xx=((x+.5)/n-.5)*extent;
       const yy=((y+.5)/n-.5)*extent;
       const zz=((z+.5)/n-.5)*extent;
       const target=this.source(xx,yy,zz);
-      next[i]=clamp(here+alpha*(neighbors-6*here)+restore*(target-here),0,1);
+      // Food sources also become weaker inside a sealed, mineralized wall.
+      const supplyScale=wall&&wall[i]?perm:1;
+      next[i]=clamp(here+alpha*flux+restore*supplyScale*(target-here),0,1);
     }
     this.values=next;
     this.scratch=old;
