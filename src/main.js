@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { extractIsosurface } from './surface.js';
+import { FINISHES } from './art-direction.js';
 import './styles.css';
 
 const $ = id => document.getElementById(id);
@@ -29,7 +30,8 @@ const engine = new GrowthEngine();
 // Morphogenesis is a geometric isosurface of the live Gray–Scott B field.
 // CPU mesh extraction is capped and throttled, with adjustable stride.
 const morphMaterial=new THREE.MeshPhysicalMaterial({
-  vertexColors:true,metalness:.12,roughness:.24,clearcoat:.6,clearcoatRoughness:.14,
+  vertexColors:true,metalness:.12,roughness:.23,clearcoat:.92,clearcoatRoughness:.12,
+  iridescence:.85,iridescenceIOR:1.32,iridescenceThicknessRange:[110,420],
   side:THREE.DoubleSide,transparent:false
 });
 const morphMesh=new THREE.Mesh(new THREE.BufferGeometry(),morphMaterial);
@@ -53,7 +55,9 @@ function refreshMorphSurface(now,force=false){
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.BufferAttribute(raw.positions,3));
   geo.setAttribute('color',new THREE.BufferAttribute(raw.colors,3));
-  if(raw.triangles)geo.computeVertexNormals();
+  if(raw.normals?.length===raw.positions.length){
+    geo.setAttribute('normal',new THREE.BufferAttribute(raw.normals,3));
+  }else if(raw.triangles)geo.computeVertexNormals();
   const old=morphMesh.geometry;
   morphMesh.geometry=geo;
   old.dispose();
@@ -108,7 +112,11 @@ const crystalShapes={
   cube:new THREE.BoxGeometry(crystalCellSize*.66,crystalCellSize*.66,crystalCellSize*.66),
   sphere:new THREE.IcosahedronGeometry(crystalCellSize*.62,1)
 };
-const crystalMaterial=new THREE.MeshBasicMaterial({color:'#ffffff',toneMapped:false});
+const crystalMaterial=new THREE.MeshPhysicalMaterial({
+  color:'#ffffff',metalness:.12,roughness:.23,clearcoat:.92,
+  clearcoatRoughness:.12,iridescence:.85,iridescenceIOR:1.32,
+  iridescenceThicknessRange:[110,420]
+});
 const crystals=new THREE.InstancedMesh(crystalShapes.octa,crystalMaterial,engine.colony.maxCells);
 crystals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 crystals.frustumCulled=false;
@@ -148,7 +156,10 @@ function syncCrystals(){
 }
 
 const fiberGeometry = new THREE.CylinderGeometry(1,1,1,5,1,true);
-const fiberMaterial = new THREE.MeshBasicMaterial({color:'#ffffff',side:THREE.DoubleSide,toneMapped:false});
+const fiberMaterial = new THREE.MeshStandardMaterial({
+  color:'#ffffff',side:THREE.DoubleSide,metalness:.20,roughness:.35,
+  emissive:'#12071d',emissiveIntensity:.22
+});
 const fibers = new THREE.InstancedMesh(fiberGeometry,fiberMaterial,engine.maxSegments);
 fibers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 fibers.frustumCulled = false;
