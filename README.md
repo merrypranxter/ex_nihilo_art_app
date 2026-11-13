@@ -11,7 +11,9 @@ An interactive, mobile-first 3D mathematical art laboratory. Its first experimen
 - A three-dimensional occupancy grid remembers deposited matter and feeds it back into future growth.
 - Direct touch/cursor attractors, repulsors, and new growth seeds; touch-orbit mode.
 - Pause, adjustable speed, palette and field changes without resetting growth.
-- Save/load parameter DNA, PNG export, and an explicit confirmation before wiping the living state.
+- Save/load parameter DNA **and complete living-world checkpoints**, PNG export, and an explicit confirmation before wiping the living state.
+- Three-dimensional nutrient diffusion, localized chemical injections, consumption by growing fiber tips, and nutrient-guided growth.
+- Optional visible nutrient volume for investigating where growth is headed.
 - Optional server-side Wolfram|Alpha local Jacobian/eigenvalue analysis; no API key in the browser.
 
 ## Run locally
@@ -40,12 +42,14 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 
 ## Architecture
 
-- `src/engine.js` — mutable simulation state, flow physics, 3D occupancy and growth.
+- `src/engine.js` — mutable simulation state, flow physics, 3D occupancy, growth and full-world serialization.
+- `src/ecology.js` — real three-dimensional nutrient concentration field, finite-difference diffusion, consumption and replenishment.
+- `tests/biology.test.js` — physics/checkpoint regression tests (`npm test`).
 - `src/main.js` — Three.js renderer, inputs, camera, views and exporting.
 - `src/styles.css` — mobile-first control layout.
 - `netlify/functions/wolfram.mjs` — credential-protected, allowlisted computational request.
 - `docs/ROADMAP.md` — next real simulation and material milestones.
 
-Current limitations: CPU-side growth updates and finite mesh capacity; no volumetric reaction–diffusion yet; undo handles field-node editing, **not** rewinding all simulation time; screenshots export the current canvas, not high-resolution cinematic video. We keep these boundaries explicit.
+Current limitations: CPU-side growth updates and finite mesh capacity; no volumetric reaction–diffusion yet; undo handles field-node editing, **not** rewinding all simulation time; saving/loading a world uses a JSON file; screenshots export the current canvas, not high-resolution cinematic video. We keep these boundaries explicit.
 
 **Principle:** construction DNA (reproducible rules/seed) is different from lived simulation state (where this particular organism has grown).

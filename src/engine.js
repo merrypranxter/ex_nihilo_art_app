@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { NutrientField } from './ecology.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -20,7 +21,8 @@ export class GrowthEngine {
     this.maxSegments = 60000;
     this.config = {
       speed: 1, agents: 180, branching: .45, feedback: .55, thickness: .04,
-      topology: 'cathedral', force: 1, frequency: 1.2, evolution: .4, palette: 'acid'
+      topology: 'cathedral', force: 1, frequency: 1.2, evolution: .4, palette: 'acid',
+      nutrientDrive: 1.2, diffusion: .6, supply: .5
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -42,6 +44,10 @@ export class GrowthEngine {
     this.nodeRedo = [];
     this.density = new Uint16Array(GRID * GRID * GRID);
     this.segments = new Float32Array(this.maxSegments * 6);
+    this.segmentColors = new Uint8Array(this.maxSegments * 3);
+    this.segmentRadii = new Float32Array(this.maxSegments);
+    this.nutrients = new NutrientField(GRID,WORLD);
+    this.nutrientElapsed = 0;
     this.onReset();
     this.seedAt(v(0,0,0),Math.min(16,this.config.agents));
   }
@@ -90,6 +96,9 @@ export class GrowthEngine {
     candidate.force = clamp(safe(+candidate.force),0,3);
     candidate.frequency = clamp(safe(+candidate.frequency),.3,3.5);
     candidate.evolution = clamp(safe(+candidate.evolution),0,2);
+    candidate.nutrientDrive = clamp(safe(+candidate.nutrientDrive),0,2);
+    candidate.diffusion = clamp(safe(+candidate.diffusion),0,1);
+    candidate.supply = clamp(safe(+candidate.supply),0,1);
     if(!['cathedral','vortex','braid','serpentine','bloom'].includes(candidate.topology)) candidate.topology='cathedral';
     if(!PALETTES[candidate.palette]) candidate.palette='acid';
     this.config=candidate;
@@ -170,6 +179,9 @@ export class GrowthEngine {
     // Physical memory: old deposits repel growing tips via a density gradient.
     const feedback=this.densityGradient(pos);
     f.addScaledVector(feedback,-c.feedback*12);
+    // A genuinely evolving, consumed scalar field steers growth up food gradients.
+    const foodGradient=this.nutrients.gradient(pos);
+    f.add(v(foodGradient.x,foodGradient.y,foodGradient.z).multiplyScalar(c.nutrientDrive*13));
     // Field nodes are actual forces, persisted and independently editable.
     for(const node of this.nodes){
       const delta=node.pos.clone().sub(pos);
@@ -193,8 +205,14 @@ export class GrowthEngine {
     this.segments[j]=a.x;this.segments[j+1]=a.y;this.segments[j+2]=a.z;
     this.segments[j+3]=b.x;this.segments[j+4]=b.y;this.segments[j+5]=b.z;
     this.mark(b);
+    this.nutrients.consume(b,.048);
     const color=this.pickColor(agent);
-    this.onDeposit(slot,a,b,color,this.config.thickness*(.65+agent.identity*.75));
+    const radius=this.config.thickness*(.65+agent.identity*.75);
+    this.segmentColors[slot*3]=Math.round(clamp(color.r,0,1)*255);
+    this.segmentColors[slot*3+1]=Math.round(clamp(color.g,0,1)*255);
+    this.segmentColors[slot*3+2]=Math.round(clamp(color.b,0,1)*255);
+    this.segmentRadii[slot]=radius;
+    this.onDeposit(slot,a,b,color,radius);
     this.cursor=(this.cursor+1)%this.maxSegments;
     this.segmentCount=Math.min(this.segmentCount+1,this.maxSegments);
     this.totalDeposits++;
@@ -204,6 +222,11 @@ export class GrowthEngine {
     dt=clamp(dt,0,.05);
     if(!dt)return;
     this.time+=dt;
+    this.nutrientElapsed+=dt;
+    while(this.nutrientElapsed>=.1){
+      this.nutrients.tick(this.config.diffusion,this.config.supply);
+      this.nutrientElapsed-=.1;
+    }
     const c=this.config;
     // Grow the colony gradually rather than building every agent at t=0.
     if(this.agents.length<c.agents && this.random() < .18) this.addAgent(this.randomPointOnFibers());
@@ -214,13 +237,15 @@ export class GrowthEngine {
       if(field.lengthSq()<.001) field.copy(a.dir);
       field.normalize();
       a.dir.lerp(field,.09).addScaledVector(this.randomVector(),.017).normalize();
-      a.p.addScaledVector(a.dir,dt*c.speed*.95);
-      a.traveled+=dt*c.speed*.95;
+      const food=this.nutrients.sample(a.p);
+      const growthRate=dt*c.speed*.95*(.35+.85*food);
+      a.p.addScaledVector(a.dir,growthRate);
+      a.traveled+=growthRate;
       if(a.traveled >= .105){
         this.deposit(a.prev,a.p,a);
         a.prev.copy(a.p);
         a.traveled=0;
-        if(this.random() < c.branching*.016 && this.agents.length<c.agents){
+        if(this.random() < c.branching*.016*(.35+food) && this.agents.length<c.agents){
           this.addAgent(a.p,a.dir.clone().addScaledVector(this.randomVector(),.7));
         }
       }
@@ -282,6 +307,88 @@ export class GrowthEngine {
     this.nodeUndo.push(this.snapshotNodes());
     this.restoreNodes(this.nodeRedo.pop());
     return true;
+  }
+
+  feedAt(pos){
+    this.nutrients.inject(pos);
+  }
+
+  getCheckpoint(){
+    const n=this.segmentCount;
+    const agentRecord=a=>({
+      p:a.p.toArray(),prev:a.prev.toArray(),dir:a.dir.toArray(),
+      traveled:a.traveled,age:a.age,life:a.life,identity:a.identity
+    });
+    return {
+      format:'ex-nihilo/checkpoint-v1',
+      dna:this.getDNA(),time:this.time,rngState:this.rngState>>>0,
+      nutrientElapsed:this.nutrientElapsed,totalDeposits:this.totalDeposits,
+      segmentCount:n,cursor:this.cursor,
+      segments:Array.from(this.segments.subarray(0,n*6)),
+      colors:Array.from(this.segmentColors.subarray(0,n*3)),
+      radii:Array.from(this.segmentRadii.subarray(0,n)),
+      density:Array.from(this.density),
+      nutrients:Array.from(this.nutrients.values),
+      nodes:this.snapshotNodes(),
+      agents:this.agents.map(agentRecord)
+    };
+  }
+
+  restoreCheckpoint(data){
+    const finite=x=>typeof x==='number'&&Number.isFinite(x);
+    const validArray=(a,n,check=finite)=>Array.isArray(a)&&a.length===n&&a.every(check);
+    const point=p=>validArray(p,3,n=>finite(n)&&Math.abs(n)<=100);
+    const agent=a=>a&&point(a.p)&&point(a.prev)&&point(a.dir)&&
+      ['traveled','age','life','identity'].every(k=>finite(a[k]));
+    const node=n=>n&&Number.isInteger(n.id)&&
+      (n.type==='attract'||n.type==='repel')&&point(n.pos)&&finite(n.strength);
+    if(data?.format!=='ex-nihilo/checkpoint-v1'||
+      data?.dna?.format!=='ex-nihilo/dna-v1'||data?.dna?.experiment!=='nerve-cathedral'||
+      !data.dna.config||!Number.isInteger(data.dna.seed)||
+      !Number.isInteger(data.segmentCount)||data.segmentCount<0||data.segmentCount>this.maxSegments||
+      !Number.isInteger(data.cursor)||data.cursor<0||data.cursor>=this.maxSegments||
+      !finite(data.time)||data.time<0||!Number.isInteger(data.rngState)||
+      !finite(data.nutrientElapsed)||data.nutrientElapsed<0||
+      !Number.isInteger(data.totalDeposits)||data.totalDeposits<0||
+      !validArray(data.segments,data.segmentCount*6,n=>finite(n)&&Math.abs(n)<=100)||
+      !validArray(data.colors,data.segmentCount*3,n=>Number.isInteger(n)&&n>=0&&n<=255)||
+      !validArray(data.radii,data.segmentCount,n=>finite(n)&&n>=0&&n<=1)||
+      !validArray(data.density,GRID**3,n=>Number.isInteger(n)&&n>=0&&n<=MAX_DENSITY)||
+      !validArray(data.nutrients,GRID**3,n=>finite(n)&&n>=0&&n<=1)||
+      !Array.isArray(data.nodes)||data.nodes.length>15||!data.nodes.every(node)||
+      !Array.isArray(data.agents)||data.agents.length>360||!data.agents.every(agent)){
+      throw new Error('Invalid, damaged, or unsupported Nerve Cathedral checkpoint.');
+    }
+    // All checks happen before mutating the existing live artwork.
+    this.setConfig(data.dna.config);
+    this.reset(data.dna.seed);
+    this.time=data.time;
+    this.rngState=data.rngState>>>0;
+    this.nutrientElapsed=data.nutrientElapsed;
+    this.totalDeposits=data.totalDeposits;
+    this.segmentCount=data.segmentCount;
+    this.cursor=data.cursor;
+    this.segments.set(data.segments);
+    this.segmentColors.set(data.colors);
+    this.segmentRadii.set(data.radii);
+    this.density.set(data.density);
+    this.nutrients.setValues(data.nutrients);
+    this.restoreNodes(data.nodes);
+    this.agents=data.agents.map(a=>({
+      p:v(...a.p),prev:v(...a.prev),dir:v(...a.dir),
+      traveled:a.traveled,age:a.age,life:a.life,identity:a.identity
+    }));
+    // Restore the *actual historical* colors and widths, not today's palette.
+    const a=v(),b=v(),color=new THREE.Color();
+    for(let i=0;i<this.segmentCount;i++){
+      const k=i*6,j=i*3;
+      a.set(this.segments[k],this.segments[k+1],this.segments[k+2]);
+      b.set(this.segments[k+3],this.segments[k+4],this.segments[k+5]);
+      color.setRGB(this.segmentColors[j]/255,this.segmentColors[j+1]/255,this.segmentColors[j+2]/255);
+      this.onDeposit(i,a,b,color,this.segmentRadii[i]);
+    }
+    this.nodeUndo=[];
+    this.nodeRedo=[];
   }
 
   localJacobian(at){
