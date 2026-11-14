@@ -323,6 +323,40 @@ function showNodeSelection(){
   }
 }
 const nodeViews=new Map();
+// A touch-responsive preview samples the SAME vector field that drives real
+// fiber tips. It is an instrument readout, not a substitute for simulation.
+const previewCount=24;
+const previewCoordinates=new Float32Array(previewCount*6);
+const previewGeometry=new THREE.BufferGeometry();
+previewGeometry.setAttribute('position',new THREE.BufferAttribute(
+  previewCoordinates,3).setUsage(THREE.DynamicDrawUsage));
+const previewVectors=new THREE.LineSegments(previewGeometry,
+  new THREE.LineBasicMaterial({color:'#bffff1',transparent:true,opacity:.65,depthWrite:false}));
+previewVectors.frustumCulled=false;
+previewVectors.visible=false;
+scene.add(previewVectors);
+const sampleLocation=new THREE.Vector3();
+function updateFieldPreview(){
+  const node=selectedNode();
+  if(!node||node.type!=='vortex'){previewVectors.visible=false;return;}
+  const r=Math.max(.25,node.radius*.72);
+  for(let i=0;i<previewCount;i++){
+    const a=i*2*Math.PI/previewCount;
+    sampleLocation.set(
+      node.pos.x+Math.cos(a)*r,
+      node.pos.y,
+      node.pos.z+Math.sin(a)*r
+    );
+    const flow=engine.fieldAt(sampleLocation).normalize().multiplyScalar(.20);
+    const k=i*6;
+    previewCoordinates.set([
+      sampleLocation.x,sampleLocation.y,sampleLocation.z,
+      sampleLocation.x+flow.x,sampleLocation.y+flow.y,sampleLocation.z+flow.z
+    ],k);
+  }
+  previewGeometry.attributes.position.needsUpdate=true;
+  previewVectors.visible=true;
+}
 function syncNodes(){
   const existing=new Set();
   engine.nodes.forEach(node=>{
@@ -355,6 +389,7 @@ function syncNodes(){
   }
   if(selectedNodeId!==null&&!existing.has(selectedNodeId))selectedNodeId=null;
   showNodeSelection();
+  updateFieldPreview();
 }
 const raycaster=new THREE.Raycaster();
 const pointer=new THREE.Vector2();
