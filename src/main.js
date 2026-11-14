@@ -10,6 +10,10 @@ import {
   INTERIOR_STYLES,mineralInclusionRecipe,
   historicInclusionPigment,inclusionFaceRotation
 } from './mineral-inclusions.js';
+import {
+  METAMORPHOSIS_STAGES,mineralLifeStage,
+  mineralStageMaterials,isMineralMetamorphosisActive
+} from './mineral-metamorphosis.js';
 import { FieldGestureTransaction, GrowthStrokeTransaction, CrystalPressureTransaction } from './gesture-witch.js';
 import { PALETTE_CATALOG, PALETTE_NAMES, filteredPalettes } from './palettes.js';
 import './styles.css';
@@ -171,6 +175,41 @@ crystals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 crystals.frustumCulled=false;
 crystals.count=0;
 scene.add(crystals);
+// Metamorphosis uses the SAME base geometry and historical cell RGB, but
+// three distinct native physically-lit materials instead of a color cycle.
+// The classic single draw stays intact and is the ONLY core draw when OFF.
+const crystalAgeMeshes=Object.fromEntries(METAMORPHOSIS_STAGES.map(stage=>{
+  const material=crystalMaterial.clone();
+  const mesh=new THREE.InstancedMesh(crystals.geometry,material,engine.colony.maxCells);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled=false;
+  mesh.count=0;
+  mesh.visible=false;
+  scene.add(mesh);
+  return [stage,mesh];
+}));
+const crystalAgeCounts={young:0,mature:0,fault:0};
+function syncCrystalAgeMaterials(){
+  const enabled=isMineralMetamorphosisActive({
+    preset:engine.config.crystalEvolution
+  });
+  crystals.visible=!enabled;
+  const props=enabled?mineralStageMaterials(engine.config.crystalEvolution):null;
+  for(const stage of METAMORPHOSIS_STAGES){
+    const mesh=crystalAgeMeshes[stage];
+    mesh.visible=enabled&&mesh.count>0;
+    if(!props)continue;
+    const p=props[stage],mat=mesh.material;
+    mat.roughness=p.roughness;
+    mat.metalness=p.metalness;
+    mat.clearcoat=p.clearcoat;
+    mat.clearcoatRoughness=p.clearcoatRoughness;
+    mat.iridescence=p.iridescence;
+    mat.iridescenceIOR=p.iridescenceIOR;
+    mat.iridescenceThicknessRange=[...p.iridescenceThicknessRange];
+    mat.needsUpdate=true;
+  }
+}
 // Extra facet pieces are located ONLY on existing, exposed mineral surfaces,
  // prioritizing actual stress/fracture boundaries. One capped draw call.
 const maxFacetGems=1200;
@@ -249,6 +288,10 @@ function syncCrystals(){
   if(!engine.colony.changed)return;
   let visible=0,facetCount=0,skinCount=0,seedCount=0,
       scarLinesDrawn=0,cracked=0,shattered=0;
+  const useAging=isMineralMetamorphosisActive({
+    preset:engine.config.crystalEvolution
+  });
+  for(const tier of METAMORPHOSIS_STAGES)crystalAgeCounts[tier]=0;
   const inclusionStyle=engine.config.crystalInterior;
   const useInclusions=inclusionStyle!=='off'&&
     (engine.config.crystalSkin>0||engine.config.crystalInclusions>0);
@@ -321,6 +364,19 @@ function syncCrystals(){
       Math.min(.16,stress*.12));
     crystalColor.lerp(crystalWhite,display.pigmentMix);
     crystals.setColorAt(visible,crystalColor);
+    if(useAging){
+      const tier=mineralLifeStage({
+        occupied:true,mature,age:colony.ages[i],
+        damage,strain:stress,fractureFaces:surface.fractureFaces
+      },{
+        maturity:engine.config.crystalMaturity,
+        stress:engine.config.crystalStressOptics
+      });
+      const index=crystalAgeCounts[tier]++;
+      const mesh=crystalAgeMeshes[tier];
+      mesh.setMatrixAt(index,crystalTransform);
+      mesh.setColorAt(index,crystalColor);
+    }
     // Layered, age-grown mineral structure is anchored to REAL surviving
     // exterior crystal cells. Render-only IDs/geometry never change the CA.
     if(useInclusions&&mature&&surface.exposed>0){
@@ -415,6 +471,21 @@ function syncCrystals(){
   crystals.count=visible;
   crystals.instanceMatrix.needsUpdate=true;
   if(crystals.instanceColor)crystals.instanceColor.needsUpdate=true;
+  crystals.visible=!useAging;
+  for(const tier of METAMORPHOSIS_STAGES){
+    const mesh=crystalAgeMeshes[tier];
+    mesh.count=useAging?crystalAgeCounts[tier]:0;
+    mesh.visible=useAging&&mesh.count>0;
+    if(useAging){
+      mesh.instanceMatrix.needsUpdate=true;
+      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    }
+  }
+  $('crystal-evolution-stats').textContent=useAging?
+    crystalAgeCounts.young.toLocaleString()+' YOUNG GLASS · '+
+    crystalAgeCounts.mature.toLocaleString()+' MATURE OPAL · '+
+    crystalAgeCounts.fault.toLocaleString()+' FAULTED MINERAL':
+    'OPTICAL LIFE CYCLE OFF · ORIGINAL CRYSTALS';
   colony.changed=false;
 }
 
