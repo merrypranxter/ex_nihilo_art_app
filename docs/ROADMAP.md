@@ -113,6 +113,19 @@
 - [ ] Bounded persistent stroke fields, reversible crystal stress/chemical scars and full checkpoint-aware undo beyond field-node documents.
 - [ ] True topological surgery only if explicit connectivity constraints become supported.
 
+## Phase 03G — Gesture-stitching and all MATHEMAGICAL colors
+
+- [x] Full exact 194-entry MATHEMAGICAL sRGB palette library plus original EX NIHILO five (199 total), preserving original names, source and 2–12 stops.
+- [x] Search palette names/sources; edit each color, shuffle order, randomize stops, random RGB and restore source colors. Keep background separate.
+- [x] Drawing a 3D growth GUIDE path changes actual local future fiber steering; a WARP path paints local directional flow.
+- [x] Capped 10 paths × 48 points, persistent field-source identities, visible editable field overlays.
+- [x] Atomic path undo/redo, cancellation rollback, mixed history with existing Gesture Witch vortex sources, and erase/clear path operations.
+- [x] Save drawn constraints and custom colors in construction DNA and complete living-world checkpoints.
+- [x] Old v1/v2/v3 save compatibility, corrupt-save rejection and deterministic physics replay tested headlessly.
+- [ ] Physical iPhone Safari touch/color-picker inspection; performance, accessibility and Vite build QA.
+- [ ] Real persistent fluid deformation and interactive pressure coupling to crystal colony; not a fake image warp.
+- [ ] Add palette import/export custom saves and optional per-stop warm/cool shuffle if desired.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
