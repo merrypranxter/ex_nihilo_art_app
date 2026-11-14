@@ -71,6 +71,12 @@ orbit.enabled=false;
 orbit.update();
 
 const engine = new GrowthEngine();
+function surfaceCompositionOptions(){
+  const c=engine.config;
+  return {boundary:c.surfaceBoundary,voids:c.surfaceVoids,
+    regions:c.surfaceRegions,wrap:c.surfaceWrap,
+    symmetry:c.surfaceSeedSymmetry};
+}
 
 // SURFACE ART has an independent, full-frame 2D material-growth canvas.
 // The original THREE organism, its camera and living world remain untouched.
@@ -130,7 +136,9 @@ function refreshSurfaceStats(){
     ' ACTIVE FRONT CELLS'+
     (p.frontier.size===0?' · MATERIAL FRONT STABILIZED':'')+
     (engine.config.surfaceWrap?' · PERIODIC EDGES':'');
-  $('surface-stats').textContent=value;
+  $('surface-stats').textContent=value+
+    (engine.config.surfaceBoundary==='open'?'':' · GROWTH MASK: '+engine.config.surfaceBoundary.toUpperCase())+
+    (engine.config.surfaceRegions==='single'?'':' · MIXED REGIONAL PHYSICS');
   if(engine.config.compositionDomain==='surface'){
     $('stats').textContent=coverage+'% COVERAGE · '+p.seeds.length+' CRYSTAL FAMILIES';
   }
@@ -139,7 +147,7 @@ function seedSurfaceIfEmpty(){
   if(engine.surface.population>0)return;
   const c=engine.config;
   engine.surface.seedArrangement(c.surfaceSeedCount,c.surfaceNucleation,
-    engine.currentPalette());
+    engine.currentPalette(),surfaceCompositionOptions());
   refreshSurfaceStats();
 }
 function setCompositionDomain(next){
@@ -196,7 +204,7 @@ function plantSurface(e){
   const dx=surfaceLastX===null?999:(e.clientX-surfaceLastX);
   const dy=surfaceLastY===null?999:(e.clientY-surfaceLastY);
   if(Math.hypot(dx,dy)<22)return;
-  if(engine.surface.seedAt(p.x,p.y,engine.currentPalette())){
+  if(engine.surface.seedSymmetricAt(p.x,p.y,engine.currentPalette(),surfaceCompositionOptions())){
     surfaceLastX=e.clientX;surfaceLastY=e.clientY;
     drawSurface();refreshSurfaceStats();
   }
@@ -2341,12 +2349,16 @@ const surfaceSettings=[
   ['surface-growth','surfaceGrowth',x=>x/100,v=>Math.round(v*100)+'%'],
   ['surface-coverage','surfaceCoverage',x=>x/100,v=>Math.round(v*100)+'%'],
   ['surface-speed','surfaceSpeed',x=>Math.round(x),v=>v+''],
-  ['surface-contrast','surfaceContrast',x=>x/100,v=>Math.round(v*100)+'%']
+  ['surface-contrast','surfaceContrast',x=>x/100,v=>Math.round(v*100)+'%'],
+  ['surface-voids','surfaceVoids',x=>x/100,v=>Math.round(v*100)+'%']
 ];
 function updateSurfaceControls(){
   const c=engine.config;
   $('surface-morphology').value=c.surfaceMorphology;
   $('surface-nucleation').value=c.surfaceNucleation;
+  $('surface-boundary').value=c.surfaceBoundary;
+  $('surface-regions').value=c.surfaceRegions;
+  $('surface-symmetry').value=c.surfaceSeedSymmetry;
   for(const [id,key,,format] of surfaceSettings){
     $(id).value=key==='surfaceSeedCount'||key==='surfaceSpeed'?
       c[key]:Math.round(c[key]*100);
@@ -2359,25 +2371,34 @@ function updateSurfaceControls(){
   refreshSurfaceStats();
 }
 function readSurfaceControls(){
-  const previousMorphology=engine.config.surfaceMorphology;
+  const previous=JSON.stringify([engine.config.surfaceMorphology,
+    engine.config.surfaceBoundary,engine.config.surfaceVoids,
+    engine.config.surfaceRegions]);
   const values={
     surfaceMorphology:$('surface-morphology').value,
-    surfaceNucleation:$('surface-nucleation').value
+    surfaceNucleation:$('surface-nucleation').value,
+    surfaceBoundary:$('surface-boundary').value,
+    surfaceRegions:$('surface-regions').value,
+    surfaceSeedSymmetry:$('surface-symmetry').value
   };
   for(const [id,key,parse] of surfaceSettings)
     values[key]=parse(Number($(id).value));
   engine.setConfig(values);
-  if(previousMorphology!==engine.config.surfaceMorphology)
-    engine.surface.rebuildFrontier(engine.config.surfaceWrap);
+  const current=JSON.stringify([engine.config.surfaceMorphology,
+    engine.config.surfaceBoundary,engine.config.surfaceVoids,
+    engine.config.surfaceRegions]);
+  if(previous!==current)
+    engine.surface.rebuildFrontier(engine.config.surfaceWrap,surfaceCompositionOptions());
   updateSurfaceControls();
   engine.surface.changed=true;
 }
-for(const id of ['surface-morphology','surface-nucleation'])
+for(const id of ['surface-morphology','surface-nucleation',
+  'surface-boundary','surface-regions','surface-symmetry'])
   $(id).addEventListener('change',readSurfaceControls);
 for(const [id] of surfaceSettings)$(id).addEventListener('input',readSurfaceControls);
 $('surface-wrap').addEventListener('click',()=>{
   engine.setConfig({surfaceWrap:!engine.config.surfaceWrap});
-  engine.surface.rebuildFrontier(engine.config.surfaceWrap);
+  engine.surface.rebuildFrontier(engine.config.surfaceWrap,surfaceCompositionOptions());
   updateSurfaceControls();engine.surface.changed=true;
 });
 $('domain-object').addEventListener('click',()=>setCompositionDomain('object'));
@@ -2656,7 +2677,7 @@ function frame(now){
       while(surfaceClock>=interval&&advances<6){
         engine.surface.advance(engine.currentPalette(),{
           morphology:engine.config.surfaceMorphology,
-          wrap:engine.config.surfaceWrap,
+          ...surfaceCompositionOptions(),
           growth:engine.config.surfaceGrowth,
           coverage:engine.config.surfaceCoverage
         });

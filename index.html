@@ -124,6 +124,32 @@
                   <option value="strata">GEOLOGICAL STRATA · LAYERED PRECIPITATION</option>
                 </select>
               </label>
+              <label class="control select-control"><span>Growth boundary · shape real negative space</span>
+                <select id="surface-boundary">
+                  <option value="open">OPEN CANVAS · ALL CELLS PERMITTED</option>
+                  <option value="rose">ROSE WINDOW · RADIAL VAULTS &amp; PETALS</option>
+                  <option value="rivers">BRAIDED RIVERS · WANDERING CHANNELS</option>
+                  <option value="lace">INTERFERENCE LACE · CONNECTED PORES</option>
+                </select>
+              </label>
+              <label class="control"><span>Resistant / empty territory <output id="surface-voids-value">55%</output></span>
+                <input id="surface-voids" type="range" min="0" max="95" step="5" value="55"/>
+              </label>
+              <label class="control select-control"><span>Physics across the canvas</span>
+                <select id="surface-regions">
+                  <option value="single">SINGLE LAW · USE GROWTH PHYSICS ABOVE</option>
+                  <option value="quilt">INTERFERENCE BIOMES · THREE LAWS MEET</option>
+                  <option value="vortex">VORTEX TERRITORIES · THREE LAWS MEET</option>
+                </select>
+              </label>
+              <label class="control select-control"><span>Seed symmetry · applies to new nuclei</span>
+                <select id="surface-symmetry">
+                  <option value="none">FREE NUCLEI</option>
+                  <option value="mirror">BILATERAL · MIRRORED PAIRS</option>
+                  <option value="quad">FOUR-WAY · MIRRORED QUARTETS</option>
+                  <option value="sixfold">SIXFOLD · ROTATIONAL ORBITS</option>
+                </select>
+              </label>
               <label class="control select-control"><span>How growth centers are arranged (used on NEW SURFACE SEED)</span>
                 <select id="surface-nucleation">
                   <option value="lattice">HEXAGONALLY SPACED NUCLEI</option>
@@ -151,7 +177,8 @@
             <div class="small-actions ecology-actions">
               <button type="button" class="choice" id="surface-wrap" aria-pressed="false">◇ PERIODIC TILE EDGES: OFF</button>
             </div>
-            <p class="help">PERIODIC TILE EDGES connects the left/right and top/bottom sides of the living lattice. Use this for genuinely repeating 1:1 textures. Existing pigments do not change when you alter the palette; your new births use the currently selected palette from LIGHT. For a perfectly clean new wrapped experiment, enable periodic edges BEFORE pressing NEW SURFACE SEED.</p>
+            <p class="help">ART DIRECTION · Boundaries are actual resistance to future mineral births, not drawn-on masks. Set Resistant / empty territory to 0% to disable this resistance; OPEN ignores it. Biomes change the local physical growth law across the same living canvas. Seed symmetry plants actual independent mirrored/rotated nuclei; later stochastic branches may differ, so this is not image-mirror symmetry. Changes never delete deposits. A NEW SURFACE SEED uses all the selected settings.</p>
+            <p class="help">PERIODIC TILE EDGES connects opposite sides of the actual material lattice. For the cleanest repeating experiment, enable it before NEW SURFACE SEED. Existing pigments stay frozen even when you change palette, growth law, void geometry, or symmetry. New births use the currently selected LIGHT palette. PNG is 2048px upscaled from a 192-cell simulation, not native 2048-cell simulation.</p>
           </div>
           <div class="panel" data-panel="form" hidden>
             <p class="help first">Give the growing system a compositional intention. These are physical forces, not prebuilt shapes. Switching forms changes FUTURE growth; your existing artwork stays exactly where it is.</p>

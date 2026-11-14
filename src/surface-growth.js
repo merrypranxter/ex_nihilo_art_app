@@ -3,6 +3,7 @@
 // texture overlay, static noise, or one-time procedural illustration.
 // Every painted pixel starts as a real birth in a seeded, competing CA.
 // NO DOM / THREE imports: testable offline and safe to checkpoint.
+import {buildCompositionField,compositionSample,symmetricSeedPoints,COMPOSITION_LAWS} from './surface-composition.js';
 export const SURFACE_SIZE=192;
 export const SURFACE_MORPHOLOGIES=Object.freeze({
   spherulite:'RADIAL SPHERULITES',dendrite:'DENDRITIC VEINS',
@@ -44,6 +45,7 @@ export class SurfaceGrowth {
     this.seeds=[]; this.frontier=new Set();
     this.generation=0;this.population=0;
     this.stallTicks=0;
+    this.compositionKey=null;this.compositionField=null;
     this.changed=true;
   }
   random(){
@@ -78,13 +80,43 @@ export class SurfaceGrowth {
     this.changed=true;
     return true;
   }
-  seedArrangement(count,arrangement,palette){
+  // Seed orbits are REAL independent nuclei, not an image reflection.
+  // Reject a partial group: a mirrored seed should never become half a pair.
+  seedSymmetricAt(u,v,palette,options={},limit=MAX_SEEDS){
+    const raw=symmetricSeedPoints(u,v,options.symmetry||'none');
+    const unique=new Map();
+    for(const [x,y] of raw){
+      const ix=clamp(Math.floor(x*this.size),0,this.size-1);
+      const iy=clamp(Math.floor(y*this.size),0,this.size-1);
+      unique.set(ix+iy*this.size,[x,y]);
+    }
+    if(!unique.size||this.seeds.length+unique.size>Math.min(MAX_SEEDS,limit))return false;
+    const threshold=(options.voids??.55)<=0?-1:
+      Math.round(clamp(Number(options.voids??.55),0,1)*220);
+    for(const [i,[x,y]] of unique){
+      if(this.owner[i])return false;
+      if(options.boundary&&options.boundary!=='open'&&
+         compositionSample(x,y,options).gate<=threshold)return false;
+    }
+    for(const [x,y] of unique.values())this.seedAt(x,y,palette);
+    return true;
+  }
+  compositionFor(options={}){
+    const key=JSON.stringify([options.boundary||'open',
+      options.regions||'single',options.voids??.55,!!options.wrap]);
+    if(key!==this.compositionKey||!this.compositionField){
+      this.compositionKey=key;
+      this.compositionField=buildCompositionField(this.size,options);
+    }
+    return this.compositionField;
+  }
+  seedArrangement(count,arrangement,palette,options={}){
     if(this.population>0)return false;
     const nSeeds=clamp(Math.round(Number(count)||24),1,MAX_SEEDS);
     const layout=Object.hasOwn(SURFACE_NUCLEATION,arrangement)?arrangement:'scattered';
     const side=Math.ceil(Math.sqrt(nSeeds)),n=this.size;
     let placed=0;
-    for(let j=0;j<nSeeds;j++){
+    for(let j=0;j<nSeeds&&this.seeds.length<nSeeds;j++){
       let u,v;
       if(layout==='radial'){
         const a=j*2.399963229728653;
@@ -102,8 +134,10 @@ export class SurfaceGrowth {
       }
       // Occupied duplicate seeds retry with a stable nearby variation.
       for(let attempt=0;attempt<6;attempt++){
-        if(this.seedAt(mod(u+attempt*.019,1),mod(v+attempt*.013,1),palette)){
-          placed++;break;
+        const before=this.seeds.length;
+        if(this.seedSymmetricAt(mod(u+attempt*.019,1),
+          mod(v+attempt*.013,1),palette,options,nSeeds)){
+          placed+=this.seeds.length-before;break;
         }
       }
     }
@@ -111,12 +145,13 @@ export class SurfaceGrowth {
   }
   // Re-open active fronts if the user changes physics or boundary topology.
   // The existing deposits remain immutable.
-  rebuildFrontier(wrap=false){
+  rebuildFrontier(wrap=false,options={}){
+    const field=this.compositionFor({...options,wrap});
     const next=new Set();
     for(let i=0;i<this.capacity;i++){
       if(!this.owner[i])continue;
       let open=false;
-      this.neighbors(i,wrap,ni=>{if(!this.owner[ni])open=true;});
+      this.neighbors(i,wrap,ni=>{if(!this.owner[ni]&&field.gates[ni]>field.threshold)open=true;});
       if(open)next.add(i);
     }
     this.frontier=next;this.stallTicks=0;
@@ -140,9 +175,11 @@ export class SurfaceGrowth {
       this.birthColor[k+channel]=Math.round(clamp(color,0,255));
     }
   }
-  advance(palette,{morphology='spherulite',wrap=false,growth=.82,coverage=.96}={}){
+  advance(palette,{morphology='spherulite',wrap=false,growth=.82,coverage=.96,
+    boundary='open',voids=.55,regions='single'}={}){
     if(!this.frontier.size||this.population>=this.capacity*coverage)return false;
     const mode=Object.hasOwn(SURFACE_MORPHOLOGIES,morphology)?morphology:'spherulite';
+    const field=this.compositionFor({boundary,voids,regions,wrap});
     const proposals=new Map();
     // Freeze the entire old cell lattice: later same-tick births must not
     // alter contender scores, contact count, or the probability of a peer.
@@ -154,21 +191,22 @@ export class SurfaceGrowth {
       let open=false;
       const owner=prior[parent],source=this.seeds[owner-1];
       this.neighbors(parent,wrap,(ni,dx,dy)=>{
-        if(prior[ni])return;
+        if(prior[ni]||field.gates[ni]<=field.threshold)return;
         open=true;
+        const localMode=regions==='single'?mode:COMPOSITION_LAWS[field.laws[ni]];
         const existing=proposals.get(ni);
         const familyAngle=source.angle;
         const x=ni%n/n-.5,y=Math.floor(ni/n)/n-.5;
         const radial=Math.atan2(dy,dx);
         const alignment=.5+.5*Math.cos(radial-familyAngle);
         let affinity=1;
-        if(mode==='dendrite')affinity=.55+1.25*Math.pow(alignment,4);
-        else if(mode==='strata')affinity=.6+.5*Math.cos((x+y)*Math.PI*3+familyAngle);
+        if(localMode==='dendrite')affinity=.55+1.25*Math.pow(alignment,4);
+        else if(localMode==='strata')affinity=.6+.5*Math.cos((x+y)*Math.PI*3+familyAngle);
         else affinity=1;
         // Competing active fronts choose a factual parent deterministically.
         const score=affinity + .12*((hash32(ni^Math.imul(owner,0x85ebca6b))&65535)/65535);
         if(!existing||score>existing.score)
-          proposals.set(ni,{family:owner,depth:Math.min(65535,this.depth[parent]+1),score});
+          proposals.set(ni,{family:owner,depth:Math.min(65535,this.depth[parent]+1),score,mode:localMode});
       });
       if(open)stillActive.add(parent);
     }
@@ -180,6 +218,7 @@ export class SurfaceGrowth {
     // a parent during this step. Thus material growth is synchronous.
     for(const [i,candidate] of proposals){
       if(this.population+births>=this.capacity*coverage||births>=limit)break;
+      const localMode=candidate.mode;
       let neighbors=0,competitive=false;
       this.neighbors(i,wrap,ni=>{
         if(prior[ni]){
@@ -189,15 +228,15 @@ export class SurfaceGrowth {
       });
       const grain=(hash32((i+1)^Math.imul(this.generation+7,0x9e3779b1))&255)/255;
       let probability=clamp(growth,0,1.5)*.86;
-      if(mode==='dendrite'){
+      if(localMode==='dendrite'){
         probability*=neighbors>=4?.26:neighbors>=3?.48:.87;
         probability*=.45+candidate.score*.5;
-      }else if(mode==='strata'){
+      }else if(localMode==='strata'){
         probability*=.55+candidate.score*.35;
       }else{
         probability*=neighbors>=2?1.22:1.0;
       }
-      if(mode==='dendrite'){
+      if(localMode==='dendrite'){
         // A frozen mineral-growth substrate makes actual unoccupied channels
         // that survive after the fronts stop. Otherwise every morphology
         // eventually becomes the same filled rectangle with new colors.
@@ -207,12 +246,14 @@ export class SurfaceGrowth {
         if(resistance<-.39||neighbors>=5)continue;
       }
       if(competitive)probability*=.96;
+      // Field permeability is a physical resistance at the prospective cell.
+      probability*=.65+.35*(field.gates[i]/255);
       probability*=.83+.30*grain;
       if(this.random()>=clamp(probability,0,.997))continue;
       this.owner[i]=candidate.family;
       this.depth[i]=candidate.depth;
       this.age[i]=0;
-      this.writeBirthColor(i,candidate.family,candidate.depth,palette,mode);
+      this.writeBirthColor(i,candidate.family,candidate.depth,palette,localMode);
       next.add(i);births++;
     }
     // Parent sites cease being a frontier once all neighboring sites fill.
@@ -220,7 +261,7 @@ export class SurfaceGrowth {
     const fresh=new Set();
     for(const i of next){
       let hasVacancy=false;
-      this.neighbors(i,wrap,ni=>{if(!this.owner[ni])hasVacancy=true;});
+      this.neighbors(i,wrap,ni=>{if(!this.owner[ni]&&field.gates[ni]>field.threshold)hasVacancy=true;});
       if(hasVacancy)fresh.add(i);
     }
     this.stallTicks=births?0:this.stallTicks+1;
@@ -279,6 +320,7 @@ export class SurfaceGrowth {
     this.birthColor.set(s.birthColor);
     this.seeds=s.seeds.map(v=>({...v}));
     this.frontier=new Set(s.frontier);
+    this.compositionKey=null;this.compositionField=null;
     this.changed=true;
   }
 }

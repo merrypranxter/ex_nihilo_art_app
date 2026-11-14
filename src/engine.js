@@ -13,6 +13,7 @@ import { METAMORPHOSIS_PRESETS } from './mineral-metamorphosis.js';
 import { HERITAGE_MODES } from './crystal-bloodlines.js';
 import { FAMILY_FOCUS_MODES } from './crystal-family-inspector.js';
 import { SurfaceGrowth,SURFACE_MORPHOLOGIES,SURFACE_NUCLEATION } from './surface-growth.js';
+import { SURFACE_BOUNDARIES,SURFACE_REGIONS,SURFACE_SEED_SYMMETRY } from './surface-composition.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -50,7 +51,9 @@ export class GrowthEngine {
       compositionDomain:'object',
       surfaceMorphology:'spherulite',surfaceNucleation:'lattice',
       surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
-      surfaceSpeed:3,surfaceContrast:.80,surfaceWrap:false
+      surfaceSpeed:3,surfaceContrast:.80,surfaceWrap:false,
+      surfaceBoundary:'open',surfaceVoids:.55,
+      surfaceRegions:'single',surfaceSeedSymmetry:'none'
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -196,6 +199,10 @@ export class GrowthEngine {
     candidate.surfaceSpeed=Math.round(clamp(safe(+candidate.surfaceSpeed),1,6));
     candidate.surfaceContrast=clamp(safe(+candidate.surfaceContrast),0,1.5);
     candidate.surfaceWrap=!!candidate.surfaceWrap;
+    if(!Object.hasOwn(SURFACE_BOUNDARIES,candidate.surfaceBoundary))candidate.surfaceBoundary='open';
+    if(!Object.hasOwn(SURFACE_REGIONS,candidate.surfaceRegions))candidate.surfaceRegions='single';
+    if(!Object.hasOwn(SURFACE_SEED_SYMMETRY,candidate.surfaceSeedSymmetry))candidate.surfaceSeedSymmetry='none';
+    candidate.surfaceVoids=clamp(safe(+candidate.surfaceVoids),0,.95);
     candidate.crystalMaturity=Math.round(clamp(safe(+candidate.crystalMaturity),8,96));
     candidate.crystalStressOptics=clamp(safe(+candidate.crystalStressOptics),.1,1.2);
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
@@ -266,7 +273,8 @@ export class GrowthEngine {
         surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
         surfaceSpeed:3,surfaceContrast:.8,surfaceWrap:false}
       :historicalInspector;
-    this.setConfig(historicalSurface);
+    this.setConfig({surfaceBoundary:'open',surfaceVoids:.55,
+      surfaceRegions:'single',surfaceSeedSymmetry:'none',...historicalSurface});
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings({
@@ -816,7 +824,8 @@ export class GrowthEngine {
         surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
         surfaceSpeed:3,surfaceContrast:.8,surfaceWrap:false}
       :historicalInspector;
-    this.setConfig(historicalSurface);
+    this.setConfig({surfaceBoundary:'open',surfaceVoids:.55,
+      surfaceRegions:'single',surfaceSeedSymmetry:'none',...historicalSurface});
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
