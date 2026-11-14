@@ -116,7 +116,7 @@
               <button type="button" class="choice" id="surface-png">↓ 2048px ART PNG</button>
             </div>
             <details id="surface-loop-forge" class="morph-advanced">
-              <summary>🎞 LOOP FORGE · ANIMATED MINERAL EXPORT</summary>
+              <summary>🎞 LOOP FORGE · CINEMATIC COMPOSITION</summary>
               <div class="morph-advanced-grid">
                 <p class="help first">Capture a frozen mineral specimen as a mathematically looping animation. The growth simulation, Gesture Witch marks, pigments and 3D organism do not change. GIF frames are rendered OFFLINE and loop perfectly; MP4 uses realtime browser recording and may drop frames on slow phones.</p>
                 <div class="control-grid">
@@ -141,11 +141,12 @@
                       <option value="24">24 FPS · MORE FRAMES</option>
                     </select>
                   </label>
-                  <label class="control select-control"><span>Output dimensions</span>
+                  <label class="control select-control"><span>Output long edge (not square size)</span>
                     <select id="surface-loop-size">
                       <option value="512" selected>512 × 512 · IPHONE FRIENDLY</option>
                       <option value="768">768 × 768 · MORE DETAIL</option>
-                      <option value="1024">1024 × 1024 · HEAVY</option>
+                      <option value="1024">1024 px · HD-ish GIF / MOBILE MP4</option>
+                      <option value="1920">1920 px · FULL-HD MP4 ONLY</option>
                     </select>
                   </label>
                   <label class="control select-control"><span>What moves?</span>
@@ -161,15 +162,47 @@
                       <option value="boomerang">BOOMERANG · FORWARD AND BACK</option>
                     </select>
                   </label>
+                  <label class="control select-control"><span>Composition / aspect ratio</span>
+                    <select id="surface-loop-aspect">
+                      <option value="1:1">1:1 · SQUARE ORIGINAL</option>
+                      <option value="9:16">9:16 · PHONE / REELS / TIKTOK</option>
+                      <option value="16:9">16:9 · WIDESCREEN VIDEO</option>
+                      <option value="3:4">3:4 · PORTRAIT ART</option>
+                      <option value="4:3">4:3 · LANDSCAPE ART</option>
+                    </select>
+                  </label>
+                  <label class="control select-control"><span>Art direction: cropping</span>
+                    <select id="surface-loop-framing">
+                      <option value="cover">FILL FRAME · CROP TO FIT</option>
+                      <option value="contain">FIT ALL ART · BACKGROUND BARS</option>
+                    </select>
+                  </label>
+                  <label class="control"><span>Pan horizontally <output id="surface-loop-focus-x-value">50%</output></span>
+                    <input id="surface-loop-focus-x" type="range" min="0" max="100" step="1" value="50"/>
+                  </label>
+                  <label class="control"><span>Pan vertically <output id="surface-loop-focus-y-value">50%</output></span>
+                    <input id="surface-loop-focus-y" type="range" min="0" max="100" step="1" value="50"/>
+                  </label>
+                  <label class="control"><span>Framing zoom <output id="surface-loop-zoom-value">1.00×</output></span>
+                    <input id="surface-loop-zoom" type="range" min="100" max="250" step="5" value="100"/>
+                  </label>
+                  <label class="control select-control"><span>MP4 requested bitrate (browser-dependent)</span>
+                    <select id="surface-loop-bitrate">
+                      <option value="balanced">BALANCED · 5 Mbps</option>
+                      <option value="high" selected>HIGH · 12 Mbps</option>
+                      <option value="maximum">MAXIMUM · 20 Mbps</option>
+                    </select>
+                  </label>
                 </div>
                 <div class="small-actions ecology-actions">
+                  <button type="button" class="choice active" id="surface-loop-guides" aria-pressed="true">▣ SOCIAL SAFE AREA: ON</button>
                   <button type="button" class="choice" id="surface-loop-preview" aria-pressed="false">▷ PREVIEW LOOP</button>
                   <button type="button" class="primary" id="surface-loop-export">↓ EXPORT GIF</button>
                   <button type="button" class="mini danger" id="surface-loop-cancel" disabled>CANCEL EXPORT</button>
                 </div>
-                <p class="help" id="surface-loop-status" role="status" aria-live="polite">Choose a loop, then preview or export. Start with 512px / 12fps for your iPhone.</p>
+                <p class="help" id="surface-loop-status" role="status" aria-live="polite">Choose a layout, preview the framing and export. For an iPhone start at 512px / 12fps.</p>
                 <p class="help" id="surface-loop-mp4-note">MP4 detection is checked locally in your browser. Unsupported browsers can still export GIF.</p>
-                <p class="help">GIF frames use exact integer phase positions and centisecond timing; 10 seconds at high resolution can consume serious memory. Film Tide is meaningful for OPAL or SPECTRAL OPAL coatings. MP4 is *native* MP4 only, never disguised WebM; realtime encoding cannot promise frame-perfect timing. PNG remains the 2048px full-color still format.</p>
+                <p class="help">GIF frames use exact integer phase positions and centisecond timing; 10 seconds at high resolution can consume serious memory. Film Tide is meaningful for OPAL or SPECTRAL OPAL coatings. Social safe-area guides appear only in preview. Portrait/Wide CROP preserves geometry but may remove edges; FIT keeps everything with bars. MP4 is native MP4 only; bitrate is a request, not a guarantee, and realtime encoding cannot promise frame-perfect timing. PNG remains the 2048px full-color still format.</p>
               </div>
             </details>
             <details id="surface-gesture-lab" class="morph-advanced" open>
