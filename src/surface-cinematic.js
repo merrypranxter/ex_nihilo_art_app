@@ -64,6 +64,25 @@ export function paintCinematicFrame(ctx,source,{
   ctx.restore();
   return rect;
 }
+// Inverse of the exact composition transform: a tap on the rendered
+// preview chooses a real spot in the original 192x192 mineral world.
+// Letterbox bars are non-interactive; their apparent space is not material.
+export function pickCinematicSource(u,v,sourceSize,width,height,{
+  framing='cover',focusX=.5,focusY=.5,zoom=1
+}={}){
+  if(!Number.isFinite(u)||!Number.isFinite(v)||u<0||u>1||v<0||v>1)
+    return null;
+  const r=cinematicFrameRect(sourceSize,width,height,{
+    framing,focusX,focusY,zoom
+  });
+  const px=u*width,py=v*height;
+  if(px<r.dx||px>r.dx+r.dw||py<r.dy||py>r.dy+r.dh)
+    return null;
+  return {
+    x:clamp((r.sx+(px-r.dx)/r.dw*r.sw)/sourceSize,0,1),
+    y:clamp((r.sy+(py-r.dy)/r.dh*r.sh)/sourceSize,0,1)
+  };
+}
 // Approximate app-overlay exclusion area. Preview only; it must never be
 // embedded into a GIF, MP4, or PNG file. Social apps can change their UI.
 export function cinematicSafeArea(width,height,aspect='9:16'){
