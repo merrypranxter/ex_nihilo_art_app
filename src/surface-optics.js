@@ -108,7 +108,8 @@ export function dielectricInterference(thicknessNm,cosIncident=1,index=1.46){
 export function surfaceOpticsPixels(surface,baseRGBA,{
   mode='off',strength=.8,thickness=330,roughness=.3,
   angle=40,phase=0,background='#05060c',wrap=false,
-  filmIndex=1.46,substrateIndex=1.62,polarization=.5
+  filmIndex=1.46,substrateIndex=1.62,polarization=.5,
+  filmWave=0,coatingPhase=0
 }={}){
   const n=surface?.size,capacity=n*n;
   if(!Number.isInteger(n)||n<16||n>192||
@@ -121,6 +122,8 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
   if(power===0)return out;
   const film=clamp(safe(thickness,330),90,800);
   const grain=clamp(safe(roughness,.3),0,1);
+  const swell=clamp(safe(filmWave,0),0,.65);
+  const cycle=safe(coatingPhase,0);
   const light=opticalLight(angle,phase);
   const spectralTable=mode==='spectral'?getSpectralFilmLUT({
     thickness:film,filmIndex,substrateIndex,polarization}):null;
@@ -151,7 +154,7 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
     if(mode==='opal'){
       // Deposited layer thickness follows actual family phase, graph
       // distance and maturation; none depend on external pixel noise.
-      const layers=film*(.76+.27*Math.sin(depth[i]*.24+seedPhase*TAU)
+      const layers=film*(1+swell*Math.sin(cycle+depth[i]*.14+seedPhase*TAU))*(.76+.27*Math.sin(depth[i]*.24+seedPhase*TAU)
         +.10*maturity);
       const opticalPath=4*Math.PI*1.46*layers*
         clamp(.26+.70*incidence,.08,1);
@@ -168,7 +171,7 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
       // Full Fresnel s/p powers integrated at 81 wavelengths, 380–780 nm.
       // LUT is cached in LINEAR sRGB, not display-encoded RGB.
       // The 2D angle is relative to the moving lamp, NOT a real camera view.
-      const filmDepth=film*(.80+.18*Math.sin(depth[i]*.24+seedPhase*TAU)
+      const filmDepth=film*(1+swell*Math.sin(cycle+depth[i]*.14+seedPhase*TAU))*(.80+.18*Math.sin(depth[i]*.24+seedPhase*TAU)
         +.12*maturity);
       sampleSpectralLUT(spectralTable,clamp(.16+.84*incidence,.04,1),
         filmDepth,spectralRGB);
