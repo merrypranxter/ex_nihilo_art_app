@@ -9,6 +9,7 @@ import { lineageSteering } from './filigree.js';
 import { FIBER_PROFILES } from './mineral-optics.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
+import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
 export { PALETTES } from './palettes.js';
 
 const WORLD = 8;
@@ -31,7 +32,8 @@ export class GrowthEngine {
       rhythmMode:'beats',rhythmDepth:.62,rhythmRate:.55,
       branchOrdering:'family',branchPersistence:.78,filigreeContrast:.70,
       fiberProfile:'needle',mineralStrength:.65,mineralHalfLife:18,
-      paletteStops:null,strokeRadius:.75,strokeStrength:1.15
+      paletteStops:null,strokeRadius:.75,strokeStrength:1.15,
+      pressureRadius:.85,pressureStrength:1.2
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -52,6 +54,7 @@ export class GrowthEngine {
     this.agents = [];
     this.nodes = [];
     this.strokes=[];
+    this.pressures=[];
     this.nodeUndo = [];
     this.nodeRedo = [];
     this.density = new Uint16Array(GRID * GRID * GRID);
@@ -144,6 +147,8 @@ export class GrowthEngine {
     candidate.mineralHalfLife=clamp(safe(+candidate.mineralHalfLife),3,120);
     candidate.strokeRadius=clamp(safe(+candidate.strokeRadius),.2,1.8);
     candidate.strokeStrength=clamp(safe(+candidate.strokeStrength),.1,3);
+    candidate.pressureRadius=clamp(safe(+candidate.pressureRadius),.25,2.1);
+    candidate.pressureStrength=clamp(safe(+candidate.pressureStrength),.1,2.4);
     if(!isPaletteStops(candidate.paletteStops))throw new Error('Invalid custom palette stops');
     candidate.paletteStops=candidate.paletteStops?.map(h=>h.toLowerCase())??null;
     if(!FIBER_PROFILES[candidate.fiberProfile])candidate.fiberProfile='legacy';
@@ -163,7 +168,8 @@ export class GrowthEngine {
   getDNA() {
     return {format:'ex-nihilo/dna-v1',experiment:'nerve-cathedral',seed:this.seed,
       config:{...this.config},colony:{...this.colony.settings},
-      morphogenesis:{...this.morphogenesis.settings},strokes:this.snapshotStrokes()};
+      morphogenesis:{...this.morphogenesis.settings},
+      strokes:this.snapshotStrokes(),pressures:this.snapshotPressures()};
   }
 
   loadDNA(dna) {
@@ -171,6 +177,7 @@ export class GrowthEngine {
       throw new Error('This is not Nerve Cathedral DNA.');
     }
     if(dna.strokes!==undefined&&!validStrokes(dna.strokes))throw new Error('Invalid saved growth paths');
+    if(dna.pressures!==undefined&&!validPressures(dna.pressures))throw new Error('Invalid saved crystal pressure marks');
     // Historical DNA from before visual composition should remain unconstrained.
     const historicalForm=dna.config.form===undefined
       ?{...dna.config,form:'wild',formStrength:0,finish:'opal',glow:.6}
@@ -187,6 +194,7 @@ export class GrowthEngine {
       :historicalAnatomy;
     this.setConfig(historicalOptics);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
+    if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings(dna.colony);
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
@@ -380,7 +388,8 @@ export class GrowthEngine {
     if(this.colony.settings.enabled){
       this.colonyElapsed+=dt;
       while(this.colonyElapsed>=.32){
-        this.colony.update(this.nutrients,PALETTES[c.palette],()=>this.random(),this.morphogenesis);
+        this.colony.update(this.nutrients,this.currentPalette(),()=>this.random(),
+          this.morphogenesis,this.pressures);
         this.colonyElapsed-=.32;
       }
     }
@@ -449,11 +458,23 @@ export class GrowthEngine {
     strength:s.strength,points:s.points.map(p=>[...p])}));}
   restoreStrokes(strokes){this.strokes=strokes.map(s=>({id:s.id,kind:s.kind,radius:s.radius,
     strength:s.strength,points:s.points.map(p=>[...p])}));}
-  snapshotField(){return {nodes:this.snapshotNodes(),strokes:this.snapshotStrokes()};}
+  snapshotPressures(){return this.pressures.map(p=>({
+    id:p.id,mode:p.mode,center:[...p.center],axis:[...p.axis],
+    radius:p.radius,strength:p.strength
+  }));}
+  restorePressures(snapshot){this.pressures=snapshot.map(p=>({
+    id:p.id,mode:p.mode,center:[...p.center],axis:[...p.axis],
+    radius:p.radius,strength:p.strength
+  }));}
+  snapshotField(){return {
+    nodes:this.snapshotNodes(),strokes:this.snapshotStrokes(),
+    pressures:this.snapshotPressures()
+  };}
   restoreField(doc){
     if(Array.isArray(doc)){this.restoreNodes(doc);return;}
     this.restoreNodes(doc.nodes);
     this.restoreStrokes(doc.strokes);
+    this.restorePressures(doc.pressures??[]);
   }
   snapshotNodes() {
     return this.nodes.map(n=>({
@@ -542,6 +563,34 @@ export class GrowthEngine {
     this.strokes=this.strokes.filter(s=>s.id!==id);
     return true;
   }
+  addPressure(mode,pos,{record=true}={}){
+    if(!PRESSURE_MODES[mode])throw Error('Invalid pressure mode.');
+    if(this.pressures.length>=MAX_PRESSURES)
+      throw Error('Maximum of '+MAX_PRESSURES+' crystal pressure marks reached.');
+    if(record)this.recordNodeEdit();
+    const stamp={
+      id:Math.floor(this.random()*1e9),mode,center:pos.toArray(),
+      axis:[1,0,0],radius:this.config.pressureRadius,
+      strength:this.config.pressureStrength
+    };
+    this.pressures.push(stamp);
+    return stamp;
+  }
+  nearestPressure(pos,distance=.58){
+    let nearest=null,best=distance;
+    for(const p of this.pressures){
+      const d=Math.hypot(pos.x-p.center[0],pos.y-p.center[1],pos.z-p.center[2]);
+      if(d<best){best=d;nearest=p;}
+    }
+    return nearest;
+  }
+  deletePressure(id){
+    const found=this.pressures.find(p=>p.id===id);
+    if(!found)return false;
+    this.recordNodeEdit();
+    this.pressures=this.pressures.filter(p=>p.id!==id);
+    return true;
+  }
   feedAt(pos){
     this.nutrients.inject(pos);
   }
@@ -582,6 +631,7 @@ export class GrowthEngine {
       morphogenesis:this.morphogenesis.snapshot(),
       nodes:this.snapshotNodes(),
       strokes:this.snapshotStrokes(),
+      pressures:this.snapshotPressures(),
       agents:this.agents.map(agentRecord)
     };
   }
@@ -627,6 +677,8 @@ export class GrowthEngine {
       !Array.isArray(data.nodes)||data.nodes.length>15||!data.nodes.every(node)||
       (data.strokes!==undefined&&!validStrokes(data.strokes))||
       (data.dna.strokes!==undefined&&!validStrokes(data.dna.strokes))||
+      (data.pressures!==undefined&&!validPressures(data.pressures))||
+      (data.dna.pressures!==undefined&&!validPressures(data.dna.pressures))||
       (data.dna.config.paletteStops!==undefined&&!isPaletteStops(data.dna.config.paletteStops))||
       !Array.isArray(data.agents)||data.agents.length>360||!data.agents.every(agent)){
       throw new Error('Invalid, damaged, or unsupported Nerve Cathedral checkpoint.');
@@ -674,6 +726,7 @@ export class GrowthEngine {
     else this.morphogenesis.setSettings({enabled:false});
     this.restoreNodes(data.nodes);
     this.restoreStrokes(data.strokes??[]);
+    this.restorePressures(data.pressures??[]);
     this.agents=data.agents.map(a=>({
       p:v(...a.p),prev:v(...a.prev),dir:v(...a.dir),
       traveled:a.traveled,age:a.age,life:a.life,identity:a.identity,

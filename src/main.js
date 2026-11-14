@@ -5,7 +5,7 @@ import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
 import { FIBER_PROFILES, mineralOptics } from './mineral-optics.js';
-import { FieldGestureTransaction, GrowthStrokeTransaction } from './gesture-witch.js';
+import { FieldGestureTransaction, GrowthStrokeTransaction, CrystalPressureTransaction } from './gesture-witch.js';
 import { PALETTE_CATALOG, PALETTE_NAMES, filteredPalettes } from './palettes.js';
 import './styles.css';
 
@@ -324,6 +324,80 @@ function showNodeSelection(){
   }
 }
 const nodeViews=new Map();
+// Visible stress-mark instruments reveal WHERE cellular probability laws
+// change, not fabricated crystal geometry. One small ring per named mark.
+const pressureViews=new Map();
+const pressureRingGeometry=new THREE.RingGeometry(.92,1.02,44);
+const pressureCoreGeometry=new THREE.SphereGeometry(.095,10,8);
+const pressurePalette={
+  grow:new THREE.MeshBasicMaterial({color:'#81ffba',transparent:true,opacity:.77,side:THREE.DoubleSide,depthWrite:false}),
+  shield:new THREE.MeshBasicMaterial({color:'#ffd66f',transparent:true,opacity:.79,side:THREE.DoubleSide,depthWrite:false}),
+  cleave:new THREE.MeshBasicMaterial({color:'#fc69dc',transparent:true,opacity:.83,side:THREE.DoubleSide,depthWrite:false})
+};
+const pressureLineMaterials={
+  cleave:new THREE.LineBasicMaterial({color:'#ffa4ef',transparent:true,opacity:.81,depthWrite:false})
+};
+let selectedPressureId=null,pressureSliderEdit=null,pressureAnchor=null;
+function selectedPressure(){return engine.pressures.find(p=>p.id===selectedPressureId)||null;}
+function updatePressureControls(){
+  const mark=selectedPressure();
+  const radius=mark?.radius??engine.config.pressureRadius;
+  const strength=mark?.strength??engine.config.pressureStrength;
+  const dormant=!engine.colony.settings.enabled||engine.colony.population===0;
+  $('pressure-selection').textContent=(mark
+    ?mark.mode.toUpperCase()+' #'+mark.id+' · DRAG TO MOVE · PINCH REACH · TWIST AXIS'
+    :'NO PRESSURE MARK SELECTED — CONTROLS SET NEXT STAMP')+
+    (dormant?' · START / SEED CRYSTALS TO ACTIVATE':'');
+  if(!pressureSliderEdit){
+    $('pressure-radius').value=String(radius);
+    $('pressure-strength').value=String(strength);
+  }
+  $('pressure-radius-value').textContent=radius.toFixed(2);
+  $('pressure-strength-value').textContent=strength.toFixed(2);
+  $('pressure-stats').textContent=engine.pressures.length+' / 12 PRESSURE MARKS';
+}
+function syncPressures(){
+  const seen=new Set();
+  for(const mark of engine.pressures){
+    seen.add(mark.id);
+    let item=pressureViews.get(mark.id);
+    if(!item){
+      const group=new THREE.Group();
+      const ring=new THREE.Mesh(pressureRingGeometry,pressurePalette[mark.mode]);
+      const core=new THREE.Mesh(pressureCoreGeometry,pressurePalette[mark.mode]);
+      group.add(ring,core);
+      const lineGeometry=new THREE.BufferGeometry();
+      const positions=new Float32Array(6);
+      lineGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));
+      const axisLine=new THREE.Line(lineGeometry,pressureLineMaterials.cleave);
+      axisLine.visible=false;group.add(axisLine);
+      scene.add(group);
+      item={group,ring,core,axisLine,positions};
+      pressureViews.set(mark.id,item);
+    }
+    item.group.position.set(...mark.center);
+    item.ring.material=pressurePalette[mark.mode];
+    item.core.material=pressurePalette[mark.mode];
+    item.ring.scale.setScalar(mark.radius);
+    item.core.scale.setScalar(mark.id===selectedPressureId?1.55:1);
+    item.ring.quaternion.copy(camera.quaternion);
+    item.axisLine.visible=mark.mode==='cleave';
+    if(item.axisLine.visible){
+      const k=mark.radius*.85,a=mark.axis;
+      item.positions.set([-a[0]*k,-a[1]*k,-a[2]*k,a[0]*k,a[1]*k,a[2]*k]);
+      item.axisLine.geometry.attributes.position.needsUpdate=true;
+    }
+  }
+  for(const [id,item] of pressureViews){
+    if(!seen.has(id)){
+      scene.remove(item.group);
+      item.axisLine.geometry.dispose();
+      pressureViews.delete(id);
+    }
+  }
+  if(selectedPressureId!==null&&!seen.has(selectedPressureId))selectedPressureId=null;
+  updatePressureControls();
+}
 // The interactive threads are a faithful editor overlay of persistent 3D
 // stroke sources. The simulation samples these same strokes independently.
 const strokeBuffer=new Float32Array(10*47*6);
@@ -434,11 +508,32 @@ function positionFromEvent(e){
   if(!raycaster.ray.intersectPlane(pointerPlane,point))return new THREE.Vector3();
   return point.clone().clampLength(0,3.35);
 }
-
+// Prefer the actual crystal surface for first contact. Once picked, edit
+// against its camera-parallel depth plane so a drag doesn't jump in Z.
+function pressureStartFromEvent(e){
+  const rect=canvas.getBoundingClientRect();
+  pointer.set(((e.clientX-rect.left)/rect.width)*2-1,
+    -((e.clientY-rect.top)/rect.height)*2+1);
+  raycaster.setFromCamera(pointer,camera);
+  const hit=crystals.count>0?raycaster.intersectObject(crystals,false)[0]:null;
+  return hit?hit.point.clone().clampLength(0,3.35):positionFromEvent(e);
+}
+function pressureProjectFromClient(x,y){
+  const rect=canvas.getBoundingClientRect();
+  pointer.set(((x-rect.left)/rect.width)*2-1,
+    -((y-rect.top)/rect.height)*2+1);
+  raycaster.setFromCamera(pointer,camera);
+  const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(
+    camera.getWorldDirection(new THREE.Vector3()),
+    pressureAnchor||orbit.target);
+  const hit=raycaster.ray.intersectPlane(plane,new THREE.Vector3());
+  return (hit||new THREE.Vector3()).clampLength(0,3.35);
+}
 let tool='attract',paused=false,gestureSuspended=false;
 const fingers=new Map();
 const fieldEdit=new FieldGestureTransaction(engine);
 const strokeEdit=new GrowthStrokeTransaction(engine);
+const pressureEdit=new CrystalPressureTransaction(engine);
 let pendingEraseStrokeId=null;
 let sliderEdit=null,gestureMode='idle',primaryPointer=null,lensAnchor=null;
 let transientSnapshot=null;
@@ -446,6 +541,9 @@ const hints={
   sculpt:'DRAG A VORTEX EYE · PINCH RADIUS · TWIST CHIRALITY',
   stitch:'DRAW A PATH YOUR GROWING FIBERS WILL FOLLOW',
   warp:'DRAG TO PAINT A PERSISTENT LOCAL GROWTH FORCE',
+  'pressure-grow':'TOUCH THE COLONY TO ENCOURAGE NEW CRYSTAL BIRTHS',
+  'pressure-shield':'TOUCH TO PROTECT A REGION FROM NEW CRYSTAL BIRTHS',
+  'pressure-cleave':'DRAG A SPLIT AXIS · PRESS INTO THE CRYSTAL FRONT',
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
@@ -456,6 +554,8 @@ const hints={
   erase:'TAP A FIELD NODE TO ERASE IT'
 };
 function updateSculptButton(){
+  $('pressure-quick').setAttribute('aria-pressed',String(tool.startsWith('pressure-')));
+  $('pressure-quick').classList.toggle('active',tool.startsWith('pressure-'));
   $('sculpt-quick').setAttribute('aria-pressed',String(tool==='sculpt'));
   $('sculpt-quick').classList.toggle('active',tool==='sculpt');
 }
@@ -478,6 +578,11 @@ function finishGesture(cancel=false){
     if(cancel)strokeEdit.cancel();
     else strokeEdit.commit();
   }
+  if(pressureEdit.active){
+    if(cancel)pressureEdit.cancel();
+    else pressureEdit.commit();
+  }
+  syncPressures();
   if(gestureMode==='erase-stroke'&&!cancel&&pendingEraseStrokeId!==null)
     engine.deleteStroke(pendingEraseStrokeId);
   pendingEraseStrokeId=null;
@@ -508,17 +613,27 @@ function finishGesture(cancel=false){
   transientSnapshot=null;
   primaryPointer=null;
   lensAnchor=null;
+  pressureAnchor=null;
   gestureSuspended=fingers.size>0;
   refreshGestureView();
 }
+function cancelPressureSliderEdit(){
+  if(!pressureSliderEdit)return;
+  pressureSliderEdit.cancel();
+  pressureSliderEdit=null;
+  syncPressures();
+}
 function cancelGesture(){
-  if(gestureMode==='idle'&&!fieldEdit.active&&!strokeEdit.active&&!sliderEdit)return;
+  if(gestureMode==='idle'&&!fieldEdit.active&&!strokeEdit.active&&
+    !pressureEdit.active&&!sliderEdit&&!pressureSliderEdit)return;
+  cancelPressureSliderEdit();
   if(sliderEdit)cancelSliderEdit();
   finishGesture(true);
   gestureMode=fingers.size?'blocked':'idle';
 }
 function setTool(next){
-  if(fingers.size||fieldEdit.active||strokeEdit.active||sliderEdit)cancelGesture();
+  if(fingers.size||fieldEdit.active||strokeEdit.active||pressureEdit.active||
+    sliderEdit||pressureSliderEdit)cancelGesture();
   tool=next;
   orbit.enabled=tool==='orbit';
   $('hint').textContent=hints[tool];
@@ -529,6 +644,7 @@ function setTool(next){
 document.querySelectorAll('[data-tool]').forEach(btn=>
   btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
 $('sculpt-quick').addEventListener('click',()=>setTool('sculpt'));
+$('pressure-quick').addEventListener('click',()=>setTool('pressure-grow'));
 $('food-tool').addEventListener('click',()=>setTool('feed'));
 $('food-view').addEventListener('click',()=>{
   showFood=!showFood;
@@ -599,9 +715,24 @@ canvas.addEventListener('pointerdown',e=>{
   gestureSuspended=true;
   if(fingers.size===1){
     cancelSliderEdit();
+    cancelPressureSliderEdit();
     primaryPointer=e.pointerId;
-    const pos=positionFromEvent(e);
-    if(tool==='stitch'||tool==='warp'){
+    const pressureTool=tool.startsWith('pressure-');
+    const pos=pressureTool?pressureStartFromEvent(e):positionFromEvent(e);
+    if(pressureTool){
+      const mode=tool.slice('pressure-'.length);
+      const nearby=engine.nearestPressure(pos,.62);
+      try{
+        pressureEdit.begin(mode,pos,{id:nearby?.mode===mode?nearby.id:null});
+        selectedPressureId=pressureEdit.mark.id;
+        pressureAnchor=new THREE.Vector3(...pressureEdit.mark.center);
+        gestureMode='pressure';
+        syncPressures();
+      }catch(err){
+        gestureMode='blocked';
+        $('pressure-selection').textContent=err.message;
+      }
+    }else if(tool==='stitch'||tool==='warp'){
       try{
         strokeEdit.begin(tool==='stitch'?'guide':'push',pos);
         gestureMode='stroke';
@@ -622,6 +753,15 @@ canvas.addEventListener('pointerdown',e=>{
       applyTransient(pos,true);
     }
   }else if(fingers.size===2){
+    if(pressureEdit.active){
+      const [a,b]=[...fingers.values()];
+      if(pressureEdit.beginLens(a,b)){
+        const midpoint=pressureProjectFromClient((a.x+b.x)*.5,(a.y+b.y)*.5);
+        lensAnchor={center:midpoint,origin:new THREE.Vector3(...pressureEdit.mark.center)};
+        gestureMode='pressure-lens';
+      }else gestureMode='blocked';
+      return;
+    }
     if(!fieldEdit.active){
       // A second finger cancels path painting; it never creates a
       // mysterious second field feature or commits an interrupted brush.
@@ -641,7 +781,19 @@ canvas.addEventListener('pointermove',e=>{
   if(!fingers.has(e.pointerId)||tool==='orbit')return;
   e.preventDefault();
   fingers.set(e.pointerId,screenPoint(e));
-  if(gestureMode==='stroke'&&e.pointerId===primaryPointer&&strokeEdit.active){
+  if(gestureMode==='pressure'&&e.pointerId===primaryPointer&&pressureEdit.active){
+    pressureEdit.move(pressureProjectFromClient(e.clientX,e.clientY));
+    syncPressures();
+  }else if(gestureMode==='pressure-lens'&&pressureEdit.active&&fingers.size===2){
+    const [a,b]=[...fingers.values()];
+    pressureEdit.lensPreview(a,b);
+    if(lensAnchor){
+      const midpoint=pressureProjectFromClient((a.x+b.x)*.5,(a.y+b.y)*.5);
+      const at=lensAnchor.origin.clone().add(midpoint.sub(lensAnchor.center));
+      pressureEdit.translate(at.clampLength(0,3.35));
+    }
+    syncPressures();
+  }else if(gestureMode==='stroke'&&e.pointerId===primaryPointer&&strokeEdit.active){
     strokeEdit.append(positionFromEvent(e));
     syncStrokes();
   }else if(gestureMode==='single'&&e.pointerId===primaryPointer&&fieldEdit.active){
@@ -705,18 +857,54 @@ for(const [id,key] of [
   });
   input.addEventListener('pointercancel',cancelSliderEdit);
 }
+// Brush sliders alter the selected stamp (one undoable edit) or the defaults
+// for the next touch. No native iPhone slider is recreated while dragging.
+for(const [id,key,configKey] of [
+  ['pressure-radius','radius','pressureRadius'],
+  ['pressure-strength','strength','pressureStrength']
+]){
+  $(id).addEventListener('input',()=>{
+    const node=selectedPressure();
+    const value=Number($(id).value);
+    if(node){
+      if(!pressureSliderEdit){
+        pressureSliderEdit=new CrystalPressureTransaction(engine);
+        pressureSliderEdit.begin(node.mode,new THREE.Vector3(...node.center),{id:node.id});
+      }
+      pressureSliderEdit.mark[key]=value;
+    }else engine.setConfig({[configKey]:value});
+    syncPressures();
+  });
+  $(id).addEventListener('change',()=>{
+    if(pressureSliderEdit){
+      pressureSliderEdit.commit();
+      pressureSliderEdit=null;
+    }
+    syncPressures();
+  });
+  $(id).addEventListener('pointercancel',cancelPressureSliderEdit);
+}
+$('clear-pressures').addEventListener('click',()=>{
+  if(!engine.pressures.length)return;
+  if(!window.confirm('Clear the crystal pressure marks? Existing grown crystals remain. This edit is undoable.'))return;
+  cancelGesture();
+  engine.recordNodeEdit();
+  engine.pressures=[];
+  selectedPressureId=null;
+  syncPressures();
+});
 $('undo').addEventListener('click',()=>{
   if(fingers.size)cancelGesture();
-  cancelSliderEdit();
+  cancelSliderEdit();cancelPressureSliderEdit();
   engine.undoNodes();
-  syncStrokes();
+  syncStrokes();syncPressures();
   refreshGestureView();
 });
 $('redo').addEventListener('click',()=>{
   if(fingers.size)cancelGesture();
-  cancelSliderEdit();
+  cancelSliderEdit();cancelPressureSliderEdit();
   engine.redoNodes();
-  syncStrokes();
+  syncStrokes();syncPressures();
   refreshGestureView();
 });
 $('clear-strokes').addEventListener('click',()=>{
@@ -749,7 +937,7 @@ $('clear-nodes').addEventListener('click',()=>{
 window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(fingers.size)cancelGesture();
-    cancelSliderEdit();
+    cancelSliderEdit();cancelPressureSliderEdit();
     return;
   }
   if(e.target instanceof HTMLElement&&
@@ -757,9 +945,10 @@ window.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){
     e.preventDefault();
     cancelGesture();
+    cancelPressureSliderEdit();
     if(e.shiftKey)engine.redoNodes();
     else engine.undoNodes();
-    syncStrokes();
+    syncStrokes();syncPressures();
     refreshGestureView();
   }else if(!e.ctrlKey&&!e.metaKey&&!e.altKey){
     if(e.key.toLowerCase()==='s')setTool('sculpt');
@@ -787,6 +976,7 @@ function updateCrystalControls(){
   $('colony-crystallization-value').textContent=c.crystallization+' steps';
   $('colony-toggle').textContent=c.enabled?'Ⅱ PAUSE CRYSTAL GROWTH':'◇ START CRYSTAL COLONY';
   $('colony-toggle').setAttribute('aria-pressed',String(c.enabled));
+  updatePressureControls();
 }
 function readCrystalControls(){
   engine.colony.setSettings({
@@ -989,6 +1179,12 @@ function frameArtwork(){
   if(morphTriangles>0 && morphMesh.geometry.attributes.position){
     bounds.union(new THREE.Box3().setFromBufferAttribute(morphMesh.geometry.attributes.position));
   }
+  // Frame persistent crystal-pressure handles as well as grown matter.
+  for(const mark of engine.pressures){
+    const c=new THREE.Vector3(...mark.center);
+    bounds.expandByPoint(c.clone().addScalar(mark.radius));
+    bounds.expandByPoint(c.addScalar(-mark.radius));
+  }
   if(bounds.isEmpty()){
     orbit.target.set(0,0,0);
     camera.position.set(6.5,4.7,10.5);
@@ -1165,7 +1361,7 @@ function updateControlsFromDNA(){
   updateArtistControls();
   updateBranchControls();
   updateStrokeControls();
-  syncStrokes();
+  syncStrokes();syncPressures();
   applyArtistFinish();
   requestFiligreeRefresh();
 }
@@ -1196,7 +1392,7 @@ $('new').addEventListener('click',()=>{
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
   if(engine.colony.settings.enabled)engine.seedCrystal(new THREE.Vector3());
   if(engine.morphogenesis.settings.enabled)engine.seedChemical(new THREE.Vector3(),.72);
-  syncNodes();syncStrokes();syncCrystals();refreshMorphSurface(performance.now(),true);setPaused(false);
+  syncNodes();syncStrokes();syncPressures();syncCrystals();refreshMorphSurface(performance.now(),true);setPaused(false);
 });
 $('dna-save').addEventListener('click',async()=>{
   const text=JSON.stringify(engine.getDNA(),null,2);
@@ -1304,14 +1500,14 @@ function fit(){
 function handleStageResize(){
   // Active inverse-projected world coordinates become invalid on resize.
   // Cancel the draft instead of abruptly teleporting a source.
-  if(fingers.size||sliderEdit)cancelGesture();
+  if(fingers.size||sliderEdit||pressureSliderEdit)cancelGesture();
   fit();
 }
 new ResizeObserver(handleStageResize).observe(canvas);
 window.addEventListener('resize',handleStageResize);
 renderPaletteOptions();
 renderPaletteStops();
-updateStrokeControls();syncStrokes();
+updateStrokeControls();syncStrokes();syncPressures();
 fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();updateBranchControls();applyArtistFinish();
 if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)setPaused(true);
 document.addEventListener('visibilitychange',()=>{
@@ -1327,7 +1523,7 @@ let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
   let elapsed=Math.min((now-last)/1000,.1);last=now;
-  if(!paused&&!gestureSuspended&&!sliderEdit){
+  if(!paused&&!gestureSuspended&&!sliderEdit&&!pressureSliderEdit){
     accumulator+=elapsed;
     const fixed=1/60;
     let steps=0;
@@ -1359,6 +1555,9 @@ function frame(now){
   for(const node of nodeViews.values()){
     const ring=node.children.find(child=>child.userData.reachRing);
     if(ring)ring.quaternion.copy(camera.quaternion);
+  }
+  for(const item of pressureViews.values()){
+    item.ring.quaternion.copy(camera.quaternion);
   }
   renderer.render(scene,camera);
   if(now-lastStatus>600){

@@ -138,3 +138,87 @@ export class GrowthStrokeTransaction{
   }
   clear(){this.before=null;this.stroke=null;}
 }
+
+/**
+ * Crystal pressure is a semantic, persistent material constraint. A touch
+ * changes the future CA probabilities, never erases a colony during preview.
+ * The transaction can edit an existing mark or create a new one.
+ */
+export class CrystalPressureTransaction{
+  constructor(engine){
+    this.engine=engine;this.before=null;this.beforeRng=0;
+    this.mark=null;this.origin=null;this.lens=null;
+  }
+  get active(){return this.before!==null;}
+  begin(mode,pos,{id=null}={}){
+    if(this.active)throw Error('Crystal pressure gesture already active.');
+    if(!pos||![pos.x,pos.y,pos.z].every(Number.isFinite))throw Error('Invalid crystal pressure position.');
+    const e=this.engine;
+    this.before=e.snapshotField();
+    this.beforeRng=e.rngState;
+    this.mark=id===null?null:e.pressures.find(p=>p.id===id);
+    try{
+      if(!this.mark)this.mark=e.addPressure(mode,pos,{record:false});
+      this.origin=[...this.mark.center];
+      return true;
+    }catch(err){
+      this.before=null;this.mark=null;this.origin=null;
+      throw err;
+    }
+  }
+  move(pos){
+    if(!this.active||!pos||![pos.x,pos.y,pos.z].every(Number.isFinite))return false;
+    const end=[pos.x,pos.y,pos.z];
+    const start=this.origin;
+    const dx=end[0]-start[0],dy=end[1]-start[1],dz=end[2]-start[2];
+    const dist=Math.hypot(dx,dy,dz);
+    if(dist>.15)this.mark.axis=[dx/dist,dy/dist,dz/dist];
+    this.mark.center=end;
+    return true;
+  }
+  translate(pos){
+    if(!this.active||!pos||![pos.x,pos.y,pos.z].every(Number.isFinite))return false;
+    this.mark.center=[pos.x,pos.y,pos.z];
+    return true;
+  }
+  beginLens(a,b){
+    if(!this.active||!a||!b||Math.hypot(b.x-a.x,b.y-a.y)<8)return false;
+    this.lens={
+      a:{...a},b:{...b},
+      radius:this.mark.radius,
+      axis:[...this.mark.axis]
+    };
+    return true;
+  }
+  lensPreview(a,b){
+    if(!this.lens)return false;
+    const delta=lensDelta(this.lens.a,this.lens.b,a,b);
+    if(!delta.valid)return false;
+    this.mark.radius=Math.max(.25,Math.min(2.1,this.lens.radius*delta.scale));
+    const [x,y,z]=this.lens.axis;
+    // Rotate the directional cleavage plane about the world's up axis.
+    const c=Math.cos(delta.twist),s=Math.sin(delta.twist);
+    this.mark.axis=[c*x+s*z,y,-s*x+c*z];
+    return true;
+  }
+  commit(){
+    if(!this.active)return false;
+    const e=this.engine;
+    const changed=JSON.stringify(this.before)!==JSON.stringify(e.snapshotField());
+    if(changed){
+      e.nodeUndo.push(this.before);
+      if(e.nodeUndo.length>25)e.nodeUndo.shift();
+      e.nodeRedo=[];
+    }else e.rngState=this.beforeRng;
+    this.clear();
+    return changed;
+  }
+  cancel(){
+    if(!this.active)return false;
+    this.engine.restoreField(this.before);
+    this.engine.rngState=this.beforeRng;
+    this.clear();
+    return true;
+  }
+  clear(){this.before=null;this.mark=null;this.origin=null;this.lens=null;}
+}

@@ -12,6 +12,7 @@
     <header class="masthead">
       <div class="brand"><span class="star">✳</span><div><h1>EX NIHILO</h1><p>MATHEMATICAL GENESIS LAB <span class="edition">/ 001 NERVE CATHEDRAL</span></p></div></div>
       <div class="top-actions">
+        <button class="mini" id="pressure-quick" type="button" aria-pressed="false" title="Touch-edit the crystal colony's physical growth rules">◆ PRESS</button>
         <button class="mini" id="sculpt-quick" aria-pressed="false" title="Grab the mathematical field with your fingers">🌀 SCULPT</button>
         <button class="mini" id="frame-art" title="Frame the living artwork in the camera">◎ FRAME</button>
         <button class="mini" id="pause" title="Pause growth" aria-pressed="false">Ⅱ PAUSE</button>
@@ -171,11 +172,29 @@
                 <label class="control"><span>Crystal wall permeability <output id="structure-permeability-value">8%</output></span><input id="structure-permeability" type="range" min="0" max="100" step="2" value="8"></label>
               </div>
             </details>
+            <details class="morph-advanced" open>
+              <summary>CRYSTAL PRESSURE WITCH — DIRECT GROWTH SCULPTING</summary>
+              <p class="help">Choose a pressure tool, then touch or drag near the colony. Pinch the pressure ring to change its reach, and twist two fingers to rotate the cleave axis. This changes future cellular births and erosion, not existing fiber positions.</p>
+              <div class="choice-grid">
+                <button data-tool="pressure-grow" type="button" class="choice">✳ GROWTH PRESS</button>
+                <button data-tool="pressure-shield" type="button" class="choice">◉ SHIELD GROWTH</button>
+                <button data-tool="pressure-cleave" type="button" class="choice">◇ CLEAVE / SPLIT</button>
+              </div>
+              <p id="pressure-selection" class="help" role="status" aria-live="polite">NO PRESSURE MARK SELECTED</p>
+              <div class="control-grid">
+                <label class="control"><span>Pressure reach <output id="pressure-radius-value">0.85</output></span><input id="pressure-radius" type="range" min=".25" max="2.1" step=".05" value=".85"/></label>
+                <label class="control"><span>Pressure strength <output id="pressure-strength-value">1.20</output></span><input id="pressure-strength" type="range" min=".1" max="2.4" step=".05" value="1.2"/></label>
+              </div>
+              <div class="small-actions ecology-actions">
+                <button id="clear-pressures" class="mini" type="button">CLEAR PRESSURE MARKS</button>
+                <span id="pressure-stats" class="help">0 / 12 PRESSURE MARKS</span>
+              </div>
+            </details>
             <div class="small-actions ecology-actions">
               <button id="crystal-seed" class="choice" type="button">✳ TOUCH TO SEED CELLS</button>
               <button id="crystal-clear" class="mini danger" type="button">ERASE CRYSTAL COLONY</button>
             </div>
-            <p class="help"><span id="crystal-stats">0 CRYSTALS · 0 GENERATIONS</span>. Contact redirects growing strands; porous walls alter real nutrient and chemical transport. Crystals only change through explicit growth or erosion. Pausing the crystal engine keeps its structure visible. Resetting only crystals requires confirmation and won't erase your fiber artwork.</p>
+            <p class="help"><span id="crystal-stats">0 CRYSTALS · 0 GENERATIONS</span>. Stress marks only work while crystal growth is enabled and at least one seed exists. Pressing never fabricates a finished crystal: the automaton must grow it. Contact redirects growing strands; porous walls alter real nutrient and chemical transport. Crystals only change through explicit growth or erosion. Pausing the crystal engine keeps its structure visible. Resetting only crystals requires confirmation and won't erase your fiber artwork.</p>
           </div>
           <div class="panel" data-panel="morph" hidden>
             <p class="help first">Two chemicals react and diffuse through a real 3D volume. The evolving B concentration generates its own surface; chemistry—not a canned object—decides where matter appears.</p>
@@ -218,6 +237,9 @@
               <button data-tool="sculpt" class="choice">🌀 VORTEX SCULPT</button>
               <button data-tool="stitch" class="choice">〰 STITCH GROWTH PATH</button>
               <button data-tool="warp" class="choice">↝ WARP GROWTH FIELD</button>
+              <button data-tool="pressure-grow" class="choice">✳ PRESS CRYSTALS</button>
+              <button data-tool="pressure-shield" class="choice">◉ SHIELD CRYSTALS</button>
+              <button data-tool="pressure-cleave" class="choice">◇ CLEAVE CRYSTALS</button>
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
               <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button><button data-tool="chemical" class="choice">◉ PAINT CHEMICAL</button>
@@ -238,7 +260,7 @@
                 <label class="control"><span>Attract/repel force <output id="gesture-strength-value">3.50</output></span><input id="gesture-strength" type="range" min=".25" max="12" step=".25" value="3.5" disabled/></label>
               </div>
             </div>
-            <p class="help">Use STITCH to guide future branches along a hand-drawn 3D path, or WARP to sweep their local vector field in the direction of your drag. Paths are persistent and undoable; they do not teleport already deposited fibers. A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
+            <p class="help">Use the three CRYSTAL PRESS tools to control real crystal birth, protected regions, and directional stress-cleaving; the controls are grouped in CRYSTALS. Use STITCH to guide future branches along a hand-drawn 3D path, or WARP to sweep their local vector field in the direction of your drag. Paths are persistent and undoable; they do not teleport already deposited fibers. A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
           </div>
           <div class="panel" data-panel="light" hidden>
             <div class="control-grid">

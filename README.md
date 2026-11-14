@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03H — Crystal Pressure Witch:** Directly touch the *cellular growth physics* of crystals. Three distinct persistent pressure modes boost births, shield areas, or create a directional seam that can erode mature crystals and favor two surrounding growth fronts. Drag, pinch reach and twist the cleavage axis; all marks share the semantic field Undo/Redo and are saved in whole-world checkpoints and DNA. The exact 194+5 MATHEMAGICAL palettes remain intact and **live edited color stops now also reach new crystal cell births**. See [Crystal Pressure math and UX](docs/PHASE-03H-CRYSTAL-PRESSURE.md).
+
+
 **Phase 03G — Direct-drawn growth and complete colors:** The TOUCH tab now offers STITCH growth paths and WARP vector-field strokes. Each path is an undoable, persistent 3D causal force. The LIGHT tab includes the artist's exact 194-entry MATHEMAGICAL vault **plus** five original EX NIHILO palettes, searchable by source/name, with editable stops and independent color shuffle/randomization. No palette choice or stroke edit resets existing deposited fibers. Read [phase notes](docs/PHASE-03G-PALETTES-STROKES.md).
 
 
