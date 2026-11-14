@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { surfacePixels,SURFACE_SIZE } from './surface-growth.js';
 import {surfaceOpticsPixels} from './surface-optics.js';
+import {paintSurfaceMicrostructure} from './surface-microstructure.js';
 import {SurfaceGestureEditor,SURFACE_TOUCH_MODES} from './surface-gesture-field.js';
 import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
@@ -191,7 +192,9 @@ function drawSurface(force=false){
     const pixels=c.surfaceOpticsMode==='off'?base:surfaceOpticsPixels(engine.surface,base,{
       mode:c.surfaceOpticsMode,strength:c.surfaceOpticsStrength,
       thickness:c.surfaceOpticsThickness,roughness:c.surfaceOpticsRoughness,
-      angle:c.surfaceOpticsAngle,phase,background,wrap:c.surfaceWrap
+      angle:c.surfaceOpticsAngle,phase,background,wrap:c.surfaceWrap,
+      filmIndex:c.surfaceFilmIndex,substrateIndex:c.surfaceSubstrateIndex,
+      polarization:c.surfacePolarization
     });
     const image=surfacePixelContext.createImageData(SURFACE_SIZE,SURFACE_SIZE);
     image.data.set(pixels);
@@ -212,6 +215,16 @@ function drawSurface(force=false){
     surfaceContext.imageSmoothingQuality='high';
     surfaceContext.clearRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
     surfaceContext.drawImage(surfacePixelsCanvas,rect.left,rect.top,rect.size,rect.size);
+    if(engine.config.surfaceMicroMode!=='off'){
+      paintSurfaceMicrostructure(surfaceContext,engine.surface,{
+        mode:engine.config.surfaceMicroMode,
+        density:engine.config.surfaceMicroDensity,quality:'preview',
+        wrap:engine.config.surfaceWrap,left:rect.left,top:rect.top,
+        size:rect.size,lightAngle:engine.config.surfaceOpticsAngle+
+          360*((surfaceOpticsTime%engine.config.surfaceOpticsLoop)/
+            engine.config.surfaceOpticsLoop)
+      });
+    }
     drawSurfaceGestureOverlay();
     surfaceNeedsPresent=false;
   }
@@ -2502,7 +2515,13 @@ const surfaceOpticsControls=[
   ['surface-optics-roughness','surfaceOpticsRoughness',
     v=>Math.round(v*100)+'%',v=>Math.round(v*100)],
   ['surface-optics-angle','surfaceOpticsAngle',
-    v=>Math.round(v)+'°',v=>Math.round(v)]
+    v=>Math.round(v)+'°',v=>Math.round(v)],
+  ['surface-film-index','surfaceFilmIndex',
+    v=>v.toFixed(2),v=>Math.round(v*100)],
+  ['surface-substrate-index','surfaceSubstrateIndex',
+    v=>v.toFixed(2),v=>Math.round(v*100)],
+  ['surface-polarization','surfacePolarization',
+    v=>Math.round(v*100)+'%',v=>Math.round(v*100)]
 ];
 function updateSurfaceControls(){
   const c=engine.config;
@@ -2522,6 +2541,10 @@ function updateSurfaceControls(){
     '◈ PERIODIC TILE EDGES: ON':'◇ PERIODIC TILE EDGES: OFF';
   $('surface-optics-mode').value=c.surfaceOpticsMode;
   $('surface-optics-loop').value=String(c.surfaceOpticsLoop);
+  $('surface-micro-mode').value=c.surfaceMicroMode;
+  $('surface-micro-density').value=Math.round(c.surfaceMicroDensity*100);
+  $('surface-micro-density-value').textContent=
+    Math.round(c.surfaceMicroDensity*100)+'%';
   for(const [id,key,format,fromValue] of surfaceOpticsControls){
     $(id).value=fromValue(c[key]);
     $(id+'-value').textContent=format(c[key]);
@@ -2612,8 +2635,36 @@ function readSurfaceOpticsControls(){
 }
 for(const id of ['surface-optics-mode','surface-optics-loop'])
   $(id).addEventListener('change',readSurfaceOpticsControls);
-for(const [id] of surfaceOpticsControls)
-  $(id).addEventListener('input',readSurfaceOpticsControls);
+for(const [id] of surfaceOpticsControls){
+  // 81-wavelength LUT rebuild is deliberately COMMIT-only on expensive
+  // film parameters, avoiding long iPhone stalls for each slider pixel.
+  const costly=['surface-optics-thickness','surface-film-index',
+    'surface-substrate-index','surface-polarization'].includes(id);
+  $(id).addEventListener('input',()=>{
+    if(costly&&engine.config.surfaceOpticsMode==='spectral'){
+      const value=Number($(id).value);
+      $(id+'-value').textContent=
+        id==='surface-optics-thickness'?value+' nm':
+        id==='surface-polarization'?value+'%':(value/100).toFixed(2);
+      return;
+    }
+    readSurfaceOpticsControls();
+  });
+  if(costly)$(id).addEventListener('change',()=>{
+    if(engine.config.surfaceOpticsMode==='spectral')
+      readSurfaceOpticsControls();
+  });
+}
+function readMicrostructureControls(){
+  engine.setConfig({
+    surfaceMicroMode:$('surface-micro-mode').value,
+    surfaceMicroDensity:Number($('surface-micro-density').value)/100
+  });
+  updateSurfaceControls();
+  surfaceNeedsPresent=true;drawSurface();
+}
+$('surface-micro-mode').addEventListener('change',readMicrostructureControls);
+$('surface-micro-density').addEventListener('input',readMicrostructureControls);
 $('surface-optics-motion').addEventListener('click',()=>{
   engine.setConfig({surfaceOpticsMotion:!engine.config.surfaceOpticsMotion});
   surfaceOpticsDirty=true;
@@ -2659,6 +2710,16 @@ function exportSurfacePNG(){
   const ctx=exportCanvas.getContext('2d',{alpha:false});
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   ctx.drawImage(surfacePixelsCanvas,0,0,dim,dim);
+  if(engine.config.surfaceMicroMode!=='off'){
+    paintSurfaceMicrostructure(ctx,engine.surface,{
+      mode:engine.config.surfaceMicroMode,
+      density:engine.config.surfaceMicroDensity,quality:'export',
+      wrap:engine.config.surfaceWrap,left:0,top:0,size:dim,
+      lightAngle:engine.config.surfaceOpticsAngle+
+        360*((surfaceOpticsTime%engine.config.surfaceOpticsLoop)/
+          engine.config.surfaceOpticsLoop)
+    });
+  }
   // High resolution geometry of *real family territory boundaries*;
   // these fine lines are vector strokes at export scale, not fake pixels.
   ctx.beginPath();

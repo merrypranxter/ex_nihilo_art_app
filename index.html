@@ -222,6 +222,7 @@
                     <option value="quartz">WET QUARTZ · POLISHED FACETS</option>
                     <option value="frost">FROSTED AGATE · MATTE MINERAL GRAIN</option>
                     <option value="ghost">GHOST MINERAL · TRANSLUCENT VEIL</option>
+                    <option value="spectral">SPECTRAL OPAL · 81-WAVELENGTH FRESNEL COATING</option>
                   </select>
                 </label>
                 <label class="control"><span>Optical intensity <output id="surface-optics-strength-value">80%</output></span>
@@ -244,11 +245,48 @@
                   </select>
                 </label>
               </div>
+              <details class="morph-advanced" id="spectral-advanced">
+                <summary>◇ ADVANCED COATING · REAL s/p FRESNEL</summary>
+                <div class="morph-advanced-grid">
+                  <p class="help first">Used only for SPECTRAL OPAL. The wavelength-dependent reflection comes from a single dielectric film between air and a mineral substrate. Other finishes stay exactly as they were.</p>
+                  <div class="control-grid">
+                    <label class="control"><span>Coating refractive index <output id="surface-film-index-value">1.46</output></span>
+                      <input id="surface-film-index" type="range" min="105" max="210" step="1" value="146"/>
+                    </label>
+                    <label class="control"><span>Substrate refractive index <output id="surface-substrate-index-value">1.62</output></span>
+                      <input id="surface-substrate-index" type="range" min="105" max="250" step="1" value="162"/>
+                    </label>
+                    <label class="control"><span>Polarization: s → p <output id="surface-polarization-value">50%</output></span>
+                      <input id="surface-polarization" type="range" min="0" max="100" step="5" value="50"/>
+                    </label>
+                  </div>
+                </div>
+              </details>
               <div class="small-actions ecology-actions">
                 <button type="button" class="choice" id="surface-optics-motion" aria-pressed="false">▷ ANIMATE LIGHT</button>
                 <button type="button" class="choice" id="surface-optics-restart">↻ RESTART LIGHT LOOP</button>
               </div>
-              <p class="help">The lamp can move over PAUSED growth, so your mineral art remains frozen while the light changes. FREEZE LIGHT locks the current moment for still PNG. OPAL uses an illustrative three-wavelength dielectric interference model; PRISM approximates RGB refraction. Neither is a full spectral ray tracer. Existing 2048px PNG remains upscaled from 192² real mineral cells.</p>
+              <p class="help">The lamp can move over PAUSED growth, so your mineral art remains frozen while the light changes. FREEZE LIGHT locks the current moment for still PNG. OPAL uses an illustrative three-wavelength dielectric interference model; PRISM approximates RGB refraction. Neither is a full spectral ray tracer. SPECTRAL OPAL adds s/p Fresnel reflection with 81 sampled wavelengths (380–780 nm, daylight-like illuminant approximation) and a cached linear-RGB lookup table. It is an approximate 2D angle field, not a camera-based 3D spectrometer.</p>
+              </div>
+            </details>
+            <details class="morph-advanced" id="surface-micro-lab" open>
+              <summary>◈ MICROSTRUCTURE · TEXTURE TAXIDERMIST</summary>
+              <div class="morph-advanced-grid">
+                <p class="help first">Real crystal cells acquire finer, deterministic material geometry when you export a 2048px PNG. The crystal birth history remains 192×192, but the subcell strokes are drawn at output resolution. The stage uses a lighter sampling budget.</p>
+                <div class="control-grid">
+                  <label class="control select-control"><span>Microscopic material structure</span>
+                    <select id="surface-micro-mode">
+                      <option value="off">NONE · ORIGINAL ARTWORK</option>
+                      <option value="lamella">MOTHER-OF-PEARL · SHINGLED PLATELETS</option>
+                      <option value="cleavage">CLEAVAGE GLASS · STRESS MICROVEINS</option>
+                      <option value="vesicle">PRECIOUS OPAL · GLOBULAR PORES</option>
+                    </select>
+                  </label>
+                  <label class="control"><span>Microstructure density <output id="surface-micro-density-value">65%</output></span>
+                    <input id="surface-micro-density" type="range" min="0" max="100" step="5" value="65"/>
+                  </label>
+                </div>
+                <p class="help">Choose NONE to reproduce the previous artwork exactly. Texture uses actual crystal family, age, growth distance and boundary stress; no new crystal cells are simulated. Export draws more structural detail than the mobile stage to preserve touch responsiveness.</p>
               </div>
             </details>
             <p class="help">ART DIRECTION · Boundaries are actual resistance to future mineral births, not drawn-on masks. Set Resistant / empty territory to 0% to disable this resistance; OPEN ignores it. Biomes change the local physical growth law across the same living canvas. Seed symmetry plants actual independent mirrored/rotated nuclei; later stochastic branches may differ, so this is not image-mirror symmetry. Changes never delete deposits. A NEW SURFACE SEED uses all the selected settings.</p>
