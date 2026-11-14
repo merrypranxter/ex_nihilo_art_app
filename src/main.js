@@ -3083,10 +3083,76 @@ function syncSurfaceLoopRecipe(){
     loopStatusText(plan.width+' × '+plan.height+' · '+plan.frames+' sampled frames · '+
       plan.seconds+'s · '+plan.aspect+' · '+
       (plan.playback==='cycle'?'cyclic':'boomerang')+
-      (plan.format==='mp4'?' · requested '+(plan.videoBitsPerSecond/1e6)+'Mbps':' · GIF 256 colors'));
+      (plan.format==='mp4'?' · requested '+(plan.videoBitsPerSecond/1e6)+'Mbps':' · GIF 256 colors')+
+      ' · CAMERA '+(SURFACE_CAMERA_MOVES[engine.config.surfaceCameraMotion]||'OFF'));
   }catch(error){loopStatusText(error.message);}
   if(surfaceLoopPreview&&performance.now()-lastSurfaceVisualPaint>65)drawSurface();
 }
+function setSurfaceCameraTouchTool(mode){
+  if(surfaceLoopBusy)return;
+  if(mode!=='grab'&&mode!=='pick')mode='off';
+  if(!surfaceLoopPreview&&mode!=='off'){
+    $('surface-loop-preview').click();
+    if(!surfaceLoopPreview)return;
+  }
+  cancelCameraTouch();
+  surfaceCameraTouchTool=surfaceCameraTouchTool===mode?'off':mode;
+  if(surfaceCameraTouchTool!=='off'){
+    const seconds=Number($('surface-loop-seconds').value);
+    if(!surfaceLoopScrubbing){
+      const position=((surfaceLoopElapsed%seconds)+seconds)%seconds/seconds;
+      $('surface-camera-scrub').value=Math.round(position*100);
+      $('surface-camera-scrub-value').textContent=
+        $('surface-camera-scrub').value+'%';
+    }
+    surfaceLoopScrubbing=true;
+  }
+  updateCameraTouchToolButtons();
+  const help=surfaceCameraTouchTool==='grab'?
+    'CAMERA GRAB · Drag to pan; pinch with two fingers to zoom. Crystal growth is untouched.':
+    surfaceCameraTouchTool==='pick'?
+    'TARGET PICKER · Tap a visible mineral point, not the background bars.':
+    'Camera touch tools off. The mineral growth brush is available outside preview.';
+  $('surface-camera-status').textContent=help;
+  if(surfaceLoopPreview)drawSurface();
+}
+$('surface-camera-grab').addEventListener('click',()=>setSurfaceCameraTouchTool('grab'));
+$('surface-camera-pick').addEventListener('click',()=>setSurfaceCameraTouchTool('pick'));
+$('surface-camera-scrub').addEventListener('input',()=>{
+  if(surfaceLoopBusy)return;
+  if(!surfaceLoopPreview){
+    $('surface-loop-preview').click();
+    if(!surfaceLoopPreview)return;
+  }
+  surfaceLoopScrubbing=true;
+  $('surface-camera-scrub-value').textContent=$('surface-camera-scrub').value+'%';
+  $('surface-camera-status').textContent=
+    'SCRUB · Frame '+$('surface-camera-scrub').value+
+    '% · frozen at the exact material + camera loop phase.';
+  drawSurface();
+});
+$('surface-camera-replay').addEventListener('click',()=>{
+  if(surfaceLoopBusy)return;
+  if(!surfaceLoopPreview){
+    $('surface-loop-preview').click();
+    if(!surfaceLoopPreview)return;
+  }
+  const seconds=Number($('surface-loop-seconds').value);
+  surfaceLoopElapsed=seconds*Number($('surface-camera-scrub').value)/100;
+  surfaceLoopScrubbing=false;
+  surfaceCameraTouchTool='off';
+  surfaceCameraPointers.clear();surfaceCameraDrag=null;
+  updateCameraTouchToolButtons();
+  $('surface-camera-status').textContent='CAMERA ROLLING · All trajectories share one seamless motion phase.';
+  drawSurface();
+});
+$('surface-camera-reset').addEventListener('click',()=>{
+  if(surfaceLoopBusy)return;
+  cancelCameraTouch();
+  applyCameraBase({focusX:.5,focusY:.5,zoom:1});
+  $('surface-camera-status').textContent=
+    'LENS CENTERED · Camera motion preset and dive target kept intact.';
+});
 for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
   'surface-loop-motion','surface-loop-playback','surface-loop-format',
   'surface-loop-aspect','surface-loop-framing','surface-loop-bitrate',
