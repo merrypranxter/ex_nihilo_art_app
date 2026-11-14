@@ -2,13 +2,16 @@
 // CPU-bounded, deterministic view-space light transport approximations over
 // actual surface genealogy. This module NEVER mutates growth, birth pigments,
 // seeds, saved checkpoints, or frame clocks.
+import {getSpectralFilmLUT,sampleSpectralLUT,
+  srgbToLinear,linearToSrgb8} from './surface-spectral.js';
 export const SURFACE_OPTICS=Object.freeze({
   off:'ORIGINAL MINERAL · NO OPTICS',
   opal:'OPAL FIRE · THIN FILM',
   prism:'PRISM GLASS · DISPERSION',
   quartz:'WET QUARTZ · SPECULAR FACETS',
   frost:'FROSTED AGATE · DIFFUSE GRAIN',
-  ghost:'GHOST MINERAL · TRANSLUCENT VEIL'
+  ghost:'GHOST MINERAL · TRANSLUCENT VEIL',
+  spectral:'FRESNEL OPAL · 81-WAVELENGTH COATING'
 });
 export const SURFACE_OPTICS_LOOPS=Object.freeze([4,8,12]);
 const TAU=Math.PI*2;
@@ -104,7 +107,8 @@ export function dielectricInterference(thicknessNm,cosIncident=1,index=1.46){
 
 export function surfaceOpticsPixels(surface,baseRGBA,{
   mode='off',strength=.8,thickness=330,roughness=.3,
-  angle=40,phase=0,background='#05060c',wrap=false
+  angle=40,phase=0,background='#05060c',wrap=false,
+  filmIndex=1.46,substrateIndex=1.62,polarization=.5
 }={}){
   const n=surface?.size,capacity=n*n;
   if(!Number.isInteger(n)||n<16||n>192||
@@ -118,6 +122,9 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
   const film=clamp(safe(thickness,330),90,800);
   const grain=clamp(safe(roughness,.3),0,1);
   const light=opticalLight(angle,phase);
+  const spectralTable=mode==='spectral'?getSpectralFilmLUT({
+    thickness:film,filmIndex,substrateIndex,polarization}):null;
+  const spectralRGB=[0,0,0];
   const back=rgb(background);
   const owner=surface.owner,depth=surface.depth,age=surface.age;
   const seeds=surface.seeds;
@@ -156,6 +163,24 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
         channels[c]=channels[c]*(1-.12*power)+
           spectral*reflect+255*spec*power*(.15+.45*rim)+
           26*fresnel*power;
+      }
+    }else if(mode==='spectral'){
+      // Full Fresnel s/p powers integrated at 81 wavelengths, 380–780 nm.
+      // LUT is cached in LINEAR sRGB, not display-encoded RGB.
+      // The 2D angle is relative to the moving lamp, NOT a real camera view.
+      const filmDepth=film*(.80+.18*Math.sin(depth[i]*.24+seedPhase*TAU)
+        +.12*maturity);
+      sampleSpectralLUT(spectralTable,clamp(.16+.84*incidence,.04,1),
+        filmDepth,spectralRGB);
+      for(let c=0;c<3;c++){
+        const baseLin=srgbToLinear(channels[c]);
+        const R=spectralRGB[c];
+        // Artistic reflected-light gain (not a measured BRDF); respect
+        // the physically computed spectral ratio and Fresnel angle.
+        const reflected=clamp(R*(1.6+.9*rim),0,1);
+        channels[c]=linearToSrgb8(
+          baseLin*(1-clamp(R*power,0,.98))+
+          clamp(reflected*power+.12*spec*power,0,1));
       }
     }else if(mode==='prism'){
       // Cheap lateral spectral refraction. Cauchy-like inverse-lambda²
