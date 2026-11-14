@@ -158,7 +158,7 @@ export class GrowthEngine {
     candidate.crystalGlints=clamp(safe(+candidate.crystalGlints),0,1);
     candidate.crystalSkin=clamp(safe(+candidate.crystalSkin),0,1);
     candidate.crystalInclusions=clamp(safe(+candidate.crystalInclusions),0,1);
-    if(!INTERIOR_STYLES[candidate.crystalInterior])candidate.crystalInterior='off';
+    if(!Object.hasOwn(INTERIOR_STYLES,candidate.crystalInterior))candidate.crystalInterior='off';
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
     if(!CRYSTAL_LENSES[candidate.crystalLens])candidate.crystalLens='inherit';
     if(!isPaletteStops(candidate.paletteStops))throw new Error('Invalid custom palette stops');
