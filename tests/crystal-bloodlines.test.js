@@ -195,3 +195,18 @@ test('separate seeds establish distinct families while descendants keep their or
   assert.ok(c.parentBirthIds.some(x=>x>0));
   assert.ok(c.families.every(x=>x===0||x===1||x===2));
 });
+
+test('family bands stay diverse across descendants yet fixed through aging',()=>{
+  const founder=founderGenes(2184,1);
+  for(const mode of ['brocade','strata','mutant']){
+    let bands=0;
+    for(let index=0;index<128;index++){
+      const a=inheritedFacet(founder,1,20,{mode,strength:.8,index});
+      const b=inheritedFacet(founder,1,110,{mode,strength:.8,index});
+      assert.deepEqual(a,b,'birth lineages must not blink when time advances');
+      bands+=Number(a.band);
+    }
+    assert.ok(bands>0&&bands<128,
+      mode+' should show varied, genetically coherent 3D mineral banding');
+  }
+});
