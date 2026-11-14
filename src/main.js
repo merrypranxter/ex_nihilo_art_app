@@ -1756,9 +1756,10 @@ $('performance-toggle').addEventListener('click',()=>{
   $('performance-toggle').setAttribute('aria-pressed',String(performanceMeter.enabled));
   $('performance-toggle').textContent=performanceMeter.enabled?
     'HIDE PERFORMANCE':'SHOW PERFORMANCE';
-  $('performance-copy').disabled=!performanceMeter.enabled;
-  if(!performanceMeter.enabled)
-    $('performance-report').textContent='Performance monitor is off. Artwork remains fully interactive.';
+  $('performance-copy').disabled=true;
+  $('performance-copy').textContent='COPY REPORT';
+  $('performance-report').textContent=performanceMeter.enabled?
+    'Sampling real device frames…':'Performance monitor is off. Artwork remains fully interactive.';
 });
 $('performance-copy').addEventListener('click',async()=>{
   try{
@@ -1797,6 +1798,7 @@ function samplePerformance(now){
     'Version: 03K · iPhone Stage Reliability'
   ].join('\n');
   $('performance-report').textContent=performanceMeter.latest;
+  $('performance-copy').disabled=false;
 }
 function frame(now){
   requestAnimationFrame(frame);
