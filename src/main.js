@@ -14,6 +14,7 @@ import {
   METAMORPHOSIS_STAGES,mineralLifeStage,
   mineralStageMaterials,isMineralMetamorphosisActive
 } from './mineral-metamorphosis.js';
+import { inheritedFacet } from './crystal-bloodlines.js';
 import { FieldGestureTransaction, GrowthStrokeTransaction, CrystalPressureTransaction } from './gesture-witch.js';
 import { PALETTE_CATALOG, PALETTE_NAMES, filteredPalettes } from './palettes.js';
 import './styles.css';
@@ -255,6 +256,42 @@ mineralSeeds.frustumCulled=false;
 mineralSeeds.count=0;
 mineralSeeds.visible=false;
 scene.add(mineralSeeds);
+// A single, capped, real 3D band mesh to express inherited mineral layers.
+// Historical birth pigment is never rewritten by the decorative banding.
+const MAX_BLOODLINE_BANDS=1100;
+const bloodlineBandGeometry=new THREE.TorusGeometry(
+  crystalCellSize*.34,crystalCellSize*.014,3,8);
+// Compensate for genuine differences in the seven cell silhouettes,
+// keeping mineral bands at the outer facet rather than buried in opaque
+// geometry where a physically correct depth test would hide them.
+const bloodlineBandRadius={
+  octa:1.72,cube:1.01,sphere:1.56,quartz:1.13,
+  prism:1.27,shard:1.62,jewel:1.49
+};
+const bloodlineBandMaterial=new THREE.MeshPhysicalMaterial({
+  color:'#ffffff',roughness:.18,metalness:.30,clearcoat:1,
+  iridescence:.94,iridescenceThicknessRange:[100,440],
+  transparent:true,opacity:.74,depthWrite:false,
+  side:THREE.DoubleSide
+});
+const bloodlineBands=new THREE.InstancedMesh(
+  bloodlineBandGeometry,bloodlineBandMaterial,MAX_BLOODLINE_BANDS);
+bloodlineBands.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+bloodlineBands.frustumCulled=false;
+bloodlineBands.count=0;
+bloodlineBands.visible=false;
+bloodlineBands.renderOrder=3;
+scene.add(bloodlineBands);
+const bandFlatAxis=new THREE.Vector3(0,0,1);
+const bandAlongAxis=new THREE.Quaternion()
+  .setFromUnitVectors(bandFlatAxis,new THREE.Vector3(0,1,0));
+const bandRotation=new THREE.Quaternion();
+const bandTwist=new THREE.Quaternion();
+const bandPosition=new THREE.Vector3();
+const bandAxis=new THREE.Vector3();
+const bandTint=new THREE.Color();
+const bandTransform=new THREE.Matrix4();
+const bandScale=new THREE.Vector3();
 const inclusionRoll=new THREE.Quaternion();
 const mineralOrigin=new THREE.Vector3();
 const mineralTint=new THREE.Color();
@@ -286,8 +323,12 @@ scarLines.renderOrder=4;
 scene.add(scarLines);
 function syncCrystals(){
   if(!engine.colony.changed)return;
-  let visible=0,facetCount=0,skinCount=0,seedCount=0,
+  let visible=0,facetCount=0,skinCount=0,seedCount=0,bandCount=0,
       scarLinesDrawn=0,cracked=0,shattered=0;
+  const heritageOn=engine.config.crystalHeritage!=='off'&&
+    engine.config.crystalHeritageStrength>0;
+  const familiesSeen=new Set();
+  let ancestryTracked=0,descendants=0;
   const useAging=isMineralMetamorphosisActive({
     preset:engine.config.crystalEvolution
   });
@@ -335,6 +376,19 @@ function syncCrystals(){
     },{
       relief:engine.config.crystalRelief,glint:engine.config.crystalGlints
     });
+    const family=colony.families[i];
+    if(family){
+      familiesSeen.add(family);
+      ancestryTracked++;
+      if(colony.parentBirthIds[i])descendants++;
+    }
+    const heritage=inheritedFacet([
+      colony.genes[i*3],colony.genes[i*3+1],colony.genes[i*3+2]
+    ],family,colony.ages[i],{
+      mode:engine.config.crystalHeritage,
+      strength:engine.config.crystalHeritageStrength,
+      index:i
+    });
     if(engine.config.crystalRelief>0){
       crystalOutward.set(...surface.direction);
       crystalRotation.setFromUnitVectors(crystalUp,crystalOutward);
@@ -354,6 +408,12 @@ function syncCrystals(){
         scale*display.lateral
       );
     }
+    // Genes affect real instanced mineral proportions, not a 2D overlay.
+    crystalScale.set(
+      crystalScale.x*heritage.lateral,
+      crystalScale.y*heritage.axial,
+      crystalScale.z*heritage.lateral
+    );
     crystalTransform.compose(crystalPosition,crystalRotation,crystalScale);
     crystals.setMatrixAt(visible,crystalTransform);
     const k=i*3;
@@ -364,6 +424,31 @@ function syncCrystals(){
       Math.min(.16,stress*.12));
     crystalColor.lerp(crystalWhite,display.pigmentMix);
     crystals.setColorAt(visible,crystalColor);
+    if(heritageOn&&mature&&surface.exposed>0&&
+       heritage.band&&bandCount<MAX_BLOODLINE_BANDS){
+      // One mineral layer per selected living exterior voxel, a physical
+      // growth ring aligned with its actual crystal/family facet axis.
+      bandAxis.copy(crystalUp).applyQuaternion(crystalRotation);
+      bandPosition.copy(crystalPosition).addScaledVector(
+        bandAxis,heritage.position*crystalCellSize*scale*.65);
+      bandTwist.setFromAxisAngle(crystalUp,heritage.rotation);
+      bandRotation.copy(crystalRotation).multiply(bandTwist).multiply(bandAlongAxis);
+      const ringRadius=bloodlineBandRadius[engine.config.crystalShape]||1;
+      bandScale.set(
+        scale*ringRadius*heritage.lateral,
+        scale*ringRadius*heritage.lateral,
+        scale*heritage.axial
+      );
+      bandTransform.compose(bandPosition,bandRotation,bandScale);
+      bloodlineBands.setMatrixAt(bandCount,bandTransform);
+      const q=i*3;
+      bandTint.setRGB(
+        Math.min(1,colony.colors[q]/255*(1-heritage.shade)+heritage.shade),
+        Math.min(1,colony.colors[q+1]/255*(1-heritage.shade)+heritage.shade),
+        Math.min(1,colony.colors[q+2]/255*(1-heritage.shade)+heritage.shade));
+      bloodlineBands.setColorAt(bandCount,bandTint);
+      bandCount++;
+    }
     if(useAging){
       const tier=mineralLifeStage({
         occupied:true,mature,age:colony.ages[i],
@@ -453,6 +538,16 @@ function syncCrystals(){
   $('strain-stats').textContent=cracked.toLocaleString()+
     ' CRACKED CELLS · '+shattered.toLocaleString()+' FRACTURE SCARS'+
     (scarLinesDrawn>=maxScarLines?' · SCAR DISPLAY CAPPED':'');
+  bloodlineBands.count=heritageOn?bandCount:0;
+  bloodlineBands.visible=heritageOn&&bandCount>0;
+  if(heritageOn){
+    bloodlineBands.instanceMatrix.needsUpdate=true;
+    if(bloodlineBands.instanceColor)bloodlineBands.instanceColor.needsUpdate=true;
+  }
+  $('heritage-stats').textContent=ancestryTracked.toLocaleString()+
+    ' TRACKED CRYSTALS · '+familiesSeen.size.toLocaleString()+
+    ' FOUNDER FAMILIES · '+descendants.toLocaleString()+
+    ' LIVING DESCENDANTS · '+bandCount.toLocaleString()+' MINERAL BANDS';
   mineralSkins.count=skinCount;
   mineralSkins.visible=skinCount>0;
   mineralSkins.instanceMatrix.needsUpdate=true;
@@ -1336,6 +1431,14 @@ function updateCrystalControls(){
   $('crystal-maturity-value').textContent=visual.crystalMaturity+' generations';
   $('crystal-stress-optics').value=Math.round(visual.crystalStressOptics*100);
   $('crystal-stress-optics-value').textContent=Math.round(visual.crystalStressOptics*100)+'%';
+  $('crystal-heritage').value=visual.crystalHeritage;
+  $('heritage-strength').value=Math.round(visual.crystalHeritageStrength*100);
+  $('heritage-strength-value').textContent=
+    Math.round(visual.crystalHeritageStrength*100)+'%';
+  $('heritage-growth').value=Math.round(c.ancestryInfluence*100);
+  $('heritage-growth-value').textContent=Math.round(c.ancestryInfluence*100)+'%';
+  $('heritage-mutation').value=Math.round(c.ancestryMutation*100);
+  $('heritage-mutation-value').textContent=Math.round(c.ancestryMutation*100)+'%';
   updatePressureControls();
 }
 function readCrystalControls(){
@@ -1410,6 +1513,24 @@ function readCrystalOptics(){
     ['colony-geometry','crystal-lens','crystal-interior',
      'crystal-evolution'].includes(id)?
       'change':'input',readCrystalOptics));
+function readCrystalHeritage(){
+  const mode=$('crystal-heritage').value;
+  engine.setConfig({
+    crystalHeritage:mode,
+    crystalHeritageStrength:Number($('heritage-strength').value)/100
+  });
+  engine.colony.setSettings({
+    ancestryEnabled:mode!=='off',
+    ancestryInfluence:Number($('heritage-growth').value)/100,
+    ancestryMutation:Number($('heritage-mutation').value)/100
+  });
+  // Normal render-frame refresh; no CPU CA reset or color rewrite.
+  engine.colony.changed=true;
+  updateCrystalControls();
+}
+['crystal-heritage','heritage-strength','heritage-growth',
+  'heritage-mutation'].forEach(id=>$(id).addEventListener(
+    id==='crystal-heritage'?'change':'input',readCrystalHeritage));
 
 const morphologyControls={
   feed:{id:'morph-feed',format:n=>n.toFixed(4),read:n=>n},
@@ -2013,6 +2134,9 @@ function samplePerformance(now){
     'Fibers: '+engine.segmentCount.toLocaleString(),
     'Crystal cells: '+engine.colony.population.toLocaleString(),
     'Visible facets: '+facetGems.count.toLocaleString(),
+    'Hereditary bands: '+bloodlineBands.count.toLocaleString(),
+    'Crystal families: '+new Set(Array.from(engine.colony.families)
+      .filter((f,i)=>f&&engine.colony.cells[i])).size.toLocaleString(),
     'Young glass: '+crystalAgeCounts.young.toLocaleString(),
     'Mature opal: '+crystalAgeCounts.mature.toLocaleString(),
     'Faulted mineral: '+crystalAgeCounts.fault.toLocaleString(),

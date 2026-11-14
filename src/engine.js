@@ -10,6 +10,7 @@ import { FIBER_PROFILES } from './mineral-optics.js';
 import { CRYSTAL_PROFILES, CRYSTAL_LENSES } from './crystal-optics.js';
 import { INTERIOR_STYLES } from './mineral-inclusions.js';
 import { METAMORPHOSIS_PRESETS } from './mineral-metamorphosis.js';
+import { HERITAGE_MODES } from './crystal-bloodlines.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -40,7 +41,8 @@ export class GrowthEngine {
       crystalShape:'quartz',crystalLens:'prism',
       crystalRelief:.62,crystalGlints:.63,
       crystalInterior:'off',crystalSkin:.35,crystalInclusions:.60,
-      crystalEvolution:'off',crystalMaturity:28,crystalStressOptics:.45
+      crystalEvolution:'off',crystalMaturity:28,crystalStressOptics:.45,
+      crystalHeritage:'off',crystalHeritageStrength:.65
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -163,6 +165,9 @@ export class GrowthEngine {
     if(!Object.hasOwn(INTERIOR_STYLES,candidate.crystalInterior))candidate.crystalInterior='off';
     if(!Object.hasOwn(METAMORPHOSIS_PRESETS,candidate.crystalEvolution))
       candidate.crystalEvolution='off';
+    if(!Object.hasOwn(HERITAGE_MODES,candidate.crystalHeritage))
+      candidate.crystalHeritage='off';
+    candidate.crystalHeritageStrength=clamp(safe(+candidate.crystalHeritageStrength),0,1);
     candidate.crystalMaturity=Math.round(clamp(safe(+candidate.crystalMaturity),8,96));
     candidate.crystalStressOptics=clamp(safe(+candidate.crystalStressOptics),.1,1.2);
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
@@ -221,12 +226,19 @@ export class GrowthEngine {
     const historicalMetamorphosis=historicInclusions.crystalEvolution===undefined?
       {...historicInclusions,crystalEvolution:'off',crystalMaturity:28,
         crystalStressOptics:.45}:historicInclusions;
-    this.setConfig(historicalMetamorphosis);
+    const historicalHeritage=historicalMetamorphosis.crystalHeritage===undefined?
+      {...historicalMetamorphosis,crystalHeritage:'off',crystalHeritageStrength:0}
+      :historicalMetamorphosis;
+    this.setConfig(historicalHeritage);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
-    if(dna.colony)this.colony.setSettings(
-      dna.colony.strainEnabled===undefined?
-        {...dna.colony,strainEnabled:false}:dna.colony);
+    if(dna.colony)this.colony.setSettings({
+      ...dna.colony,
+      strainEnabled:dna.colony.strainEnabled===undefined?
+        false:dna.colony.strainEnabled,
+      ancestryEnabled:dna.colony.ancestryEnabled===undefined?
+        false:dna.colony.ancestryEnabled
+    });
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
   }
@@ -425,9 +437,11 @@ export class GrowthEngine {
         // inclusions must visibly mature without changing the CA physics or
         // rebuilding thousands of buffers on every 60fps screen frame.
         const metAmorph=this.config.crystalEvolution!=='off';
+        const heritage=this.config.crystalHeritage!=='off';
         if(this.colony.population>0&&
           ((this.config.crystalInterior!=='off'&&this.colony.generation%6===0)||
-           (metAmorph&&this.colony.generation%4===0)))
+           (metAmorph&&this.colony.generation%4===0)||
+           (heritage&&this.colony.generation%8===0)))
           this.colony.changed=true;
         this.colonyElapsed-=.32;
       }
@@ -749,7 +763,10 @@ export class GrowthEngine {
     const historicalMetamorphosis=historicInclusions.crystalEvolution===undefined?
       {...historicInclusions,crystalEvolution:'off',crystalMaturity:28,
         crystalStressOptics:.45}:historicInclusions;
-    this.setConfig(historicalMetamorphosis);
+    const historicalHeritage=historicalMetamorphosis.crystalHeritage===undefined?
+      {...historicalMetamorphosis,crystalHeritage:'off',crystalHeritageStrength:0}
+      :historicalMetamorphosis;
+    this.setConfig(historicalHeritage);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
