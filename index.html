@@ -219,6 +219,7 @@
                           <option value="microscope">MICROSCOPE DIVE · APPROACH / RETREAT</option>
                           <option value="pendulum">PENDULUM SURVEY · SWEEPING PAN</option>
                           <option value="target">TARGET DIVE · VISIT A SELECTED DETAIL</option>
+                          <option value="drawn">HAND-DRAWN PATH · FOLLOW YOUR FINGER</option>
                         </select>
                       </label>
                       <label class="control"><span>Travel distance <output id="surface-camera-travel-value">60%</output></span>
@@ -254,6 +255,46 @@
                       <button type="button" class="mini" id="surface-camera-reset">↺ CENTER CAMERA</button>
                     </div>
                     <p class="help" id="surface-camera-status" aria-live="polite">Choose a camera path and preview. SCRUB freezes any frame. GRAB CAMERA lets you pan and pinch the framing without editing mineral births; PICK TARGET grabs an actual point in the composition.</p>
+                    <details id="surface-camera-path-lab" class="morph-advanced">
+                      <summary>✍ DRAW YOUR OWN CAMERA PATH · GESTURE WITCH</summary>
+                      <div class="morph-advanced-grid">
+                        <p class="help first">Press DRAW, then draw a winding camera journey directly over the artwork. Finger-up saves ONE named path; redraw replaces it reversibly. The drawing is converted back into REAL mineral UV coordinates, even inside a portrait crop. A circuit joins the ends smoothly; Retrace follows your route back home. Guides appear only in preview, never GIF/MP4.</p>
+                        <div class="control-grid">
+                          <label class="control select-control"><span>Return to the beginning</span>
+                            <select id="surface-camera-path-mode">
+                              <option value="circuit">CIRCUIT · SMOOTH CLOSED LOOP</option>
+                              <option value="retrace">RETRACE · OUT AND BACK</option>
+                            </select>
+                          </label>
+                          <label class="control select-control"><span>Journey speed</span>
+                            <select id="surface-camera-path-timing">
+                              <option value="even">EVEN · ARC-LENGTH SPEED</option>
+                              <option value="hand">HAND RHYTHM · RECORDED TIMING</option>
+                              <option value="linger">LINGER · EASE NEAR START</option>
+                            </select>
+                          </label>
+                          <label class="control"><span>Curve smoothing <output id="surface-camera-path-smooth-value">85%</output></span>
+                            <input id="surface-camera-path-smooth" type="range" min="0" max="100" step="5" value="85"/>
+                          </label>
+                          <label class="control"><span>Microscope zoom <output id="surface-camera-path-zoom-value">1.45×</output></span>
+                            <input id="surface-camera-path-zoom" type="range" min="100" max="250" step="5" value="145"/>
+                          </label>
+                          <label class="control"><span>Zoom pulse <output id="surface-camera-path-pulse-value">20%</output></span>
+                            <input id="surface-camera-path-pulse" type="range" min="0" max="100" step="5" value="20"/>
+                          </label>
+                        </div>
+                        <div class="small-actions ecology-actions">
+                          <button type="button" class="choice" id="surface-camera-path-draw" aria-pressed="false">✍ DRAW PATH ON ART</button>
+                          <button type="button" class="choice" id="surface-camera-path-show" aria-pressed="false">◇ SHOW PATH</button>
+                          <button type="button" class="choice" id="surface-camera-path-reverse">⇆ REVERSE DIRECTION</button>
+                          <button type="button" class="choice" id="surface-camera-path-undo" disabled>↶ UNDO PATH</button>
+                          <button type="button" class="choice" id="surface-camera-path-redo" disabled>↷ REDO PATH</button>
+                          <button type="button" class="mini danger" id="surface-camera-path-clear" disabled>✕ CLEAR PATH</button>
+                        </div>
+                        <p class="help" id="surface-camera-path-status" aria-live="polite">NO DRAWN PATH · Other camera presets still work. Draw at least two separated points to begin.</p>
+                        <p class="help">Max 72 saved path anchors, 6 Undo checkpoints. Touch cancellation restores the old path. Only the camera is edited; crystal births and Gesture Witch fields are never changed. For close-ups in 9:16, zoom above 1× to allow both horizontal and vertical travel.</p>
+                      </div>
+                    </details>
                   </div>
                 </details>
                 <div class="small-actions ecology-actions">
