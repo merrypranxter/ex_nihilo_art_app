@@ -388,6 +388,120 @@ function surfaceNormalizedPoint(e){
   const y=((e.clientY-bounds.top)*dprY-r.top)/r.size;
   return x>=0&&x<1&&y>=0&&y<1?{x,y}:null;
 }
+// 04H Camera Witch: camera touch cannot reach a real mineral owner cell.
+// These coordinates invert only the PREVIEW lens; no growth brush is invoked.
+function previewCameraPointer(e){
+  const bounds=surfaceCanvas.getBoundingClientRect();
+  if(!bounds.width||!bounds.height)return null;
+  const g=cinematicPreviewGeometry();
+  const px=(e.clientX-bounds.left)*surfaceCanvas.width/bounds.width;
+  const py=(e.clientY-bounds.top)*surfaceCanvas.height/bounds.height;
+  return {x:(px-g.dx)/g.dw,y:(py-g.dy)/g.dh,
+    clientX:e.clientX,clientY:e.clientY,g};
+}
+function cameraBaseFromControls(){
+  return {focusX:Number($('surface-loop-focus-x').value)/100,
+    focusY:Number($('surface-loop-focus-y').value)/100,
+    zoom:Number($('surface-loop-zoom').value)/100};
+}
+function applyCameraBase(pose){
+  $('surface-loop-focus-x').value=Math.round(pose.focusX*100);
+  $('surface-loop-focus-y').value=Math.round(pose.focusY*100);
+  $('surface-loop-zoom').value=Math.round(pose.zoom*100);
+  syncSurfaceLoopRecipe();
+}
+function updateCameraTouchToolButtons(){
+  for(const [id,mode,normal,active] of [
+    ['surface-camera-grab','grab','✋ GRAB CAMERA · DRAG / PINCH','◉ GRAB CAMERA: ON'],
+    ['surface-camera-pick','pick','🎯 PICK DIVE TARGET','◎ TAP A MINERAL DETAIL']
+  ]){
+    const button=$(id);
+    button.setAttribute('aria-pressed',String(surfaceCameraTouchTool===mode));
+    button.classList.toggle('active',surfaceCameraTouchTool===mode);
+    button.textContent=surfaceCameraTouchTool===mode?active:normal;
+  }
+}
+function cancelCameraTouch(){
+  if(surfaceCameraDrag?.origin)applyCameraBase(surfaceCameraDrag.origin);
+  surfaceCameraPointers.clear();surfaceCameraDrag=null;
+}
+function handleCameraPointerDown(e){
+  if(!surfaceLoopPreview||surfaceCameraTouchTool==='off')return false;
+  const p=previewCameraPointer(e);if(!p)return true;
+  e.preventDefault();
+  if(p.x<0||p.x>1||p.y<0||p.y>1)return true;
+  if(surfaceCameraTouchTool==='pick'){
+    const {g}=p,pose=cameraPoseFromConfig(currentCameraLoopPhase(),engine.config);
+    const position=pickCinematicSource(p.x,p.y,g.edge,
+      g.dims.width,g.dims.height,{
+        framing:engine.config.surfaceLoopFraming,
+        focusX:pose.focusX,focusY:pose.focusY,zoom:pose.zoom
+      });
+    if(!position){
+      $('surface-camera-status').textContent='That is a background bar, not mineral. Tap inside the actual artwork.';
+      return true;
+    }
+    $('surface-camera-target-x').value=Math.round(position.x*100);
+    $('surface-camera-target-y').value=Math.round(position.y*100);
+    $('surface-camera-motion').value='target';
+    surfaceCameraTouchTool='off';updateCameraTouchToolButtons();
+    syncSurfaceLoopRecipe();
+    $('surface-camera-status').textContent=
+      'TARGET SET · '+Math.round(position.x*100)+'% X / '+
+      Math.round(position.y*100)+'% Y. Press RESUME for the fly-in.';
+    return true;
+  }
+  if(surfaceCameraPointers.size>=2||surfaceCameraPointers.has(e.pointerId))
+    return true;
+  if(surfaceCameraPointers.size===0){
+    const base=cameraBaseFromControls();
+    surfaceCameraDrag={origin:base,base,anchors:null,wasPinching:false};
+  }
+  surfaceCameraPointers.set(e.pointerId,p);
+  // Rebase at the moment the second finger lands, preventing a jump.
+  surfaceCameraDrag.base=cameraBaseFromControls();
+  surfaceCameraDrag.anchors=new Map(surfaceCameraPointers);
+  if(surfaceCameraPointers.size===2)surfaceCameraDrag.wasPinching=true;
+  try{surfaceCanvas.setPointerCapture(e.pointerId);}catch{/* pointercancel still reverses */}
+  return true;
+}
+function handleCameraPointerMove(e){
+  if(!surfaceCameraPointers.has(e.pointerId))return false;
+  const p=previewCameraPointer(e);if(!p)return true;
+  e.preventDefault();
+  surfaceCameraPointers.set(e.pointerId,p);
+  const drag=surfaceCameraDrag;
+  if(!drag||drag.wasPinching&&surfaceCameraPointers.size===1)return true;
+  const starts=[...drag.anchors.values()],
+    currents=[...surfaceCameraPointers.values()];
+  if(starts.length!==currents.length)return true;
+  const average=(a,k)=>a.reduce((n,p)=>n+p[k],0)/a.length;
+  const deltaX=average(currents,'x')-average(starts,'x');
+  const deltaY=average(currents,'y')-average(starts,'y');
+  const g=p.g,base=drag.base;
+  const r=cinematicFrameRect(g.edge,g.dims.width,g.dims.height,{
+    framing:engine.config.surfaceLoopFraming,...base
+  });
+  const remainingX=1-r.sw/g.edge,remainingY=1-r.sh/g.edge;
+  const dx=remainingX<.00001?0:deltaX*(r.sw/g.edge)/remainingX;
+  const dy=remainingY<.00001?0:deltaY*(r.sh/g.edge)/remainingY;
+  let scale=1;
+  if(currents.length===2){
+    const distance=(q)=>Math.hypot(q[1].clientX-q[0].clientX,
+      q[1].clientY-q[0].clientY);
+    const original=distance(starts);
+    if(original>12)scale=distance(currents)/original;
+  }
+  const next=cameraGesturePose(base,{dx,dy,scale});
+  applyCameraBase(next);
+  return true;
+}
+function handleCameraPointerEnd(e){
+  if(!surfaceCameraPointers.has(e.pointerId))return false;
+  surfaceCameraPointers.delete(e.pointerId);
+  if(!surfaceCameraPointers.size)surfaceCameraDrag=null;
+  return true;
+}
 // Gestures are atomic transactions: touch creates or edits real CA rules,
 // pointer-up commits, canceled/lost focus rolls back, pinch rotates/resizes.
 function cancelSurfaceTouch(){
@@ -398,6 +512,7 @@ function cancelSurfaceTouch(){
 }
 function beginSurfaceTouch(e){
   if(engine.config.compositionDomain!=='surface'||surfaceLoopBusy)return;
+  if(handleCameraPointerDown(e))return;
   const uv=surfaceNormalizedPoint(e);
   if(!uv)return;
   e.preventDefault();
@@ -423,6 +538,7 @@ function beginSurfaceTouch(e){
   presentGestureChanges();
 }
 function moveSurfaceTouch(e){
+  if(handleCameraPointerMove(e))return;
   if(!surfacePointerPositions.has(e.pointerId))return;
   const uv=surfaceNormalizedPoint(e);
   if(!uv)return;
@@ -437,6 +553,7 @@ function moveSurfaceTouch(e){
   presentGestureChanges();
 }
 function endSurfaceTouch(e){
+  if(handleCameraPointerEnd(e))return;
   if(!surfacePointerPositions.has(e.pointerId))return;
   surfacePointerPositions.delete(e.pointerId);
   if(surfacePointerPositions.size===0){
@@ -447,16 +564,22 @@ function endSurfaceTouch(e){
 surfaceCanvas.addEventListener('pointerdown',beginSurfaceTouch);
 surfaceCanvas.addEventListener('pointermove',moveSurfaceTouch);
 surfaceCanvas.addEventListener('pointerup',endSurfaceTouch);
-surfaceCanvas.addEventListener('pointercancel',cancelSurfaceTouch);
+surfaceCanvas.addEventListener('pointercancel',e=>{
+  if(surfaceCameraPointers.has(e.pointerId))cancelCameraTouch();
+  else cancelSurfaceTouch();
+});
 surfaceCanvas.addEventListener('lostpointercapture',e=>{
+  if(surfaceCameraPointers.has(e.pointerId))cancelCameraTouch();
   if(surfacePointerPositions.has(e.pointerId))cancelSurfaceTouch();
 });
-window.addEventListener('blur',cancelSurfaceTouch);
+window.addEventListener('blur',()=>{
+  cancelSurfaceTouch();cancelCameraTouch();
+});
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden)cancelSurfaceTouch();
+  if(document.hidden){cancelSurfaceTouch();cancelCameraTouch();}
 });
 window.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){cancelSurfaceTouch();return;}
+  if(e.key==='Escape'){cancelSurfaceTouch();cancelCameraTouch();return;}
   const tag=document.activeElement?.tagName?.toLowerCase();
   if(['input','select','textarea'].includes(tag))return;
   if(engine.config.compositionDomain!=='surface'||!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
