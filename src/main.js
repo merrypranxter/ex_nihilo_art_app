@@ -777,6 +777,15 @@ window.addEventListener('keydown',e=>{
   if(['input','select','textarea'].includes(tag))return;
   if(engine.config.compositionDomain!=='surface'||!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
   e.preventDefault();
+  if(surfaceLoopPreview&&
+    (surfaceCameraTouchTool==='draw'||engine.config.surfaceCameraMotion==='drawn')){
+    if(!surfaceCameraPathEditor.draft){
+      const changed=e.shiftKey?surfaceCameraPathEditor.redo():
+        surfaceCameraPathEditor.undo();
+      if(changed)applyCameraPathDocument();
+    }
+    return;
+  }
   if(e.shiftKey)surfaceGestureEditor.redo();
   else surfaceGestureEditor.undo();
   presentGestureChanges();
