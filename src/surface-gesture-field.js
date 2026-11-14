@@ -212,6 +212,17 @@ export class SurfaceGestureEditor{
     const next=this.redoStack.pop();this.undoStack.push(current);
     this.surface.restore(next);return true;
   }
+  atomicMutation(operation){
+    if(this.tx||typeof operation!=='function')return false;
+    const before=this.surface.snapshot();
+    try{operation();}catch(error){
+      this.surface.restore(before);throw error;
+    }
+    this.undoStack.push(before);
+    if(this.undoStack.length>6)this.undoStack.shift();
+    this.redoStack=[];
+    return true;
+  }
   clear(){
     if(this.tx||!this.surface.marks.length)return false;
     this.undoStack.push(this.surface.snapshot());
