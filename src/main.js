@@ -5,6 +5,7 @@ import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
 import { FIBER_PROFILES, mineralOptics } from './mineral-optics.js';
+import { FieldGestureTransaction } from './gesture-witch.js';
 import './styles.css';
 
 const $ = id => document.getElementById(id);
@@ -293,8 +294,29 @@ engine.onDeposit=(slot,a,b,color,radius,generation=0,bornAt=engine.time)=>{
 const nodeSphere=new THREE.IcosahedronGeometry(.12,1);
 const nodeMaterials={
   attract:new THREE.MeshBasicMaterial({color:'#80ffe4'}),
-  repel:new THREE.MeshBasicMaterial({color:'#ff7a69'})
+  repel:new THREE.MeshBasicMaterial({color:'#ff7a69'}),
+  vortex:new THREE.MeshBasicMaterial({color:'#f96dec'})
 };
+const vortexRingGeometry=new THREE.RingGeometry(.97,1.03,56);
+const vortexRingMaterial=new THREE.MeshBasicMaterial({
+  color:'#f96dec',transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false
+});
+let selectedNodeId=null;
+function selectedNode(){return engine.nodes.find(n=>n.id===selectedNodeId)||null;}
+function showNodeSelection(){
+  const node=selectedNode(),vortex=node?.type==='vortex';
+  $('gesture-selection').textContent=node
+    ?node.type.toUpperCase()+' #'+node.id+' · DRAG TO MOVE'+(vortex?' · PINCH/TWIST TO SCULPT':'')
+    :'NO FIELD SOURCE SELECTED — TAP TO CREATE ONE';
+  $('gesture-radius').disabled=!vortex;
+  $('gesture-spin').disabled=!vortex;
+  if(vortex){
+    $('gesture-radius').value=String(node.radius);
+    $('gesture-radius-value').textContent=node.radius.toFixed(2);
+    $('gesture-spin').value=String(node.spin);
+    $('gesture-spin-value').textContent=node.spin.toFixed(2);
+  }
+}
 const nodeViews=new Map();
 function syncNodes(){
   const existing=new Set();
@@ -304,14 +326,28 @@ function syncNodes(){
     if(!mesh){
       mesh=new THREE.Mesh(nodeSphere,nodeMaterials[node.type]);
       mesh.userData.id=node.id;
+      if(node.type==='vortex'){
+        const ring=new THREE.Mesh(vortexRingGeometry,vortexRingMaterial);
+        ring.userData.reachRing=true;
+        mesh.add(ring);
+      }
       scene.add(mesh);nodeViews.set(node.id,mesh);
     }
     mesh.material=nodeMaterials[node.type];
     mesh.position.copy(node.pos);
+    const ring=mesh.children.find(child=>child.userData.reachRing);
+    if(ring){
+      ring.scale.setScalar(node.radius??1.1);
+      ring.quaternion.copy(camera.quaternion);
+      ring.material=vortexRingMaterial;
+    }
+    mesh.scale.setScalar(node.id===selectedNodeId?1.35:1);
   });
   for(const [id,mesh] of nodeViews){
     if(!existing.has(id)){scene.remove(mesh);nodeViews.delete(id);}
   }
+  if(selectedNodeId!==null&&!existing.has(selectedNodeId))selectedNodeId=null;
+  showNodeSelection();
 }
 const raycaster=new THREE.Raycaster();
 const pointer=new THREE.Vector2();
