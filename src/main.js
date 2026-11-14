@@ -336,12 +336,14 @@ function syncNodes(){
     mesh.material=nodeMaterials[node.type];
     mesh.position.copy(node.pos);
     const ring=mesh.children.find(child=>child.userData.reachRing);
+    const selectionScale=node.id===selectedNodeId?1.35:1;
     if(ring){
-      ring.scale.setScalar(node.radius??1.1);
+      // The selected handle grows, but its radius ring remains true to
+      // the physical support distance in world units.
+      ring.scale.setScalar((node.radius??1.1)/selectionScale);
       ring.quaternion.copy(camera.quaternion);
-      ring.material=vortexRingMaterial;
     }
-    mesh.scale.setScalar(node.id===selectedNodeId?1.35:1);
+    mesh.scale.setScalar(selectionScale);
   });
   for(const [id,mesh] of nodeViews){
     if(!existing.has(id)){scene.remove(mesh);nodeViews.delete(id);}
@@ -1085,7 +1087,7 @@ let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
   let elapsed=Math.min((now-last)/1000,.1);last=now;
-  if(!paused){
+  if(!paused&&!gestureSuspended&&!sliderEdit){
     accumulator+=elapsed;
     const fixed=1/60;
     let steps=0;
@@ -1112,6 +1114,12 @@ function frame(now){
   refreshMorphSurface(now);
   if(showFood&&now-lastFoodRefresh>700){updateFoodCloud();lastFoodRefresh=now;}
   orbit.update();
+  // Handles always face the current camera; the field itself never rotates
+  // when a ring follows the viewpoint.
+  for(const node of nodeViews.values()){
+    const ring=node.children.find(child=>child.userData.reachRing);
+    if(ring)ring.quaternion.copy(camera.quaternion);
+  }
   renderer.render(scene,camera);
   if(now-lastStatus>600){
     $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+engine.colony.population.toLocaleString()+' CELLS';
