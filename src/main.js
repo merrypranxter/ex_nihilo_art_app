@@ -504,6 +504,8 @@ function updateArtistControls(){
   $('formStrength-value').textContent=Math.round(c.formStrength*100)+'%';
   $('formTwist').value=Math.round(c.formTwist*100);
   $('formTwist-value').textContent=Math.round(c.formTwist*100)+'%';
+  $('lineageColor').value=Math.round(c.lineageColor*100);
+  $('lineageColor-value').textContent=Math.round(c.lineageColor*100)+'%';
   $('finish').value=c.finish;
   $('glow').value=Math.round(c.glow*100);
   $('glow-value').textContent=Math.round(c.glow*100)+'%';
@@ -511,14 +513,15 @@ function updateArtistControls(){
 function readArtistControls(){
   engine.setConfig({
     form:$('form').value,formStrength:Number($('formStrength').value)/100,
-    formTwist:Number($('formTwist').value)/100,finish:$('finish').value,
+    formTwist:Number($('formTwist').value)/100,
+    lineageColor:Number($('lineageColor').value)/100,finish:$('finish').value,
     glow:Number($('glow').value)/100
   });
   updateArtistControls();
   updateBranchControls();
   applyArtistFinish();
 }
-['form','formStrength','formTwist','finish','glow'].forEach(
+['form','formStrength','formTwist','lineageColor','finish','glow'].forEach(
   id=>$(id).addEventListener('input',readArtistControls)
 );
 
