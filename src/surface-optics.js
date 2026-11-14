@@ -19,6 +19,21 @@ const rgb=(hex)=>{
   return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
 };
 const wrapIndex=(x,n)=>(x%n+n)%n;
+function refractedChannel(owner,rgba,size,wrap,family,x,y,c,fallback){
+  // Bilinear pigment refraction, conservatively restricted to this one
+  // family. Near real mineral borders light falls back to original pigment.
+  const x0=Math.floor(x),y0=Math.floor(y),tx=x-x0,ty=y-y0;
+  let value=0;
+  for(let dy=0;dy<=1;dy++)for(let dx=0;dx<=1;dx++){
+    let nx=x0+dx,ny=y0+dy;
+    const weight=(dx?tx:1-tx)*(dy?ty:1-ty);
+    if(wrap){nx=wrapIndex(nx,size);ny=wrapIndex(ny,size);}
+    if(nx<0||nx>=size||ny<0||ny>=size){value+=fallback*weight;continue;}
+    const j=nx+ny*size;
+    value+=(owner[j]===family?rgba[j*4+c]:fallback)*weight;
+  }
+  return value;
+}
 
 // The lamp is a direction, not a screen-space rainbow color wheel.
 // A single angle is combined with a repeatable loop phase (radians).
@@ -61,8 +76,7 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
   const light=opticalLight(angle,phase);
   const back=rgb(background);
   const owner=surface.owner,depth=surface.depth,age=surface.age;
-  const pigment=surface.birthColor,seeds=surface.seeds;
-  const diagonal=wrap?0:1;
+  const seeds=surface.seeds;
   for(let i=0;i<capacity;i++){
     const family=owner[i];if(!family)continue;
     const x=i%n,y=(i/n)|0;
@@ -122,17 +136,13 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
       // dispersion makes blue bend more than red; the sampled site must
       // belong to this *same* living family to avoid color-family bleeding.
       const indices=[1.503,1.518,1.535];
-      const shift=(1-grain)*power*3.2;
+      const shift=(1-grain)*power*85;
       const raw=[originalR,originalG,originalB];
       for(let c=0;c<3;c++){
-        const delta=(indices[c]-1.518)*shift*12;
-        let sx=x+Math.round(nx*delta),sy=y+Math.round(ny*delta);
-        if(wrap){sx=wrapIndex(sx,n);sy=wrapIndex(sy,n);}
-        if(sx>=0&&sx<n&&sy>=0&&sy<n){
-          const q=sx+sy*n;
-          if(owner[q]===family)raw[c]=baseRGBA[q*4+c];
-        }
-        channels[c]=raw[c]*(.91+.13*incidence)+
+        const delta=(indices[c]-1.518)*shift;
+        const refracted=refractedChannel(owner,baseRGBA,n,wrap,family,
+          x+nx*delta,y+ny*delta,c,raw[c]);
+        channels[c]=refracted*(.91+.13*incidence)+
           (42*rim+85*spec)*power*(.30+c*.23);
       }
     }else if(mode==='quartz'){
