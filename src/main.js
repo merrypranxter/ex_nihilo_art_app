@@ -246,7 +246,10 @@ function syncCrystals(){
     crystals.setColorAt(visible,crystalColor);
     // A distinct physically shaded facet is anchored to the actual
     // survivor's exterior; fracture chips face a genuine absent neighbor.
-    if(display.drawGem&&facetCount<maxFacetGems){
+    // Reserve a share of the small accent budget for fracture boundaries,
+    // instead of allowing early ordinary cells to consume every instance.
+    if(display.drawGem&&facetCount<maxFacetGems&&
+      (display.fractureGlint||facetCount<Math.floor(maxFacetGems*.66))){
       const isFracture=display.fractureGlint;
       const direction=display.gemDirection;
       crystalOutward.set(...direction).normalize();
@@ -1535,6 +1538,11 @@ function updateControlsFromDNA(){
   renderPaletteStops();
   $('topology').value=engine.config.topology;
   updateCrystalControls();
+  // Restore the actual mesh on LOAD WORLD / LOAD DNA, not just the dropdown.
+  const selectedShape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
+  if(crystals.geometry!==selectedShape)crystals.geometry=selectedShape;
+  engine.colony.changed=true;
+  syncCrystals();
   updateMorphControls();
   updateStructuralControls();
   updateArtistControls();
