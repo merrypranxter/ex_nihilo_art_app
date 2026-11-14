@@ -244,6 +244,15 @@ function updateFiligreeDisplay(){
   if(fibers.instanceColor)fibers.instanceColor.needsUpdate=true;
   haloColorAttribute.needsUpdate=true;
 }
+let filigreeRefreshPending=false;
+function requestFiligreeRefresh(){
+  if(filigreeRefreshPending)return;
+  filigreeRefreshPending=true;
+  requestAnimationFrame(()=>{
+    filigreeRefreshPending=false;
+    updateFiligreeDisplay();
+  });
+}
 engine.onReset=()=>{
   fibers.count=0;
   haloGeometry.setDrawRange(0,0);
@@ -538,6 +547,7 @@ function updateArtistControls(){
   $('glow-value').textContent=Math.round(c.glow*100)+'%';
 }
 function readArtistControls(){
+  const previousRelief=engine.config.filigreeContrast;
   engine.setConfig({
     form:$('form').value,formStrength:Number($('formStrength').value)/100,
     formTwist:Number($('formTwist').value)/100,
@@ -548,7 +558,7 @@ function readArtistControls(){
   updateArtistControls();
   updateBranchControls();
   applyArtistFinish();
-  updateFiligreeDisplay();
+  if(previousRelief!==engine.config.filigreeContrast)requestFiligreeRefresh();
 }
 ['form','formStrength','formTwist','lineageColor','filigreeContrast','finish','glow'].forEach(
   id=>$(id).addEventListener('input',readArtistControls)
