@@ -2427,6 +2427,8 @@ function updateControlsFromDNA(){
   renderPaletteStops();
   $('topology').value=engine.config.topology;
   updateSurfaceControls();
+  surfaceGestureEditor.resetHistory();
+  updateSurfaceTouchControls();
   surfaceOpticsTime=0;surfaceOpticsDirty=true;
   setCompositionDomain(engine.config.compositionDomain);
   updateCrystalControls();
@@ -2549,6 +2551,39 @@ for(const id of ['surface-morphology','surface-nucleation',
   'surface-boundary','surface-regions','surface-symmetry'])
   $(id).addEventListener('change',readSurfaceControls);
 for(const [id] of surfaceSettings)$(id).addEventListener('input',readSurfaceControls);
+function readSurfaceTouchControls(){
+  engine.setConfig({
+    surfaceTouchMode:$('surface-touch-mode').value,
+    surfaceTouchRadius:Number($('surface-touch-radius').value)/100,
+    surfaceTouchStrength:Number($('surface-touch-strength').value)/100
+  });
+  if(surfaceGestureEditor.active)cancelSurfaceTouch();
+  updateSurfaceTouchControls();
+  $('hint').textContent='GESTURE WITCH: '+SURFACE_TOUCH_MODES[engine.config.surfaceTouchMode];
+}
+$('surface-touch-mode').addEventListener('change',readSurfaceTouchControls);
+for(const id of ['surface-touch-radius','surface-touch-strength'])
+  $(id).addEventListener('input',readSurfaceTouchControls);
+$('surface-touch-overlay').addEventListener('click',()=>{
+  engine.setConfig({surfaceTouchOverlay:!engine.config.surfaceTouchOverlay});
+  updateSurfaceTouchControls();
+  presentGestureChanges();
+});
+$('surface-touch-undo').addEventListener('click',()=>{
+  if(surfaceGestureEditor.undo())presentGestureChanges();
+});
+$('surface-touch-redo').addEventListener('click',()=>{
+  if(surfaceGestureEditor.redo())presentGestureChanges();
+});
+$('surface-touch-clear').addEventListener('click',()=>{
+  if(!engine.surface.marks.length)return;
+  if(!window.confirm('Erase all SURFACE growth-field marks? This is UNDOABLE. Existing mineral deposits and the 3D organism remain.'))return;
+  cancelSurfaceTouch();
+  if(surfaceGestureEditor.clear()){
+    engine.surface.rebuildFrontier(engine.config.surfaceWrap,surfaceCompositionOptions());
+    presentGestureChanges();
+  }
+});
 function readSurfaceOpticsControls(){
   const values={
     surfaceOpticsMode:$('surface-optics-mode').value,
@@ -2596,6 +2631,7 @@ $('surface-reseed').addEventListener('click',()=>{
   if(!window.confirm('Replace this 2D mineral surface with a NEW growth experiment? The separate 3D OBJECT world will remain untouched.'))return;
   const next=(engine.surface.random()*4294967296)>>>0;
   engine.surface.reset(next||1);
+  surfaceGestureEditor.resetHistory();
   seedSurfaceIfEmpty();
   engine.surface.changed=true;surfaceClock=0;
   surfaceOpticsTime=0;surfaceOpticsDirty=true;
@@ -2640,6 +2676,7 @@ $('new').addEventListener('click',()=>{
   engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
   familyInspectorNote='';
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
+  surfaceGestureEditor.resetHistory();updateSurfaceTouchControls();
   surfaceOpticsTime=0;surfaceOpticsDirty=true;
   if(engine.config.compositionDomain==='surface'){
     seedSurfaceIfEmpty();
@@ -2769,7 +2806,7 @@ window.addEventListener('resize',handleStageResize);
 renderPaletteOptions();
 renderPaletteStops();
 updateStrokeControls();syncStrokes();syncPressures();
-fit();readControls();updateSurfaceControls();
+fit();readControls();updateSurfaceControls();updateSurfaceTouchControls();
 setCompositionDomain(engine.config.compositionDomain);
 updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();updateBranchControls();applyArtistFinish();
 if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)setPaused(true);
@@ -2865,7 +2902,7 @@ function frame(now){
     }
     // Separate material-growth clock. The original 3D physics sleeps while
     // composing 2D art; switching back resumes its exact saved organism.
-    if(!paused){
+    if(!paused&&!surfaceGestureEditor.active){
       surfaceClock+=elapsed;
       const interval=.15/engine.config.surfaceSpeed;
       let advances=0;
