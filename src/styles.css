@@ -307,3 +307,16 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
 @media(pointer:coarse){
  #surface-start,#surface-wrap{min-height:44px}
 }
+
+
+/* Gesture Witch: keep real touch editing accessible below the pinned artwork.
+   touch-action:none remains scoped to #surface-canvas, never the control panel. */
+#surface-gesture-lab .control-grid{margin:12px 0 15px}
+#surface-gesture-lab .small-actions{margin-top:14px}
+#surface-gesture-lab .small-actions button{min-height:44px;white-space:normal;flex:1 1 115px}
+#surface-gesture-lab .choice[disabled]{opacity:.44;cursor:not-allowed}
+#surface-touch-status{color:#adffe7;border-left:2px solid #86f9d4;padding-left:10px}
+@media(max-width:550px){
+  #surface-gesture-lab .control-grid{gap:15px 13px}
+  #surface-gesture-lab .small-actions button{font-size:10px}
+}
