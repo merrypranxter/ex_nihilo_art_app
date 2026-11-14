@@ -413,8 +413,11 @@ function finishGesture(cancel=false){
     }else if(snap.tool==='crystal'){
       engine.colony.restore(snap.colony);
       engine.nutrients.values.set(snap.food);
+      engine.morphogenesis.v.set(snap.chemicalB);
+      engine.morphogenesis.changed=true;
       engine.rngState=snap.rng;
       syncCrystals();
+      refreshMorphSurface(performance.now(),true);
     }else if(snap.tool==='seed'){
       engine.agents=snap.agents;
       engine.rngState=snap.rng;
@@ -461,7 +464,9 @@ function snapshotTransient(tool){
   };
   if(tool==='crystal')return {
     tool,colony:engine.colony.snapshot(),
-    food:new Float32Array(engine.nutrients.values),rng:engine.rngState
+    food:new Float32Array(engine.nutrients.values),
+    chemicalB:new Float32Array(engine.morphogenesis.v),
+    rng:engine.rngState
   };
   if(tool==='seed')return {
     tool,rng:engine.rngState,
