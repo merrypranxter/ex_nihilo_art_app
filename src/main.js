@@ -2618,7 +2618,9 @@ function updateSurfaceControls(){
     ['surface-loop-playback','surfaceLoopPlayback'],
     ['surface-loop-aspect','surfaceLoopAspect'],
     ['surface-loop-framing','surfaceLoopFraming'],
-    ['surface-loop-bitrate','surfaceLoopBitrate']])$(id).value=String(c[key]);
+    ['surface-loop-bitrate','surfaceLoopBitrate'],
+    ['surface-camera-motion','surfaceCameraMotion'],
+    ['surface-camera-cycles','surfaceCameraCycles']])$(id).value=String(c[key]);
   for(const [id,key] of [['surface-loop-focus-x','surfaceLoopFocusX'],
     ['surface-loop-focus-y','surfaceLoopFocusY']]){
     $(id).value=Math.round(c[key]*100);
@@ -2626,6 +2628,16 @@ function updateSurfaceControls(){
   }
   $('surface-loop-zoom').value=Math.round(c.surfaceLoopZoom*100);
   $('surface-loop-zoom-value').textContent=c.surfaceLoopZoom.toFixed(2)+'×';
+  for(const [id,key] of [['surface-camera-travel','surfaceCameraTravel'],
+    ['surface-camera-dive','surfaceCameraDive'],
+    ['surface-camera-target-x','surfaceCameraTargetX'],
+    ['surface-camera-target-y','surfaceCameraTargetY']]){
+    $(id).value=Math.round(c[key]*100);
+    $(id+'-value').textContent=Math.round(c[key]*100)+'%';
+  }
+  $('surface-camera-offset').value=Math.round(c.surfaceCameraOffset*360);
+  $('surface-camera-offset-value').textContent=
+    Math.round(c.surfaceCameraOffset*360)+'°';
   $('surface-loop-guides').setAttribute('aria-pressed',String(c.surfaceLoopGuides));
   $('surface-loop-guides').classList.toggle('active',c.surfaceLoopGuides);
   $('surface-loop-guides').textContent=c.surfaceLoopGuides?
@@ -2880,6 +2892,10 @@ function stopSurfaceLoopPreview(){
   surfaceLoopPreview=false;surfaceLoopElapsed=0;
   $('surface-loop-preview').setAttribute('aria-pressed','false');
   $('surface-loop-preview').textContent='▷ PREVIEW LOOP';
+  surfaceLoopScrubbing=false;
+  surfaceCameraTouchTool='off';
+  surfaceCameraPointers.clear();surfaceCameraDrag=null;
+  updateCameraTouchToolButtons();
   setPaused(surfaceLoopPriorPause);
   surfaceOpticsDirty=true;surfaceNeedsPresent=true;
   drawSurface(true);
@@ -2899,6 +2915,9 @@ $('surface-loop-preview').addEventListener('click',()=>{
   if(engine.config.compositionDomain!=='surface')setCompositionDomain('surface');
   surfaceLoopPriorPause=paused;setPaused(true);
   surfaceLoopPreview=true;surfaceLoopElapsed=0;
+  surfaceLoopScrubbing=false;
+  $('surface-camera-scrub').value=0;
+  $('surface-camera-scrub-value').textContent='0%';
   $('surface-loop-preview').setAttribute('aria-pressed','true');
   $('surface-loop-preview').textContent='◼ STOP PREVIEW';
   loopStatusText('Live preview: the growth specimen is frozen, but light and material move.');
@@ -2916,12 +2935,24 @@ function syncSurfaceLoopRecipe(){
     surfaceLoopFocusX:Number($('surface-loop-focus-x').value)/100,
     surfaceLoopFocusY:Number($('surface-loop-focus-y').value)/100,
     surfaceLoopZoom:Number($('surface-loop-zoom').value)/100,
-    surfaceLoopBitrate:$('surface-loop-bitrate').value
+    surfaceLoopBitrate:$('surface-loop-bitrate').value,
+    surfaceCameraMotion:$('surface-camera-motion').value,
+    surfaceCameraTravel:Number($('surface-camera-travel').value)/100,
+    surfaceCameraDive:Number($('surface-camera-dive').value)/100,
+    surfaceCameraOffset:Number($('surface-camera-offset').value)/360,
+    surfaceCameraCycles:Number($('surface-camera-cycles').value),
+    surfaceCameraTargetX:Number($('surface-camera-target-x').value)/100,
+    surfaceCameraTargetY:Number($('surface-camera-target-y').value)/100
   });
   for(const [id,value] of [
     ['surface-loop-focus-x-value',$('surface-loop-focus-x').value+'%'],
     ['surface-loop-focus-y-value',$('surface-loop-focus-y').value+'%'],
-    ['surface-loop-zoom-value',(Number($('surface-loop-zoom').value)/100).toFixed(2)+'×']
+    ['surface-loop-zoom-value',(Number($('surface-loop-zoom').value)/100).toFixed(2)+'×'],
+    ['surface-camera-travel-value',$('surface-camera-travel').value+'%'],
+    ['surface-camera-dive-value',$('surface-camera-dive').value+'%'],
+    ['surface-camera-offset-value',$('surface-camera-offset').value+'°'],
+    ['surface-camera-target-x-value',$('surface-camera-target-x').value+'%'],
+    ['surface-camera-target-y-value',$('surface-camera-target-y').value+'%']
   ])$(id).textContent=value;
   try{
     const plan=readSurfaceLoopPlan();
@@ -2931,14 +2962,17 @@ function syncSurfaceLoopRecipe(){
       (plan.playback==='cycle'?'cyclic':'boomerang')+
       (plan.format==='mp4'?' · requested '+(plan.videoBitsPerSecond/1e6)+'Mbps':' · GIF 256 colors'));
   }catch(error){loopStatusText(error.message);}
-  if(surfaceLoopPreview)drawSurface();
+  if(surfaceLoopPreview&&performance.now()-lastSurfaceVisualPaint>65)drawSurface();
 }
 for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
   'surface-loop-motion','surface-loop-playback','surface-loop-format',
-  'surface-loop-aspect','surface-loop-framing','surface-loop-bitrate']){
+  'surface-loop-aspect','surface-loop-framing','surface-loop-bitrate',
+  'surface-camera-motion','surface-camera-cycles']){
   $(id).addEventListener('change',syncSurfaceLoopRecipe);
 }
-for(const id of ['surface-loop-focus-x','surface-loop-focus-y','surface-loop-zoom']){
+for(const id of ['surface-loop-focus-x','surface-loop-focus-y','surface-loop-zoom',
+  'surface-camera-travel','surface-camera-dive','surface-camera-offset',
+  'surface-camera-target-x','surface-camera-target-y']){
   $(id).addEventListener('input',syncSurfaceLoopRecipe);
 }
 $('surface-loop-guides').addEventListener('click',()=>{
