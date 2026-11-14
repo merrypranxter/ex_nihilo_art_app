@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { surfacePixels,SURFACE_SIZE,SurfaceGrowth } from './surface-growth.js';
 import {loopPlan,framePhase,phaseAtSeconds,supportedMp4Mime} from './surface-loop-plan.js';
+import {cinematicDimensions,paintCinematicFrame,drawCinematicGuides}
+  from './surface-cinematic.js';
 import {renderSurfaceLoopFrame} from './surface-loop-renderer.js';
 import {exportSurfaceGIF,exportSurfaceMP4} from './surface-loop-export.js';
 import {surfaceOpticsPixels} from './surface-optics.js';
@@ -99,6 +101,7 @@ let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
 let surfaceLoopPreview=false,surfaceLoopElapsed=0,surfaceLoopPriorPause=true;
 let surfaceLoopController=null,surfaceLoopBusy=false;
 const surfaceLoopPreviewCanvas=document.createElement('canvas');
+const surfaceLoopMaterialCanvas=document.createElement('canvas');
 const surfaceLoopTileCanvas=document.createElement('canvas');
 surfaceLoopTileCanvas.width=SURFACE_SIZE;surfaceLoopTileCanvas.height=SURFACE_SIZE;
 const surfaceLoopTileContext=surfaceLoopTileCanvas.getContext('2d',{alpha:false});
@@ -192,27 +195,48 @@ function drawSurface(force=false){
   if(!surfaceCanvas.width||!surfaceCanvas.height)fitSurfaceCanvas();
   if(surfaceLoopPreview){
     const started=performance.now(),rect=surfaceDisplayRect();
-    const size=Math.max(192,Math.min(768,Math.round(rect.size)));
-    if(surfaceLoopPreviewCanvas.width!==size||surfaceLoopPreviewCanvas.height!==size){
-      surfaceLoopPreviewCanvas.width=size;surfaceLoopPreviewCanvas.height=size;
+    const edge=Math.max(192,Math.min(640,Math.round(rect.size)));
+    const aspect=$('surface-loop-aspect').value;
+    const dims=cinematicDimensions(edge,aspect);
+    if(surfaceLoopPreviewCanvas.width!==dims.width||
+       surfaceLoopPreviewCanvas.height!==dims.height){
+      surfaceLoopPreviewCanvas.width=dims.width;
+      surfaceLoopPreviewCanvas.height=dims.height;
     }
-    // A preview never allocates the chosen GIF's full frame budget.
-    // Read only the lightweight motion controls, even if the current
-    // size/duration combination is too large for an exported GIF.
+    if(surfaceLoopMaterialCanvas.width!==edge||surfaceLoopMaterialCanvas.height!==edge){
+      surfaceLoopMaterialCanvas.width=edge;
+      surfaceLoopMaterialCanvas.height=edge;
+    }
     const seconds=Number($('surface-loop-seconds').value);
-    const playback=$('surface-loop-playback').value;
-    const motion=$('surface-loop-motion').value;
+    const playback=$('surface-loop-playback').value,
+      motion=$('surface-loop-motion').value;
+    const background=BACKGROUNDS[$('background').value]||BACKGROUNDS.void;
     renderSurfaceLoopFrame(
-      surfaceLoopPreviewCanvas.getContext('2d',{alpha:false}),surfaceLoopTileContext,
+      surfaceLoopMaterialCanvas.getContext('2d',{alpha:false}),surfaceLoopTileContext,
       engine.surface,engine.config,{
-        size,phase:phaseAtSeconds(surfaceLoopElapsed,seconds,playback),
-        motion,
-        background:BACKGROUNDS[$('background').value]||BACKGROUNDS.void,
-        quality:'preview'
+        size:edge,phase:phaseAtSeconds(surfaceLoopElapsed,seconds,playback),
+        motion,background,quality:'preview'
       });
-    surfaceContext.clearRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
-    surfaceContext.drawImage(surfaceLoopPreviewCanvas,rect.left,rect.top,rect.size,rect.size);
-    drawSurfaceGestureOverlay();
+    paintCinematicFrame(surfaceLoopPreviewCanvas.getContext('2d',{alpha:false}),
+      surfaceLoopMaterialCanvas,{
+        width:dims.width,height:dims.height,
+        framing:$('surface-loop-framing').value,
+        focusX:Number($('surface-loop-focus-x').value)/100,
+        focusY:Number($('surface-loop-focus-y').value)/100,
+        zoom:Number($('surface-loop-zoom').value)/100,background
+      });
+    const scale=Math.min(rect.size/dims.width,rect.size/dims.height);
+    const dw=dims.width*scale,dh=dims.height*scale,
+      dx=rect.left+(rect.size-dw)/2,
+      dy=rect.top+(rect.size-dh)/2;
+    surfaceContext.fillStyle=background;
+    surfaceContext.fillRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
+    surfaceContext.drawImage(surfaceLoopPreviewCanvas,dx,dy,dw,dh);
+    if(engine.config.surfaceLoopGuides)
+      drawCinematicGuides(surfaceContext,{
+        x:dx,y:dy,width:dw,height:dh,aspect
+      });
+    // Handles are not represented in exported files, including during preview.
     const cost=performance.now()-started;
     surfaceOpticsRenderCost=surfaceOpticsRenderCost===0?cost:
       .65*surfaceOpticsRenderCost+.35*cost;
@@ -2569,7 +2593,21 @@ function updateSurfaceControls(){
   for(const [id,key] of [['surface-loop-seconds','surfaceLoopSeconds'],
     ['surface-loop-fps','surfaceLoopFps'],['surface-loop-size','surfaceLoopSize'],
     ['surface-loop-motion','surfaceLoopMotion'],
-    ['surface-loop-playback','surfaceLoopPlayback']])$(id).value=String(c[key]);
+    ['surface-loop-playback','surfaceLoopPlayback'],
+    ['surface-loop-aspect','surfaceLoopAspect'],
+    ['surface-loop-framing','surfaceLoopFraming'],
+    ['surface-loop-bitrate','surfaceLoopBitrate']])$(id).value=String(c[key]);
+  for(const [id,key] of [['surface-loop-focus-x','surfaceLoopFocusX'],
+    ['surface-loop-focus-y','surfaceLoopFocusY']]){
+    $(id).value=Math.round(c[key]*100);
+    $(id+'-value').textContent=Math.round(c[key]*100)+'%';
+  }
+  $('surface-loop-zoom').value=Math.round(c.surfaceLoopZoom*100);
+  $('surface-loop-zoom-value').textContent=c.surfaceLoopZoom.toFixed(2)+'×';
+  $('surface-loop-guides').setAttribute('aria-pressed',String(c.surfaceLoopGuides));
+  $('surface-loop-guides').classList.toggle('active',c.surfaceLoopGuides);
+  $('surface-loop-guides').textContent=c.surfaceLoopGuides?
+    '▣ SOCIAL SAFE AREA: ON':'□ SOCIAL SAFE AREA: OFF';
   $('surface-morphology').value=c.surfaceMorphology;
   $('surface-nucleation').value=c.surfaceNucleation;
   $('surface-boundary').value=c.surfaceBoundary;
@@ -2805,7 +2843,13 @@ function readSurfaceLoopPlan(format=$('surface-loop-format').value){
     fps:Number($('surface-loop-fps').value),
     size:Number($('surface-loop-size').value),
     motion:$('surface-loop-motion').value,
-    playback:$('surface-loop-playback').value
+    playback:$('surface-loop-playback').value,
+    aspect:$('surface-loop-aspect').value,
+    framing:$('surface-loop-framing').value,
+    focusX:Number($('surface-loop-focus-x').value)/100,
+    focusY:Number($('surface-loop-focus-y').value)/100,
+    zoom:Number($('surface-loop-zoom').value)/100,
+    bitrate:$('surface-loop-bitrate').value
   });
 }
 function loopStatusText(message){loopStatus.textContent=message;}
@@ -2827,7 +2871,9 @@ function downloadSurfaceLoop(blob,filename){
 $('surface-loop-preview').addEventListener('click',()=>{
   if(surfaceLoopBusy)return;
   if(surfaceLoopPreview){stopSurfaceLoopPreview();loopStatusText('Loop preview stopped.');return;}
-  try{readSurfaceLoopPlan('gif');}catch(error){loopStatusText(error.message);return;}
+  try{
+    cinematicDimensions(512,$('surface-loop-aspect').value);
+  }catch(error){loopStatusText(error.message);return;}
   if(engine.config.compositionDomain!=='surface')setCompositionDomain('surface');
   surfaceLoopPriorPause=paused;setPaused(true);
   surfaceLoopPreview=true;surfaceLoopElapsed=0;
@@ -2836,23 +2882,48 @@ $('surface-loop-preview').addEventListener('click',()=>{
   loopStatusText('Live preview: the growth specimen is frozen, but light and material move.');
   drawSurface();
 });
-for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
-  'surface-loop-motion','surface-loop-playback','surface-loop-format']){
-  $(id).addEventListener('change',()=>{
-    try{
-      const plan=readSurfaceLoopPlan();
-      engine.setConfig({
-        surfaceLoopSeconds:plan.seconds,surfaceLoopFps:plan.fps,
-        surfaceLoopSize:plan.size,surfaceLoopMotion:plan.motion,
-        surfaceLoopPlayback:plan.playback
-      });
-      $('surface-loop-export').textContent='↓ EXPORT '+plan.format.toUpperCase();
-      loopStatusText(plan.frames+' sampled frames · '+plan.seconds+' seconds · '+
-        plan.size+'px square · '+(plan.playback==='cycle'?'cyclic':'boomerang')+
-        (plan.format==='mp4'?' · realtime MP4':' · GIF 256-color'));
-    }catch(error){loopStatusText(error.message);}
+function syncSurfaceLoopRecipe(){
+  engine.setConfig({
+    surfaceLoopSeconds:Number($('surface-loop-seconds').value),
+    surfaceLoopFps:Number($('surface-loop-fps').value),
+    surfaceLoopSize:Number($('surface-loop-size').value),
+    surfaceLoopMotion:$('surface-loop-motion').value,
+    surfaceLoopPlayback:$('surface-loop-playback').value,
+    surfaceLoopAspect:$('surface-loop-aspect').value,
+    surfaceLoopFraming:$('surface-loop-framing').value,
+    surfaceLoopFocusX:Number($('surface-loop-focus-x').value)/100,
+    surfaceLoopFocusY:Number($('surface-loop-focus-y').value)/100,
+    surfaceLoopZoom:Number($('surface-loop-zoom').value)/100,
+    surfaceLoopBitrate:$('surface-loop-bitrate').value
   });
+  for(const [id,value] of [
+    ['surface-loop-focus-x-value',$('surface-loop-focus-x').value+'%'],
+    ['surface-loop-focus-y-value',$('surface-loop-focus-y').value+'%'],
+    ['surface-loop-zoom-value',(Number($('surface-loop-zoom').value)/100).toFixed(2)+'×']
+  ])$(id).textContent=value;
+  try{
+    const plan=readSurfaceLoopPlan();
+    $('surface-loop-export').textContent='↓ EXPORT '+plan.format.toUpperCase();
+    loopStatusText(plan.width+' × '+plan.height+' · '+plan.frames+' sampled frames · '+
+      plan.seconds+'s · '+plan.aspect+' · '+
+      (plan.playback==='cycle'?'cyclic':'boomerang')+
+      (plan.format==='mp4'?' · requested '+(plan.videoBitsPerSecond/1e6)+'Mbps':' · GIF 256 colors'));
+  }catch(error){loopStatusText(error.message);}
+  if(surfaceLoopPreview)drawSurface();
 }
+for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
+  'surface-loop-motion','surface-loop-playback','surface-loop-format',
+  'surface-loop-aspect','surface-loop-framing','surface-loop-bitrate']){
+  $(id).addEventListener('change',syncSurfaceLoopRecipe);
+}
+for(const id of ['surface-loop-focus-x','surface-loop-focus-y','surface-loop-zoom']){
+  $(id).addEventListener('input',syncSurfaceLoopRecipe);
+}
+$('surface-loop-guides').addEventListener('click',()=>{
+  engine.setConfig({surfaceLoopGuides:!engine.config.surfaceLoopGuides});
+  updateSurfaceControls();
+  if(surfaceLoopPreview)drawSurface();
+});
 $('surface-loop-cancel').addEventListener('click',()=>{
   if(surfaceLoopController){surfaceLoopController.abort();loopStatusText('Canceling export…');}
 });
@@ -2879,25 +2950,38 @@ $('surface-loop-export').addEventListener('click',async()=>{
   const config={...engine.config};
   const background=BACKGROUNDS[$('background').value]||BACKGROUNDS.void;
   const canvas=document.createElement('canvas');
+  const materialCanvas=document.createElement('canvas');
+  materialCanvas.width=plan.size;materialCanvas.height=plan.size;
+  const materialContext=materialCanvas.getContext('2d',{alpha:false});
   const tile=document.createElement('canvas');tile.width=frozen.size;tile.height=frozen.size;
   const tileCtx=tile.getContext('2d',{alpha:false});
   const render=(context,phase)=>{
-    renderSurfaceLoopFrame(context,tileCtx,frozen,config,{
+    renderSurfaceLoopFrame(materialContext,tileCtx,frozen,config,{
       size:plan.size,phase,motion:plan.motion,background,quality:'export'
+    });
+    paintCinematicFrame(context,materialCanvas,{
+      width:plan.width,height:plan.height,framing:plan.framing,
+      focusX:plan.focusX,focusY:plan.focusY,zoom:plan.zoom,background
     });
   };
   const progress=(i,total)=>loopStatusText(
     'Rendering '+plan.format.toUpperCase()+' · '+i+'/'+total+
     ' frames · '+Math.round(i/total*100)+'%');
+  let diagnostics=null;
   try{
     const blob=plan.format==='gif'?
       await exportSurfaceGIF({plan,canvas,render,onProgress:progress,signal:controller.signal}):
-      await exportSurfaceMP4({plan,canvas,render,onProgress:progress,signal:controller.signal});
+      await exportSurfaceMP4({plan,canvas,render,onProgress:progress,
+        onDiagnostics:data=>{diagnostics=data;},signal:controller.signal});
     downloadSurfaceLoop(blob,
-      'ex-nihilo-mineral-loop-'+plan.seconds+'s-'+plan.size+'px.'+plan.format);
+      'ex-nihilo-'+plan.aspect.replace(':','x')+'-'+
+      plan.width+'x'+plan.height+'-'+plan.seconds+'s.'+plan.format);
     loopStatusText('Export created: '+plan.frames+' phases · '+(blob.size/1048576).toFixed(1)+
       ' MB · '+plan.format.toUpperCase()+
-      (plan.format==='mp4'?' (browser realtime timing)':' (exact GIF loop)'));
+      (diagnostics?' · '+diagnostics.lateFrames+'/'+diagnostics.frames+
+        ' missed render deadlines · avg '+diagnostics.averageRenderMs.toFixed(0)+
+        'ms/frame · bitrate target '+(diagnostics.targetBitrate/1e6)+'Mbps':
+        plan.format==='mp4'?' · realtime recorder timing':' · exact GIF duration'));
   }catch(error){
     loopStatusText(error.name==='AbortError'?'Export canceled. Material preserved.':
       'Export failed: '+error.message);
