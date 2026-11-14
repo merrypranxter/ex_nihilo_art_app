@@ -103,6 +103,7 @@ let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
 let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
 let surfaceLoopPreview=false,surfaceLoopElapsed=0,surfaceLoopPriorPause=true;
 let surfaceLoopScrubbing=false,surfaceCameraTouchTool='off';
+let surfaceCameraPreviewDirty=true;
 let surfaceCameraDrag=null;
 const surfaceCameraPointers=new Map();
 let surfaceLoopController=null,surfaceLoopBusy=false;
@@ -291,7 +292,7 @@ function drawSurface(force=false){
     surfaceOpticsRenderCost=surfaceOpticsRenderCost===0?cost:
       .65*surfaceOpticsRenderCost+.35*cost;
     lastSurfaceVisualPaint=performance.now();
-    surfaceNeedsPresent=false;
+    surfaceNeedsPresent=false;surfaceCameraPreviewDirty=false;
     return;
   }
   if(force||engine.surface.changed||surfaceOpticsDirty){
@@ -3043,7 +3044,7 @@ function stopSurfaceLoopPreview(){
   surfaceLoopPreview=false;surfaceLoopElapsed=0;
   $('surface-loop-preview').setAttribute('aria-pressed','false');
   $('surface-loop-preview').textContent='▷ PREVIEW LOOP';
-  surfaceLoopScrubbing=false;
+  surfaceLoopScrubbing=false;surfaceCameraPreviewDirty=true;
   surfaceCameraTouchTool='off';
   surfaceCameraPointers.clear();surfaceCameraDrag=null;
   updateCameraTouchToolButtons();
@@ -3066,7 +3067,7 @@ $('surface-loop-preview').addEventListener('click',()=>{
   if(engine.config.compositionDomain!=='surface')setCompositionDomain('surface');
   surfaceLoopPriorPause=paused;setPaused(true);
   surfaceLoopPreview=true;surfaceLoopElapsed=0;
-  surfaceLoopScrubbing=false;
+  surfaceLoopScrubbing=false;surfaceCameraPreviewDirty=true;
   $('surface-camera-scrub').value=0;
   $('surface-camera-scrub-value').textContent='0%';
   $('surface-loop-preview').setAttribute('aria-pressed','true');
@@ -3114,6 +3115,7 @@ function syncSurfaceLoopRecipe(){
       (plan.format==='mp4'?' · requested '+(plan.videoBitsPerSecond/1e6)+'Mbps':' · GIF 256 colors')+
       ' · CAMERA '+(SURFACE_CAMERA_MOVES[engine.config.surfaceCameraMotion]||'OFF'));
   }catch(error){loopStatusText(error.message);}
+  surfaceCameraPreviewDirty=true;
   if(surfaceLoopPreview&&performance.now()-lastSurfaceVisualPaint>65)drawSurface();
 }
 function setSurfaceCameraTouchTool(mode){
@@ -3126,6 +3128,7 @@ function setSurfaceCameraTouchTool(mode){
   cancelCameraTouch();
   surfaceCameraTouchTool=surfaceCameraTouchTool===mode?'off':mode;
   if(surfaceCameraTouchTool!=='off'){
+    surfaceCameraPreviewDirty=true;
     const seconds=Number($('surface-loop-seconds').value);
     if(!surfaceLoopScrubbing){
       const position=((surfaceLoopElapsed%seconds)+seconds)%seconds/seconds;
@@ -3156,7 +3159,7 @@ $('surface-camera-scrub').addEventListener('input',()=>{
     if(!surfaceLoopPreview)return;
   }
   $('surface-camera-scrub').value=requested;
-  surfaceLoopScrubbing=true;
+  surfaceLoopScrubbing=true;surfaceCameraPreviewDirty=true;
   $('surface-camera-scrub-value').textContent=$('surface-camera-scrub').value+'%';
   $('surface-camera-status').textContent=
     'SCRUB · Frame '+$('surface-camera-scrub').value+
@@ -3171,7 +3174,7 @@ $('surface-camera-replay').addEventListener('click',()=>{
   }
   const seconds=Number($('surface-loop-seconds').value);
   surfaceLoopElapsed=seconds*Number($('surface-camera-scrub').value)/100;
-  surfaceLoopScrubbing=false;
+  surfaceLoopScrubbing=false;surfaceCameraPreviewDirty=true;
   surfaceCameraTouchTool='off';
   surfaceCameraPointers.clear();surfaceCameraDrag=null;
   updateCameraTouchToolButtons();
@@ -3496,7 +3499,8 @@ function frame(now){
     if(surfaceLoopPreview){
       if(!surfaceLoopScrubbing)surfaceLoopElapsed+=elapsed;
       const minGap=Math.max(85,Math.min(450,surfaceOpticsRenderCost*2.15));
-      if(now-lastSurfaceVisualPaint>=minGap)drawSurface();
+      if((!surfaceLoopScrubbing||surfaceCameraPreviewDirty)&&
+         now-lastSurfaceVisualPaint>=minGap)drawSurface();
       return;
     }
     // The optical loop is presentation-only; it can shimmer over PAUSED
