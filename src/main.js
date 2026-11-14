@@ -1689,6 +1689,9 @@ $('crystal-seed').addEventListener('click',()=>setTool('crystal'));
 $('crystal-clear').addEventListener('click',()=>{
   if(!engine.colony.population&&!engine.colony.damage.some(n=>n))return;
   if(!window.confirm('Erase the crystal colony only? Your fiber structures and nutrient world will remain.'))return;
+  // The next seed reuses birth-event IDs; do not rebind an old inspection.
+  engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
+  familyInspectorNote='';
   engine.colony.clear();
   syncCrystals();
 });
@@ -2358,7 +2361,7 @@ function samplePerformance(now){
     'Crystal cells: '+engine.colony.population.toLocaleString(),
     'Visible facets: '+facetGems.count.toLocaleString(),
     'Family beacons: '+familyBeacons.count.toLocaleString(),
-    'Family connections: '+familyLinesGeometry.drawRange.count/2,
+    'Family connections: '+(familyLinesGeometry.drawRange.count/2).toLocaleString(),
     'Hereditary bands: '+bloodlineBands.count.toLocaleString(),
     'Crystal families: '+new Set(Array.from(engine.colony.families)
       .filter((f,i)=>f&&engine.colony.cells[i])).size.toLocaleString(),
@@ -2414,6 +2417,8 @@ function frame(now){
   for(const item of pressureViews.values()){
     item.ring.quaternion.copy(camera.quaternion);
   }
+  // The selected family marker follows the camera without rotating biology.
+  if(selectedFamilyHalo.visible)selectedFamilyHalo.quaternion.copy(camera.quaternion);
   try{
     renderer.render(scene,camera);
     samplePerformance(now);
