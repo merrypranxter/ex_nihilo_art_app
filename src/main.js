@@ -286,6 +286,7 @@ const bandFlatAxis=new THREE.Vector3(0,0,1);
 const bandAlongAxis=new THREE.Quaternion()
   .setFromUnitVectors(bandFlatAxis,new THREE.Vector3(0,1,0));
 const bandRotation=new THREE.Quaternion();
+const bandTwist=new THREE.Quaternion();
 const bandPosition=new THREE.Vector3();
 const bandAxis=new THREE.Vector3();
 const bandTint=new THREE.Color();
@@ -429,7 +430,8 @@ function syncCrystals(){
       bandAxis.copy(crystalUp).applyQuaternion(crystalRotation);
       bandPosition.copy(crystalPosition).addScaledVector(
         bandAxis,heritage.position*crystalCellSize*scale*.65);
-      bandRotation.copy(crystalRotation).multiply(bandAlongAxis);
+      bandTwist.setFromAxisAngle(crystalUp,heritage.rotation);
+      bandRotation.copy(crystalRotation).multiply(bandTwist).multiply(bandAlongAxis);
       const ringRadius=bloodlineBandRadius[engine.config.crystalShape]||1;
       bandScale.set(
         scale*ringRadius*heritage.lateral,
