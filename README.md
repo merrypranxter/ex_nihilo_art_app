@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03K — REAL iPHONE RELIABILITY:** Fixed the narrow-screen two-row toolbar overlap and short landscape clipping; added a pre-module crash diagnostic panel that can report WebGL startup/context/render failures without resetting artwork. GROWTH → **DEVICE HEALTH** now gives opt-in, copyable real-device FPS, GPU draw calls, memory counters and living-world counts, rather than guessing performance. The 199-color MATHEMAGICAL + EX NIHILO vault and all existing growth/fracture state are untouched. Read the [exact iPhone smoke-test checklist](docs/PHASE-03K-IPHONE-RELIABILITY.md). Browser/WebGL2 rendering still requires manual validation.
+
+
 **Phase 03J — CRYSTAL PRISM OPTICS:** Crystal colonies now have seven selectable genuine 3D cell silhouettes (including hexagonal quartz, mineral prism, tetrahedral shard and dodecahedral gem), five physical optical material treatments, and meaningful anisotropic 3D relief aligned to real exposed lattice faces. A bounded second instanced mesh adds palette-authentic facets to **actual surviving fracture rims**, without inventing new crystal cells. All choices are reversible and saved in DNA/checkpoints; old saved worlds retain their original octahedral look. See [Crystal Prism Optics design and QA](docs/PHASE-03J-PRISM-OPTICS.md).
 
 
