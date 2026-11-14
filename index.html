@@ -60,6 +60,11 @@
                   <option value="whorl">SIXFOLD CRYSTALLINE WHORL · 60°</option>
                   <option value="random">ORGANIC SCATTER · LEGACY</option>
                 </select></label>
+                <label class="control select-control"><span>Branch spacing architecture</span><select id="branchOrdering">
+                    <option value="family">PARENT-LOCAL · BOTANICAL FAMILIES</option>
+                    <option value="global">GLOBAL BIRTH SEQUENCE · HISTORICAL</option>
+                  </select></label>
+                <label class="control"><span>Daughter direction memory <output id="branchPersistence-value">78%</output></span><input id="branchPersistence" type="range" min="0" max="100" step="5" value="78"/></label>
                 <label class="control"><span>Daughter divergence <output id="branchAngle-value">56°</output></span><input id="branchAngle" type="range" min="0" max="85" step="1" value="56"/></label>
                 <label class="control"><span>Generational taper <output id="branchTaper-value">84%</output></span><input id="branchTaper" type="range" min="45" max="100" step="1" value="84"/></label>
                 <label class="control select-control"><span>Growth rhythm</span><select id="rhythmMode">
@@ -72,7 +77,7 @@
                 <label class="control"><span>Rhythm frequency <output id="rhythmRate-value">0.55 Hz</output></span><input id="rhythmRate" type="range" min=".05" max="2" step=".05" value=".55"/></label>
               </div>
             </details>
-            <p class="help">Branch geometry now controls the angle and spatial arrangement of <em>newly born</em> fibers, while rhythms control real deposition speed and branch timing. Existing artwork stays in place. <span id="branch-stats">0 BRANCH BIRTHS</span>.</p>
+            <p class="help">Parent-local branches keep their own golden-angle spacing, and temporary direction memory preserves their forks. Branch geometry controls the angle and spatial arrangement of <em>newly born</em> fibers, while rhythms control real deposition speed and branch timing. Existing artwork stays in place. <span id="branch-stats">0 BRANCH BIRTHS</span>.</p>
           </div>
           <div class="panel" data-panel="form" hidden>
             <p class="help first">Give the growing system a compositional intention. These are physical forces, not prebuilt shapes. Switching forms changes FUTURE growth; your existing artwork stays exactly where it is.</p>
@@ -87,6 +92,7 @@
               </select></label>
               <label class="control"><span>Silhouette influence <output id="formStrength-value">85%</output></span><input id="formStrength" type="range" min="0" max="200" step="5" value="85"/></label>
               <label class="control"><span>Flow twist <output id="formTwist-value">60%</output></span><input id="formTwist" type="range" min="0" max="200" step="5" value="60"/></label>
+              <label class="control"><span>Filigree depth relief <output id="filigreeContrast-value">70%</output></span><input id="filigreeContrast" type="range" min="0" max="100" step="5" value="70"/></label>
               <label class="control"><span>Lineage color cohesion <output id="lineageColor-value">65%</output></span><input id="lineageColor" type="range" min="0" max="100" step="5" value="65"/></label>
               <label class="control select-control"><span>Optical material finish</span><select id="finish">
                 <option value="opal">OPALESCENT MINERAL</option>
@@ -99,7 +105,7 @@
             <div class="small-actions ecology-actions">
               <button id="compose-frame" class="choice" type="button">◎ FRAME SCULPTURE</button>
             </div>
-            <p class="help">Materials and glow adjust the view immediately, without touching the underlying chemistry. For a fresh silhouette using the new rules, press NEW (with confirmation) when you actually want a new universe.</p>
+            <p class="help">Filigree depth relief changes only how stored segments are shaded: bold trunks and fine luminous descendants. Materials and glow adjust the view immediately, without touching the underlying chemistry. For a fresh silhouette using the new rules, press NEW (with confirmation) when you actually want a new universe.</p>
           </div>
           <div class="panel" data-panel="field" hidden>
             <div class="control-grid">
