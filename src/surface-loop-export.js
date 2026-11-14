@@ -58,6 +58,9 @@ export async function exportSurfaceMP4({plan,canvas,render,onProgress=()=>{},
       recorder.onerror=e=>reject(new Error(e.error?.message||'MP4 recorder failed'));
       recorder.onstop=()=>resolve();
     });
+    // If a user cancels before await done, any late onerror must not become
+    // an unhandled promise rejection in Safari.
+    done.catch(()=>{});
     recorder.start();
     const origin=performance.now();
     for(let i=0;i<plan.frames;i++){
