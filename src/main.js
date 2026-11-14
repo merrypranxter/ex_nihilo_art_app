@@ -2305,7 +2305,7 @@ function updateControlsFromDNA(){
   renderPaletteStops();
   $('topology').value=engine.config.topology;
   updateSurfaceControls();
-  surfaceOpticsDirty=true;
+  surfaceOpticsTime=0;surfaceOpticsDirty=true;
   setCompositionDomain(engine.config.compositionDomain);
   updateCrystalControls();
   familyInspectorNote='';
