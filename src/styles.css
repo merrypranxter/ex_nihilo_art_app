@@ -331,3 +331,14 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
 @media(max-width:550px){
   #surface-loop-forge .small-actions button{font-size:11px}
 }
+
+
+/* Phase 04G: responsive cinematic controls without moving the pinned artwork. */
+#surface-loop-forge input[type="range"]{width:100%;min-height:32px;accent-color:#d6a0ff}
+#surface-loop-forge select{min-height:44px;width:100%}
+#surface-loop-forge .control-grid{align-items:end}
+#surface-loop-guides[aria-pressed="true"]{border-color:#b2f7e2}
+@media(max-width:550px){
+  #surface-loop-forge .morph-advanced-grid{padding-bottom:18px}
+  #surface-loop-forge .control-grid{gap:12px}
+}
