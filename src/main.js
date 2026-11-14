@@ -2849,6 +2849,7 @@ function updateControlsFromDNA(){
   renderPaletteOptions();
   renderPaletteStops();
   $('topology').value=engine.config.topology;
+  surfaceCameraPathEditor.reset(engine.config.surfaceCameraPath);
   updateSurfaceControls();
   surfaceGestureEditor.resetHistory();
   updateSurfaceTouchControls();
@@ -3271,7 +3272,12 @@ function syncSurfaceLoopRecipe(){
     surfaceCameraOffset:Number($('surface-camera-offset').value)/360,
     surfaceCameraCycles:Number($('surface-camera-cycles').value),
     surfaceCameraTargetX:Number($('surface-camera-target-x').value)/100,
-    surfaceCameraTargetY:Number($('surface-camera-target-y').value)/100
+    surfaceCameraTargetY:Number($('surface-camera-target-y').value)/100,
+    surfaceCameraPathMode:$('surface-camera-path-mode').value,
+    surfaceCameraPathTiming:$('surface-camera-path-timing').value,
+    surfaceCameraPathSmooth:Number($('surface-camera-path-smooth').value)/100,
+    surfaceCameraPathZoom:Number($('surface-camera-path-zoom').value)/100,
+    surfaceCameraPathPulse:Number($('surface-camera-path-pulse').value)/100
   });
   for(const [id,value] of [
     ['surface-loop-focus-x-value',$('surface-loop-focus-x').value+'%'],
@@ -3281,7 +3287,10 @@ function syncSurfaceLoopRecipe(){
     ['surface-camera-dive-value',$('surface-camera-dive').value+'%'],
     ['surface-camera-offset-value',$('surface-camera-offset').value+'°'],
     ['surface-camera-target-x-value',$('surface-camera-target-x').value+'%'],
-    ['surface-camera-target-y-value',$('surface-camera-target-y').value+'%']
+    ['surface-camera-target-y-value',$('surface-camera-target-y').value+'%'],
+    ['surface-camera-path-smooth-value',$('surface-camera-path-smooth').value+'%'],
+    ['surface-camera-path-zoom-value',(Number($('surface-camera-path-zoom').value)/100).toFixed(2)+'×'],
+    ['surface-camera-path-pulse-value',$('surface-camera-path-pulse').value+'%']
   ])$(id).textContent=value;
   try{
     const plan=readSurfaceLoopPlan();
@@ -3327,6 +3336,34 @@ function setSurfaceCameraTouchTool(mode){
   $('surface-camera-status').textContent=help;
   if(surfaceLoopPreview)drawSurface();
 }
+$('surface-camera-path-draw').addEventListener('click',()=>{
+  setSurfaceCameraTouchTool('draw');
+  updateCameraPathStatus();
+});
+$('surface-camera-path-show').addEventListener('click',()=>{
+  if(surfaceLoopBusy)return;
+  surfaceCameraPathVisible=!surfaceCameraPathVisible;
+  updateCameraPathStatus();
+  surfaceCameraPreviewDirty=true;
+  if(surfaceLoopPreview)drawSurface();
+});
+$('surface-camera-path-reverse').addEventListener('click',()=>{
+  if(surfaceLoopBusy||surfaceCameraPathEditor.draft)return;
+  if(surfaceCameraPathEditor.reverse())applyCameraPathDocument();
+});
+$('surface-camera-path-undo').addEventListener('click',()=>{
+  if(surfaceLoopBusy||surfaceCameraPathEditor.draft)return;
+  if(surfaceCameraPathEditor.undo())applyCameraPathDocument();
+});
+$('surface-camera-path-redo').addEventListener('click',()=>{
+  if(surfaceLoopBusy||surfaceCameraPathEditor.draft)return;
+  if(surfaceCameraPathEditor.redo())applyCameraPathDocument();
+});
+$('surface-camera-path-clear').addEventListener('click',()=>{
+  if(surfaceLoopBusy||!surfaceCameraPathEditor.path)return;
+  if(!window.confirm('Delete the DRAWN CAMERA PATH? Crystal art is safe, and you can UNDO this deletion.'))return;
+  if(surfaceCameraPathEditor.clear())applyCameraPathDocument();
+});
 $('surface-camera-grab').addEventListener('click',()=>setSurfaceCameraTouchTool('grab'));
 $('surface-camera-pick').addEventListener('click',()=>setSurfaceCameraTouchTool('pick'));
 $('surface-camera-scrub').addEventListener('input',()=>{
@@ -3371,12 +3408,14 @@ $('surface-camera-reset').addEventListener('click',()=>{
 for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
   'surface-loop-motion','surface-loop-playback','surface-loop-format',
   'surface-loop-aspect','surface-loop-framing','surface-loop-bitrate',
-  'surface-camera-motion','surface-camera-cycles']){
+  'surface-camera-motion','surface-camera-cycles',
+  'surface-camera-path-mode','surface-camera-path-timing']){
   $(id).addEventListener('change',syncSurfaceLoopRecipe);
 }
 for(const id of ['surface-loop-focus-x','surface-loop-focus-y','surface-loop-zoom',
   'surface-camera-travel','surface-camera-dive','surface-camera-offset',
-  'surface-camera-target-x','surface-camera-target-y']){
+  'surface-camera-target-x','surface-camera-target-y',
+  'surface-camera-path-smooth','surface-camera-path-zoom','surface-camera-path-pulse']){
   $(id).addEventListener('input',syncSurfaceLoopRecipe);
 }
 $('surface-loop-guides').addEventListener('click',()=>{
@@ -3462,6 +3501,12 @@ $('new').addEventListener('click',()=>{
   engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
   familyInspectorNote='';
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
+  // A confirmed NEW UNIVERSE must not inherit a route referencing minerals
+  // which no longer exist. This is separate from resetting an existing seed.
+  surfaceCameraPathEditor.reset(null);
+  engine.setConfig({surfaceCameraPath:null,surfaceCameraMotion:'still'});
+  $('surface-camera-motion').value='still';
+  updateCameraPathStatus();
   surfaceGestureEditor.resetHistory();updateSurfaceTouchControls();
   surfaceOpticsTime=0;surfaceOpticsDirty=true;
   if(engine.config.compositionDomain==='surface'){
