@@ -1110,6 +1110,13 @@ function updateCrystalControls(){
   $('strain-break-value').textContent=Math.round(c.breakThreshold*100)+'%';
   $('strain-enable').textContent=c.strainEnabled?'⚡ FRACTURE MEMORY ON':'◇ FRACTURE MEMORY OFF';
   $('strain-enable').setAttribute('aria-pressed',String(c.strainEnabled));
+  const visual=engine.config;
+  $('colony-geometry').value=visual.crystalShape;
+  $('crystal-lens').value=visual.crystalLens;
+  $('crystal-relief').value=Math.round(visual.crystalRelief*100);
+  $('crystal-relief-value').textContent=Math.round(visual.crystalRelief*100)+'%';
+  $('crystal-glints').value=Math.round(visual.crystalGlints*100);
+  $('crystal-glints-value').textContent=Math.round(visual.crystalGlints*100)+'%';
   updatePressureControls();
 }
 function readCrystalControls(){
@@ -1139,14 +1146,30 @@ $('colony-toggle').addEventListener('click',()=>{
 });
 $('crystal-seed').addEventListener('click',()=>setTool('crystal'));
 $('crystal-clear').addEventListener('click',()=>{
-  if(!engine.colony.population)return;
+  if(!engine.colony.population&&!engine.colony.damage.some(n=>n))return;
   if(!window.confirm('Erase the crystal colony only? Your fiber structures and nutrient world will remain.'))return;
   engine.colony.clear();
   syncCrystals();
 });
-$('colony-geometry').addEventListener('change',()=>{
-  crystals.geometry=crystalShapes[$('colony-geometry').value];
-});
+function readCrystalOptics(){
+  engine.setConfig({
+    crystalShape:$('colony-geometry').value,
+    crystalLens:$('crystal-lens').value,
+    crystalRelief:Number($('crystal-relief').value)/100,
+    crystalGlints:Number($('crystal-glints').value)/100
+  });
+  const shape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
+  if(crystals.geometry!==shape)crystals.geometry=shape;
+  // Rebuild VIEW matrices from immutable colony occupancy and crack history;
+  // sliders never touch biology, saved source pigments, or lattice state.
+  engine.colony.changed=true;
+  syncCrystals();
+  applyArtistFinish();
+  updateCrystalControls();
+}
+['colony-geometry','crystal-lens','crystal-relief','crystal-glints'].forEach(
+  id=>$(id).addEventListener(id==='colony-geometry'||id==='crystal-lens'?
+    'change':'input',readCrystalOptics));
 
 const morphologyControls={
   feed:{id:'morph-feed',format:n=>n.toFixed(4),read:n=>n},
@@ -1240,6 +1263,21 @@ function applyArtistFinish(){
     material.iridescence=finish.iridescence;
     material.needsUpdate=true;
   }
+  const lens=CRYSTAL_LENSES[engine.config.crystalLens]||CRYSTAL_LENSES.inherit;
+  if(lens.roughness!==null){
+    crystalMaterial.roughness=lens.roughness;
+    crystalMaterial.metalness=lens.metalness;
+    crystalMaterial.clearcoat=lens.clearcoat;
+    crystalMaterial.iridescence=lens.iridescence;
+    crystalMaterial.clearcoatRoughness=Math.max(.06,lens.roughness*.56);
+  }
+  // The single capped facet-jewel mesh shares the chosen mineral finish.
+  facetMaterial.roughness=Math.max(.06,crystalMaterial.roughness*.70);
+  facetMaterial.metalness=Math.max(.18,crystalMaterial.metalness);
+  facetMaterial.clearcoat=Math.max(.40,crystalMaterial.clearcoat);
+  facetMaterial.iridescence=Math.max(.30,crystalMaterial.iridescence);
+  crystalMaterial.needsUpdate=true;
+  facetMaterial.needsUpdate=true;
   const profile=FIBER_PROFILES[engine.config.fiberProfile]||FIBER_PROFILES.legacy;
   const geometry=fiberGeometryProfiles[engine.config.fiberProfile]||fiberGeometryProfiles.legacy;
   if(fibers.geometry!==geometry)fibers.geometry=geometry;
