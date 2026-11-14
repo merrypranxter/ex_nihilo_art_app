@@ -69,7 +69,8 @@ export function inspectCrystalFamily(colony,birthId=0,familyId=0,mode='family'){
     const pIndex=byBirth.get(parent);
     if(pIndex!==undefined&&included.has(parent)){
       links.push({parentIndex:pIndex,childIndex:index,parentId:parent,childId:id});
-    }else interruptedLinks++;
+    }else if(pIndex===undefined)interruptedLinks++;
+    // A living parent outside the chosen branch is merely filtered, not dead.
   }
   return {
     ...blank,tracked:true,familyId:actualFamily,
