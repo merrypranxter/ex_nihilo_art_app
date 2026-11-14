@@ -219,3 +219,35 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
   .stage{height:38%;min-height:125px}
   .masthead .top-actions .mini{min-height:39px}
 }
+
+/* The runtime error is visible without blocking the entire canvas or console.
+   All text uses textContent from a bounded, redacted message. */
+.runtime-diagnostic{
+  position:absolute;z-index:28;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(440px,calc(100% - 28px));max-height:calc(100% - 24px);
+  overflow:auto;overscroll-behavior:contain;
+  background:#160e22f2;color:#ffe9f4;
+  border:1px solid #ff81c2;border-radius:11px;
+  box-shadow:0 14px 45px #000b;
+  padding:15px;pointer-events:auto;contain:content
+}
+.runtime-diagnostic[hidden]{display:none!important}
+.runtime-diagnostic strong{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.05em}
+.runtime-diagnostic p{margin:10px 0;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.runtime-diagnostic #runtime-error-text{
+  user-select:text;-webkit-user-select:text;
+  font-family:'DM Mono',monospace;
+  padding:10px;background:#080a16;border-radius:6px;
+  color:#ffbad9
+}
+.runtime-diagnostic .diagnostic-actions{display:flex;flex-wrap:wrap;gap:7px}
+.runtime-diagnostic .diagnostic-help{font-size:10px;color:#cbb6d1}
+@media(pointer:coarse){
+  .diagnostic-actions .mini{min-height:44px}
+}
+@media(pointer:coarse) and (orientation:landscape) and (max-height:560px){
+  .runtime-diagnostic{padding:10px;width:min(420px,calc(100% - 18px))}
+  .runtime-diagnostic p{margin:7px 0;font-size:10px}
+  .runtime-diagnostic .diagnostic-help{display:none}
+}
