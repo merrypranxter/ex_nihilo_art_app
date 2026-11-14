@@ -183,6 +183,15 @@ export class SurfaceGrowth {
       }else{
         probability*=neighbors>=2?1.22:1.0;
       }
+      if(mode==='dendrite'){
+        // A frozen mineral-growth substrate makes actual unoccupied channels
+        // that survive after the fronts stop. Otherwise every morphology
+        // eventually becomes the same filled rectangle with new colors.
+        const x=i%n/n,y=Math.floor(i/n)/n;
+        const resistance=Math.sin(x*26+2.1*Math.sin(y*15))*
+          Math.cos(y*23-x*8.5);
+        if(resistance<-.39||neighbors>=5)continue;
+      }
       if(competitive)probability*=.96;
       probability*=.83+.30*grain;
       if(this.random()>=clamp(probability,0,.997))continue;
