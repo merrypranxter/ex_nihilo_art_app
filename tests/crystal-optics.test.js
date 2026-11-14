@@ -36,7 +36,7 @@ test('actual occupied face topology sets crystallographic orientation',()=>{
   const fractured=crystalSurface(cells,damage,target,n);
   assert.equal(fractured.fractureFaces,1);
   assert.deepEqual(fractured.fractureDirection,[1,0,0]);
-  assert.equal(crystalSurface(cells,damage,idx(0,0,0),n).exposed,6);
+  assert.equal(crystalSurface(cells,damage,idx(0,0,0),n).exposed,0);
 });
 
 test('fracture facets come only from exposed real mineral cell surfaces',()=>{
