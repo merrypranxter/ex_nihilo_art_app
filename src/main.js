@@ -98,7 +98,7 @@ function surfaceTouchStatus(){
   const count=engine.surface.marks.length;
   $('surface-touch-status').textContent=(SURFACE_TOUCH_MODES[mode]||mode)+
     ' · '+count+'/20 PERSISTENT FIELD MARKS'+
-    (editor.active?' · EDIT IN PROGRESS':'');
+    (editor.active?' · EDITING #'+(editor.tx?.markId??'SEEDS'):'');
   const history=editor.historyState();
   $('surface-touch-undo').disabled=!history.undo||editor.active;
   $('surface-touch-redo').disabled=!history.redo||editor.active;
@@ -127,8 +127,9 @@ function drawSurfaceGestureOverlay(){
     if(!pts.length)continue;
     const hue=colors[mark.kind]||'#ffffff';
     ctx.strokeStyle=hue;ctx.fillStyle=hue;
-    ctx.lineWidth=Math.max(2,surfaceCanvas.width/320);
-    ctx.globalAlpha=.80;
+    const chosen=surfaceGestureEditor.tx?.markId===mark.id;
+    ctx.lineWidth=Math.max(chosen?4:2,surfaceCanvas.width/320);
+    ctx.globalAlpha=chosen?1:.80;
     ctx.setLineDash(mark.kind==='block'?[7,5]:[]);
     ctx.beginPath();
     ctx.moveTo(rect.left+pts[0][0]*rect.size,rect.top+pts[0][1]*rect.size);
@@ -141,6 +142,8 @@ function drawSurfaceGestureOverlay(){
     ctx.beginPath();
     ctx.arc(px,py,Math.max(5,surfaceCanvas.width/120),0,Math.PI*2);
     ctx.fill();
+    ctx.font=Math.max(10,Math.min(16,surfaceCanvas.width/65))+'px ui-monospace, monospace';
+    ctx.fillText('#'+mark.id,px+10,py-8);
     // One small radius ring marks the causal reach of this real growth field.
     ctx.globalAlpha=.23;
     ctx.beginPath();ctx.arc(px,py,mark.radius*rect.size,0,Math.PI*2);
