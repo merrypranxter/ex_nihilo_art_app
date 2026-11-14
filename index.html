@@ -102,6 +102,20 @@
               </select></label>
               <label class="control"><span>Fiber luminosity <output id="glow-value">60%</output></span><input id="glow" type="range" min="0" max="100" step="5" value="60"/></label>
             </div>
+            <details class="morph-advanced">
+              <summary>MINERAL VEINS — PRISM FIBERS &amp; MATURATION</summary>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control select-control"><span>Physical fiber cross-section</span><select id="fiberProfile">
+                  <option value="needle">FACETED MINERAL NEEDLES</option>
+                  <option value="vitreous">VITREOUS PRISM</option>
+                  <option value="wire">FINE DRAWN WIRE</option>
+                  <option value="shard">TRIANGULAR SHARDS</option>
+                  <option value="legacy">CLASSIC FIVE-SIDED FIBER</option>
+                </select></label>
+                <label class="control"><span>Mineralization <output id="mineralStrength-value">65%</output></span><input id="mineralStrength" type="range" min="0" max="100" step="5" value="65"/></label>
+                <label class="control"><span>Half-life of fresh glow <output id="mineralHalfLife-value">18 s</output></span><input id="mineralHalfLife" type="range" min="3" max="120" step="1" value="18"/></label>
+              </div>
+            </details>
             <div class="small-actions ecology-actions">
               <button id="compose-frame" class="choice" type="button">◎ FRAME SCULPTURE</button>
             </div>
