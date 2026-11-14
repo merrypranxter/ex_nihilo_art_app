@@ -187,6 +187,19 @@
 - [ ] Real Vite production build and actual iPhone Safari PBR/transparency appearance / FPS QA.
 - [ ] Calibrate transmittance/overdraw against screenshots before attempting true refractive optics.
 
+## Phase 03M — Mineral Metamorphosis / Optics Earned Through Age
+
+- [x] Three causal PBR crystal material stages: Young Glass, Mature Opal and Faulted Mineral based on real cell age, CA maturity, stored stress, microcracks and neighboring permanent fracture scars.
+- [x] Quiet Geological Aging, Opaline Life Cycle and Feral Spectral Mutation presets, plus OFF, independent crystal age threshold and fault sensitivity.
+- [x] Physical Three.js roughness, metalness, clearcoat, iridescence and thin-film thickness change by life stage; no RGB cycle or image filter.
+- [x] At most three *shared-geometry* core InstancedMesh draws when enabled; original single mesh untouched when OFF, no duplicated mineral geometry or physics.
+- [x] Stage-aware touch surface picking for Crystal Pressure Witch, dynamic shape control, saved-world full geometry and material restoration.
+- [x] Throttled optical maturation refresh every four CA generations only when enabled, no new solver RNG use.
+- [x] Preserve all 194 source-verified MATHEMAGICAL palettes plus five original EX NIHILO palettes (199); original per-cell birth colors remain intact.
+- [x] Headless stage classification, material parameters, old-save defaults and exact continuing physics/save replay.
+- [ ] Production Vite build and physical iPhone Safari WebGL2 optical-quality/FPS examination.
+- [ ] Refine eye-catching crystal lighting according to real screenshots and FPS diagnostics, avoiding unsupported heavy GPU optics.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.

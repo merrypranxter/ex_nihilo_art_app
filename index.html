@@ -203,6 +203,27 @@
               </div>
               <p class="help">The real 3D mineral mesh turns toward exposed cellular growth faces. Existing cracks and missing crystal cells decide where small glasslike facets catch the light. Your original pigments remain unchanged; all optics are reversible.</p>
             </details>
+            <details class="morph-advanced" open>
+              <summary>MINERAL METAMORPHOSIS — CRYSTALS THAT AGE</summary>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control select-control"><span>Geological optical lifecycle</span>
+                  <select id="crystal-evolution">
+                    <option value="off">OFF — KEEP ORIGINAL CRYSTAL MATERIAL</option>
+                    <option value="subtle">QUIET GEOLOGICAL AGING</option>
+                    <option value="opaline">OPALINE LIFE CYCLE</option>
+                    <option value="feral">FERAL SPECTRAL MUTATION</option>
+                  </select>
+                </label>
+                <label class="control"><span>Age of optical maturity <output id="crystal-maturity-value">28 generations</output></span>
+                  <input id="crystal-maturity" type="range" min="8" max="96" step="4" value="28"/>
+                </label>
+                <label class="control"><span>Stress required for fault optics <output id="crystal-stress-optics-value">45%</output></span>
+                  <input id="crystal-stress-optics" type="range" min="10" max="120" step="5" value="45"/>
+                </label>
+              </div>
+              <p id="crystal-evolution-stats" role="status" class="help">OPTICAL LIFE CYCLE OFF · ORIGINAL CRYSTALS</p>
+              <p class="help">Young cells keep a glasslike finish; mature crystals develop an opaline optical response; cracked, stressed or fracture-adjacent survivors become iridescent fault mineral. These are distinct 3D lighting materials driven by persistent cell history, not a color cycle. OFF keeps the original shader and costs no extra GPU draws.</p>
+            </details>
             <details class="morph-advanced">
               <summary>GHOST MINERAL — GROWN INCLUSIONS &amp; OPAL SKINS</summary>
               <div class="control-grid morph-advanced-grid">

@@ -9,6 +9,7 @@ import { lineageSteering } from './filigree.js';
 import { FIBER_PROFILES } from './mineral-optics.js';
 import { CRYSTAL_PROFILES, CRYSTAL_LENSES } from './crystal-optics.js';
 import { INTERIOR_STYLES } from './mineral-inclusions.js';
+import { METAMORPHOSIS_PRESETS } from './mineral-metamorphosis.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -38,7 +39,8 @@ export class GrowthEngine {
       pressureRadius:.85,pressureStrength:1.2,
       crystalShape:'quartz',crystalLens:'prism',
       crystalRelief:.62,crystalGlints:.63,
-      crystalInterior:'off',crystalSkin:.35,crystalInclusions:.60
+      crystalInterior:'off',crystalSkin:.35,crystalInclusions:.60,
+      crystalEvolution:'off',crystalMaturity:28,crystalStressOptics:.45
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -159,6 +161,10 @@ export class GrowthEngine {
     candidate.crystalSkin=clamp(safe(+candidate.crystalSkin),0,1);
     candidate.crystalInclusions=clamp(safe(+candidate.crystalInclusions),0,1);
     if(!Object.hasOwn(INTERIOR_STYLES,candidate.crystalInterior))candidate.crystalInterior='off';
+    if(!Object.hasOwn(METAMORPHOSIS_PRESETS,candidate.crystalEvolution))
+      candidate.crystalEvolution='off';
+    candidate.crystalMaturity=Math.round(clamp(safe(+candidate.crystalMaturity),8,96));
+    candidate.crystalStressOptics=clamp(safe(+candidate.crystalStressOptics),.1,1.2);
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
     if(!CRYSTAL_LENSES[candidate.crystalLens])candidate.crystalLens='inherit';
     if(!isPaletteStops(candidate.paletteStops))throw new Error('Invalid custom palette stops');
@@ -212,7 +218,10 @@ export class GrowthEngine {
     const historicInclusions=historicalCrystalOptics.crystalInterior===undefined?
       {...historicalCrystalOptics,crystalInterior:'off',crystalSkin:0,crystalInclusions:0}
       :historicalCrystalOptics;
-    this.setConfig(historicInclusions);
+    const historicalMetamorphosis=historicInclusions.crystalEvolution===undefined?
+      {...historicInclusions,crystalEvolution:'off',crystalMaturity:28,
+        crystalStressOptics:.45}:historicInclusions;
+    this.setConfig(historicalMetamorphosis);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings(
@@ -415,8 +424,11 @@ export class GrowthEngine {
         // Ages advance even when no new voxels are born. Opt-in skins and
         // inclusions must visibly mature without changing the CA physics or
         // rebuilding thousands of buffers on every 60fps screen frame.
-        if(this.config.crystalInterior!=='off'&&this.colony.population>0&&
-          this.colony.generation%6===0)this.colony.changed=true;
+        const metAmorph=this.config.crystalEvolution!=='off';
+        if(this.colony.population>0&&
+          ((this.config.crystalInterior!=='off'&&this.colony.generation%6===0)||
+           (metAmorph&&this.colony.generation%4===0)))
+          this.colony.changed=true;
         this.colonyElapsed-=.32;
       }
     }
@@ -734,7 +746,10 @@ export class GrowthEngine {
     const historicInclusions=historicalCrystalOptics.crystalInterior===undefined?
       {...historicalCrystalOptics,crystalInterior:'off',crystalSkin:0,crystalInclusions:0}
       :historicalCrystalOptics;
-    this.setConfig(historicInclusions);
+    const historicalMetamorphosis=historicInclusions.crystalEvolution===undefined?
+      {...historicInclusions,crystalEvolution:'off',crystalMaturity:28,
+        crystalStressOptics:.45}:historicInclusions;
+    this.setConfig(historicalMetamorphosis);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
