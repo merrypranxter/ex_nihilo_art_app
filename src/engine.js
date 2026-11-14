@@ -11,6 +11,7 @@ import { CRYSTAL_PROFILES, CRYSTAL_LENSES } from './crystal-optics.js';
 import { INTERIOR_STYLES } from './mineral-inclusions.js';
 import { METAMORPHOSIS_PRESETS } from './mineral-metamorphosis.js';
 import { HERITAGE_MODES } from './crystal-bloodlines.js';
+import { FAMILY_FOCUS_MODES } from './crystal-family-inspector.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -42,7 +43,9 @@ export class GrowthEngine {
       crystalRelief:.62,crystalGlints:.63,
       crystalInterior:'off',crystalSkin:.35,crystalInclusions:.60,
       crystalEvolution:'off',crystalMaturity:28,crystalStressOptics:.45,
-      crystalHeritage:'off',crystalHeritageStrength:.65
+      crystalHeritage:'off',crystalHeritageStrength:.65,
+      crystalFocusBirthId:0,crystalFocusFamilyId:0,
+      crystalFocusMode:'family'
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -168,6 +171,12 @@ export class GrowthEngine {
     if(!Object.hasOwn(HERITAGE_MODES,candidate.crystalHeritage))
       candidate.crystalHeritage='off';
     candidate.crystalHeritageStrength=clamp(safe(+candidate.crystalHeritageStrength),0,1);
+    const validEvent=id=>Number.isSafeInteger(id)&&id>=0&&id<=0xffffffff;
+    if(!validEvent(candidate.crystalFocusBirthId))candidate.crystalFocusBirthId=0;
+    if(!validEvent(candidate.crystalFocusFamilyId))candidate.crystalFocusFamilyId=0;
+    if(!Object.hasOwn(FAMILY_FOCUS_MODES,candidate.crystalFocusMode))
+      candidate.crystalFocusMode='family';
+    if(!candidate.crystalFocusBirthId)candidate.crystalFocusFamilyId=0;
     candidate.crystalMaturity=Math.round(clamp(safe(+candidate.crystalMaturity),8,96));
     candidate.crystalStressOptics=clamp(safe(+candidate.crystalStressOptics),.1,1.2);
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
@@ -229,7 +238,10 @@ export class GrowthEngine {
     const historicalHeritage=historicalMetamorphosis.crystalHeritage===undefined?
       {...historicalMetamorphosis,crystalHeritage:'off',crystalHeritageStrength:0}
       :historicalMetamorphosis;
-    this.setConfig(historicalHeritage);
+    const historicalInspector=historicalHeritage.crystalFocusBirthId===undefined?
+      {...historicalHeritage,crystalFocusBirthId:0,crystalFocusFamilyId:0,
+        crystalFocusMode:'family'}:historicalHeritage;
+    this.setConfig(historicalInspector);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings({
@@ -766,7 +778,10 @@ export class GrowthEngine {
     const historicalHeritage=historicalMetamorphosis.crystalHeritage===undefined?
       {...historicalMetamorphosis,crystalHeritage:'off',crystalHeritageStrength:0}
       :historicalMetamorphosis;
-    this.setConfig(historicalHeritage);
+    const historicalInspector=historicalHeritage.crystalFocusBirthId===undefined?
+      {...historicalHeritage,crystalFocusBirthId:0,crystalFocusFamilyId:0,
+        crystalFocusMode:'family'}:historicalHeritage;
+    this.setConfig(historicalInspector);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;

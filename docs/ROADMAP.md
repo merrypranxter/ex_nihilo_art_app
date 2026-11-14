@@ -213,6 +213,19 @@
 - [ ] Actual Vite production build, iPhone Safari WebGL2 lineage band rendering / FPS QA.
 - [ ] Family-selection/highlight and lineage tracing; consider multilateral mineral genealogy only after mobile validation.
 
+## Phase 03O — Crystal Family Witch / Touch-Inspectable Living Genealogy
+
+- [x] Tap an actual living mineral cell and resolve mutable Three.js instance slots (including all Young/Mature/Fault meshes) to its immutable real birth ID.
+- [x] Show living founder family, descendant-only branches, direct parent/selected event, and truthful extinct/unknown links without inventing dead ancestors.
+- [x] Non-destructive capped 900-instance birth-pigment beacons, 600 actual living-parent 3D connections, and selected camera-facing halo.
+- [x] One-finger short tap only; drag, interrupted two-finger gestures, cancellation and orbit are kept separate from family inspection.
+- [x] Save selected birth ID, founder family and focus mode in DNA/world checkpoints; pre-03O worlds start unselected.
+- [x] NEW and ERASE CRYSTALS clear a stale family selection so recycled birth IDs cannot misidentify descendants.
+- [x] Original 194 MATHEMAGICAL source palettes + 5 EX NIHILO, saved pigments and crystal growth/fracture/chemical math preserved.
+- [x] Headless two-founder selection, extinct-parent genealogy, classic/staged mapping, save/replay, invalid-ID and UI/DOM source checks.
+- [ ] Real iPhone Safari WebGL2 touch/visual and FPS profiling; official npm production build remains unverified.
+- [ ] After real-device feedback, explore controlled cross-family mineral inheritance at future contact births.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.

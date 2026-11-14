@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03O — CRYSTAL FAMILY WITCH:** A non-destructive family inspector now lets you tap a visible crystal (even when multiple optical-stage meshes are active) and select its immutable *birth event*, then highlight either all living relatives sharing its founder family or the descendants connected by actual living parent/child records. Bright bounded beacons, historical-color parent–child links and an individual selection ring remain accurate as the organism grows. Dead ancestors are never represented by invented paths; old untracked crystals get a truthful explanation. Family focus saves in DNA/checkpoints and resets when the crystal colony is cleared. All 199 artist palettes and real growth/fracture genetics stay untouched. See [Phase 03O family lens and QA](docs/PHASE-03O-FAMILY-INSPECTOR.md).
+
+
 **Phase 03N — CRYSTAL BLOODLINES:** The crystal colony now stores immutable birth-event IDs, real parent IDs, founder-family identities and three inherited genetic traits. Future children can inherit and mutate mineral proportions, physical strata and optical axes. An optional gene-direction law can influence *actual new crystal cellular births*, not only color. In CRYSTALS → **CRYSTAL BLOODLINES**, use Brocade / Genealogical Strata / Hereditary Abnormalities, plus visual strength, growth influence and mutation controls. OFF keeps the original rendering and birth probabilities; historical save files don't gain invented ancestors. All 199 source-authored palette choices remain intact. See [Phase 03N design/QA](docs/PHASE-03N-CRYSTAL-BLOODLINES.md).
 
 

@@ -265,3 +265,20 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
 @media (pointer:coarse) and (orientation:portrait){
   .panels{padding-bottom:max(30px,calc(env(safe-area-inset-bottom) + 24px))}
 }
+
+/* Phase 03O: compact, iPhone-friendly family insight without a modal. */
+#family-inspector-status{
+  padding:10px 12px;border-left:2px solid #8bffe9;
+  background:#122a2d99;color:#c9fff2;
+  overflow-wrap:anywhere;line-height:1.75;
+}
+#family-mode-family[aria-pressed="true"],
+#family-mode-descendants[aria-pressed="true"]{
+  border-color:#91ffe3;background:#234847;color:#e6fff6;
+}
+#family-pick{border-color:#ac9df6}
+#family-clear{color:#ffb6dc}
+@media(pointer:coarse){
+  #family-pick,#family-clear,
+  #family-mode-family,#family-mode-descendants{min-height:44px;white-space:normal}
+}
