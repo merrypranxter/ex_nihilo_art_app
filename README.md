@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03M — MINERAL METAMORPHOSIS:** Real crystal age, accumulated strain and permanent fracture neighbors now determine three *different physically shaded materials*: Young Glass, Mature Opal and Fault Mineral. Pick QUIET, OPALINE or FERAL in CRYSTALS → **MINERAL METAMORPHOSIS**; set maturity age and stress sensitivity independently. OFF is the default and keeps the original one-draw renderer and source pigments exactly as before. All 199 palettes and historic world saves remain intact. See [optical life cycle physics/QA](docs/PHASE-03M-MINERAL-METAMORPHOSIS.md).
+
+
 **Phase 03L — GHOST MINERAL:** Optional transparent opal-growth skins and small, physically positioned mineral inclusions. Their placement responds to *actual crystal age, exposed voxel faces, accumulated strain, fracture neighbors and original frozen pigment*. Pick WET OPAL, SPECTRAL OIL, SMOKED MINERAL, or FROSTED VEIN in CRYSTALS → **GHOST MINERAL**, with independent density/skin sliders; OFF remains the default and adds zero draw calls. All 199 MATHEMAGICAL + EX NIHILO palettes, existing physics, and saved worlds are preserved. See [phase details and iPhone limitations](docs/PHASE-03L-GHOST-MINERAL.md).
 
 
