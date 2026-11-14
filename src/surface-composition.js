@@ -23,8 +23,8 @@ const mod=(a,n)=>(a%n+n)%n;
 // pixel centers; every parameter is a whole-number-frequency toroidal field
 // or a reflection-symmetric centered radial field.
 export function compositionSample(u,v,{boundary='open',regions='single',voids=.55,wrap=false}={}){
-  const x=wrap?.5*Math.sin(TAU*u):u-.5;
-  const y=wrap?.5*Math.sin(TAU*v):v-.5;
+  const x=wrap ? .5*Math.sin(TAU*u) : u-.5;
+  const y=wrap ? .5*Math.sin(TAU*v) : v-.5;
   const r=Math.hypot(x,y)*2;
   const theta=Math.atan2(y,x);
   let gate=1;
@@ -64,7 +64,7 @@ export function buildCompositionField(size,options={}){
     gates[k]=sample.gate;
     laws[k]=sample.law;
   }
-  return {gates,laws,threshold:Math.round(clamp(options.voids??.55)*220)};
+  return {gates,laws,threshold:(options.voids??.55)<=0?-1:Math.round(clamp(options.voids??.55)*220)};
 }
 export function symmetricSeedPoints(u,v,mode='none'){
   if(!Number.isFinite(u)||!Number.isFinite(v)||u<0||u>=1||v<0||v>=1)return [];
