@@ -153,3 +153,45 @@ test('turning the crystal colony off freezes existing cracks without erasing the
   assert.deepEqual(c.strain,Float32Array.from(frozen.strain));
   assert.deepEqual(c.damage,Uint8Array.from(frozen.damage));
 });
+
+test('press gestures never fracture existing cells at touch time; undo reverses causes, not lived scars',()=>{
+  const w=new GrowthEngine(1814);
+  w.colony.setSettings({enabled:true,growth:0,erosion:0,strainEnabled:true,
+    breakThreshold:.60});
+  const [cx,cy,cz]=w.colony.coords(V());
+  for(const [dx,dy,dz] of [
+    [0,0,0],[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],
+    [0,0,1],[0,0,-1],[1,1,0],[1,0,1],[0,1,1],
+    [-1,-1,0],[0,-1,-1]
+  ])w.seedCrystal(V(...Object.values(w.colony.worldPos(cx+dx,cy+dy,cz+dz))));
+  const before=w.colony.snapshot();
+  const p=new CrystalPressureTransaction(w);
+  p.begin('strain',V());p.move(V(.1,0,0));p.commit();
+  assert.deepEqual(w.colony.snapshot(),before,
+    'editing a pressure mark must never fake damage to present matter');
+  for(let i=0;i<180;i++)w.step(1/60);
+  const damaged=Array.from(w.colony.damage);
+  assert.ok(damaged.some(x=>x>0));
+  assert.ok(w.undoNodes());
+  assert.equal(w.pressures.length,0);
+  assert.deepEqual(Array.from(w.colony.damage),damaged,
+    'field undo cannot silently time-travel old fracture history');
+});
+
+test('repeated stress fractures are rate-limited and do not eliminate the viable colony',()=>{
+  const c=new CrystalColony(34,8);
+  c.setSettings({enabled:true,growth:0,erosion:0,strainEnabled:true,
+    breakThreshold:.6});
+  const [cx,cy,cz]=c.coords(V());
+  for(let z=0;z<3;z++)for(let y=0;y<3;y++)for(let x=0;x<3;x++)
+    c.seedAt(c.worldPos(cx+x,cy+y,cz+z),food,palette,()=>.2);
+  const mark={...stress(2.4,1.1),center:[.25,.25,.25]};
+  for(let t=0;t<18;t++){
+    const previous=c.population;
+    c.update(food,palette,()=>.99,null,[mark]);
+    assert.ok(previous-c.population<=Math.ceil(previous*.12),
+      'only a bounded fraction may fracture on a cellular tick');
+    assert.ok(c.population>=8,'a living mineral nucleus must survive');
+  }
+  assert.ok(c.damage.some(v=>v===2),'stress still creates genuine voids');
+});
