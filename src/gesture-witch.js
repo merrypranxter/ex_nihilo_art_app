@@ -1,0 +1,95 @@
+// Gesture Witch / atomic semantic field editing kernel.
+// No DOM, browser globals, or renderer-specific geometry. This kernel edits
+// persistent named force sources, not pixels, camera transforms or fake topology.
+
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const point=(p)=>!!p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+const distance=(a,b)=>Math.hypot(b.x-a.x,b.y-a.y);
+const angle=(a,b)=>Math.atan2(b.y-a.y,b.x-a.x);
+const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
+
+export function lensDelta(firstA,firstB,nextA,nextB){
+  if(![firstA,firstB,nextA,nextB].every(point))throw Error('Invalid pinch coordinates.');
+  const initial=distance(firstA,firstB);
+  if(initial<8)return {scale:1,twist:0,valid:false};
+  const current=distance(nextA,nextB);
+  return {
+    scale:clamp(current/initial,.25,4),
+    twist:wrapAngle(angle(nextA,nextB)-angle(firstA,firstB)),
+    valid:true
+  };
+}
+
+export class FieldGestureTransaction{
+  constructor(engine){this.engine=engine;this.before=null;this.beforeRng=0;this.node=null;this.lens=null;this.erasing=false;}
+  get active(){return this.before!==null;}
+  begin({type='vortex',pos=null,nodeId=null}={}){
+    if(this.active)throw Error('A field gesture is already active.');
+    const eng=this.engine;
+    this.before=eng.snapshotNodes();
+    this.beforeRng=eng.rngState;
+    this.erasing=type==='erase';
+    this.node=nodeId===null?null:eng.nodes.find(n=>n.id===nodeId);
+    if(this.erasing){
+      if(!this.node){this.clear();return false;}
+      eng.nodes=eng.nodes.filter(n=>n.id!==this.node.id);
+      return true;
+    }
+    if(!this.node){
+      if(!pos||!['vortex','attract','repel'].includes(type)){
+        this.clear();throw Error('Invalid field edit.');
+      }
+      this.node=eng.addNode(type,pos,{record:false});
+    }
+    return true;
+  }
+  move(pos){
+    if(!this.active||!this.node||this.erasing)return;
+    if(!pos||![pos.x,pos.y,pos.z].every(Number.isFinite))throw Error('Invalid world position.');
+    this.node.pos.copy(pos);
+  }
+  beginLens(a,b){
+    if(!this.active||!this.node||this.erasing)return false;
+    if(!point(a)||!point(b)||distance(a,b)<8)return false;
+    this.lens={
+      a:{...a},b:{...b},
+      radius:this.node.radius??1.1,
+      spin:this.node.spin??1.2,
+      strength:this.node.strength
+    };
+    return true;
+  }
+  lensPreview(a,b){
+    if(!this.lens||!this.node)return false;
+    const delta=lensDelta(this.lens.a,this.lens.b,a,b);
+    if(!delta.valid)return false;
+    if(this.node.type==='vortex'){
+      this.node.radius=clamp(this.lens.radius*delta.scale,.25,2.8);
+      this.node.spin=clamp(this.lens.spin+delta.twist*1.65,-2.5,2.5);
+    }else{
+      // Attraction/repulsion gets a genuine field-force magnitude change.
+      this.node.strength=clamp(this.lens.strength*delta.scale,.25,12);
+    }
+    return true;
+  }
+  commit(){
+    if(!this.active)return false;
+    const eng=this.engine;
+    const changed=JSON.stringify(this.before)!==JSON.stringify(eng.snapshotNodes());
+    if(changed){
+      eng.nodeUndo.push(this.before);
+      if(eng.nodeUndo.length>25)eng.nodeUndo.shift();
+      eng.nodeRedo=[];
+    }else eng.rngState=this.beforeRng;
+    this.clear();
+    return changed;
+  }
+  cancel(){
+    if(!this.active)return false;
+    this.engine.restoreNodes(this.before);
+    this.engine.rngState=this.beforeRng;
+    this.clear();
+    return true;
+  }
+  clear(){this.before=null;this.node=null;this.lens=null;this.erasing=false;}
+}
