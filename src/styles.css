@@ -320,3 +320,14 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
   #surface-gesture-lab .control-grid{gap:15px 13px}
   #surface-gesture-lab .small-actions button{font-size:10px}
 }
+
+
+/* Phase 04F: bounded mineral loop capture controls, mobile-first. */
+#surface-loop-forge .control-grid{margin:12px 0 16px}
+#surface-loop-forge .small-actions button{min-height:44px;white-space:normal;flex:1 1 112px}
+#surface-loop-forge button[disabled]{opacity:.45;cursor:not-allowed}
+#surface-loop-status{border-left:2px solid #f6ca7e;padding-left:10px;line-height:1.5}
+#surface-loop-mp4-note{color:#b9b8cb}
+@media(max-width:550px){
+  #surface-loop-forge .small-actions button{font-size:11px}
+}
