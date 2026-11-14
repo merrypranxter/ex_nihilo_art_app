@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
-import { surfacePixels,SURFACE_SIZE } from './surface-growth.js';
+import { surfacePixels,SURFACE_SIZE,SurfaceGrowth } from './surface-growth.js';
+import {loopPlan,framePhase,phaseAtSeconds,supportedMp4Mime} from './surface-loop-plan.js';
+import {renderSurfaceLoopFrame} from './surface-loop-renderer.js';
+import {exportSurfaceGIF,exportSurfaceMP4} from './surface-loop-export.js';
 import {surfaceOpticsPixels} from './surface-optics.js';
 import {paintSurfaceMicrostructure} from './surface-microstructure.js';
 import {SurfaceGestureEditor,SURFACE_TOUCH_MODES} from './surface-gesture-field.js';
@@ -93,6 +96,12 @@ const surfacePixelContext=surfacePixelsCanvas.getContext('2d',{alpha:false});
 let surfaceClock=0,surfaceNeedsPresent=true,surfacePointerId=null;
 let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
 let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
+let surfaceLoopPreview=false,surfaceLoopElapsed=0,surfaceLoopPriorPause=true;
+let surfaceLoopController=null,surfaceLoopBusy=false;
+const surfaceLoopPreviewCanvas=document.createElement('canvas');
+const surfaceLoopTileCanvas=document.createElement('canvas');
+surfaceLoopTileCanvas.width=SURFACE_SIZE;surfaceLoopTileCanvas.height=SURFACE_SIZE;
+const surfaceLoopTileContext=surfaceLoopTileCanvas.getContext('2d',{alpha:false});
 const surfacePointerPositions=new Map();
 function surfaceTouchStatus(){
   const editor=surfaceGestureEditor,mode=engine.config.surfaceTouchMode;
@@ -181,6 +190,31 @@ function fitSurfaceCanvas(){
 function drawSurface(force=false){
   if(engine.config.compositionDomain!=='surface')return;
   if(!surfaceCanvas.width||!surfaceCanvas.height)fitSurfaceCanvas();
+  if(surfaceLoopPreview){
+    const started=performance.now(),rect=surfaceDisplayRect();
+    const size=Math.max(192,Math.min(768,Math.round(rect.size)));
+    if(surfaceLoopPreviewCanvas.width!==size||surfaceLoopPreviewCanvas.height!==size){
+      surfaceLoopPreviewCanvas.width=size;surfaceLoopPreviewCanvas.height=size;
+    }
+    const plan=readSurfaceLoopPlan('gif');
+    renderSurfaceLoopFrame(
+      surfaceLoopPreviewCanvas.getContext('2d',{alpha:false}),surfaceLoopTileContext,
+      engine.surface,engine.config,{
+        size,phase:phaseAtSeconds(surfaceLoopElapsed,plan.seconds,plan.playback),
+        motion:plan.motion,
+        background:BACKGROUNDS[$('background').value]||BACKGROUNDS.void,
+        quality:'preview'
+      });
+    surfaceContext.clearRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
+    surfaceContext.drawImage(surfaceLoopPreviewCanvas,rect.left,rect.top,rect.size,rect.size);
+    drawSurfaceGestureOverlay();
+    const cost=performance.now()-started;
+    surfaceOpticsRenderCost=surfaceOpticsRenderCost===0?cost:
+      .65*surfaceOpticsRenderCost+.35*cost;
+    lastSurfaceVisualPaint=performance.now();
+    surfaceNeedsPresent=false;
+    return;
+  }
   if(force||engine.surface.changed||surfaceOpticsDirty){
     const opticalStart=performance.now();
     const c=engine.config;
@@ -254,6 +288,7 @@ function seedSurfaceIfEmpty(){
 function setCompositionDomain(next){
   engine.setConfig({compositionDomain:next});
   const active=engine.config.compositionDomain==='surface';
+  if(!active&&surfaceLoopPreview)stopSurfaceLoopPreview();
   if(!active&&surfaceGestureEditor.active){
     surfaceGestureEditor.cancel();surfacePointerPositions.clear();
   }
@@ -2743,6 +2778,121 @@ function exportSurfacePNG(){
   a.click();
 }
 $('surface-png').addEventListener('click',exportSurfacePNG);
+
+// PHASE 04F / LOOP FORGE — snapshot-based, not simulated-time recording.
+// This tool never calls Netlify; it captures and downloads locally in Safari.
+const loopStatus=$('surface-loop-status');
+const mp4Mime=supportedMp4Mime(window.MediaRecorder);
+const mp4Allowed=!!mp4Mime&&typeof HTMLCanvasElement.prototype.captureStream==='function';
+$('surface-loop-format').querySelector('option[value="mp4"]').disabled=!mp4Allowed;
+$('surface-loop-mp4-note').textContent=mp4Allowed?
+  'Native MP4 recording is supported by this browser. Unlike GIF, realtime MP4 may drop frames if material rendering is slow.':
+  'Native MP4 recording is unavailable in this browser. GIF and 2048px PNG still work; no mislabeled WebM files.';
+function readSurfaceLoopPlan(format=$('surface-loop-format').value){
+  return loopPlan({
+    format,
+    seconds:Number($('surface-loop-seconds').value),
+    fps:Number($('surface-loop-fps').value),
+    size:Number($('surface-loop-size').value),
+    motion:$('surface-loop-motion').value,
+    playback:$('surface-loop-playback').value
+  });
+}
+function loopStatusText(message){loopStatus.textContent=message;}
+function stopSurfaceLoopPreview(){
+  if(!surfaceLoopPreview)return;
+  surfaceLoopPreview=false;surfaceLoopElapsed=0;
+  $('surface-loop-preview').setAttribute('aria-pressed','false');
+  $('surface-loop-preview').textContent='▷ PREVIEW LOOP';
+  setPaused(surfaceLoopPriorPause);
+  surfaceOpticsDirty=true;surfaceNeedsPresent=true;
+  drawSurface(true);
+}
+function downloadSurfaceLoop(blob,filename){
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.download=filename;a.href=url;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),20000);
+}
+$('surface-loop-preview').addEventListener('click',()=>{
+  if(surfaceLoopBusy)return;
+  if(surfaceLoopPreview){stopSurfaceLoopPreview();loopStatusText('Loop preview stopped.');return;}
+  try{readSurfaceLoopPlan('gif');}catch(error){loopStatusText(error.message);return;}
+  if(engine.config.compositionDomain!=='surface')setCompositionDomain('surface');
+  surfaceLoopPriorPause=paused;setPaused(true);
+  surfaceLoopPreview=true;surfaceLoopElapsed=0;
+  $('surface-loop-preview').setAttribute('aria-pressed','true');
+  $('surface-loop-preview').textContent='◼ STOP PREVIEW';
+  loopStatusText('Live preview: the growth specimen is frozen, but light and material move.');
+  drawSurface();
+});
+for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
+  'surface-loop-motion','surface-loop-playback','surface-loop-format']){
+  $(id).addEventListener('change',()=>{
+    try{
+      const plan=readSurfaceLoopPlan();
+      $('surface-loop-export').textContent='↓ EXPORT '+plan.format.toUpperCase();
+      loopStatusText(plan.frames+' sampled frames · '+plan.seconds+' seconds · '+
+        plan.size+'px square · '+(plan.playback==='cycle'?'cyclic':'boomerang')+
+        (plan.format==='mp4'?' · realtime MP4':' · GIF 256-color'));
+    }catch(error){loopStatusText(error.message);}
+  });
+}
+$('surface-loop-cancel').addEventListener('click',()=>{
+  if(surfaceLoopController){surfaceLoopController.abort();loopStatusText('Canceling export…');}
+});
+$('surface-loop-export').addEventListener('click',async()=>{
+  if(surfaceLoopBusy||surfaceGestureEditor.active)return;
+  let plan;
+  try{plan=readSurfaceLoopPlan();}catch(error){loopStatusText(error.message);return;}
+  if(plan.format==='mp4'&&!mp4Allowed){
+    loopStatusText('This Safari cannot record actual MP4. Choose GIF.');return;
+  }
+  if(engine.config.compositionDomain!=='surface')setCompositionDomain('surface');
+  if(surfaceLoopPreview)stopSurfaceLoopPreview();
+  const previousPaused=paused;setPaused(true);
+  surfaceLoopBusy=true;
+  const controller=new AbortController();surfaceLoopController=controller;
+  $('surface-loop-export').disabled=true;
+  $('surface-loop-cancel').disabled=false;
+  $('surface-loop-preview').disabled=true;
+  const frozen=new SurfaceGrowth(engine.surface.seed,engine.surface.size);
+  frozen.restore(engine.surface.snapshot());
+  const config={...engine.config};
+  const background=BACKGROUNDS[$('background').value]||BACKGROUNDS.void;
+  const canvas=document.createElement('canvas');
+  const tile=document.createElement('canvas');tile.width=frozen.size;tile.height=frozen.size;
+  const tileCtx=tile.getContext('2d',{alpha:false});
+  const render=(context,phase)=>{
+    renderSurfaceLoopFrame(context,tileCtx,frozen,config,{
+      size:plan.size,phase,motion:plan.motion,background,quality:'export'
+    });
+  };
+  const progress=(i,total)=>loopStatusText(
+    'Rendering '+plan.format.toUpperCase()+' · '+i+'/'+total+
+    ' frames · '+Math.round(i/total*100)+'%');
+  try{
+    const blob=plan.format==='gif'?
+      await exportSurfaceGIF({plan,canvas,render,onProgress:progress,signal:controller.signal}):
+      await exportSurfaceMP4({plan,canvas,render,onProgress:progress,signal:controller.signal});
+    downloadSurfaceLoop(blob,
+      'ex-nihilo-mineral-loop-'+plan.seconds+'s-'+plan.size+'px.'+plan.format);
+    loopStatusText('Export created: '+plan.frames+' phases · '+(blob.size/1048576).toFixed(1)+
+      ' MB · '+plan.format.toUpperCase()+
+      (plan.format==='mp4'?' (browser realtime timing)':' (exact GIF loop)'));
+  }catch(error){
+    loopStatusText(error.name==='AbortError'?'Export canceled. Material preserved.':
+      'Export failed: '+error.message);
+  }finally{
+    surfaceLoopBusy=false;surfaceLoopController=null;
+    $('surface-loop-export').disabled=false;
+    $('surface-loop-cancel').disabled=true;
+    $('surface-loop-preview').disabled=false;
+    setPaused(previousPaused);
+    surfaceOpticsDirty=true;surfaceNeedsPresent=true;
+    drawSurface(true);
+  }
+});
 $('new').addEventListener('click',()=>{
   if(!window.confirm('Start a NEW universe? This erases BOTH the 3D OBJECT and the 2D SURFACE material histories. Save each artwork first if you want to keep it. Continue?'))return;
   // A new universe must not accidentally bind to a reused old birth ID.
@@ -2963,6 +3113,12 @@ function frame(now){
   if(graphicsLost&&engine.config.compositionDomain!=='surface')return;
   let elapsed=Math.min((now-last)/1000,.1);last=now;
   if(engine.config.compositionDomain==='surface'){
+    if(surfaceLoopPreview){
+      surfaceLoopElapsed+=elapsed;
+      const minGap=Math.max(85,Math.min(450,surfaceOpticsRenderCost*2.15));
+      if(now-lastSurfaceVisualPaint>=minGap)drawSurface();
+      return;
+    }
     // The optical loop is presentation-only; it can shimmer over PAUSED
     // crystalline history. No simulation RNG or birth state is touched.
     if(engine.config.surfaceOpticsMotion&&engine.config.surfaceOpticsMode!=='off'){
