@@ -9,15 +9,16 @@ export function abortIfNeeded(signal){
 const yieldThread=()=>new Promise(resolve=>setTimeout(resolve,0));
 export async function exportSurfaceGIF({plan,canvas,render,onProgress=()=>{},signal}){
   if(plan.format!=='gif')throw Error('GIF settings required');
-  canvas.width=plan.size;canvas.height=plan.size;
+  const width=plan.width??plan.size,height=plan.height??plan.size;
+  canvas.width=width;canvas.height=height;
   const ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:true});
   if(!ctx)throw Error('Canvas 2D unavailable');
-  const encoder=new GifLoopWriter(plan.size,plan.size,plan.fps);
+  const encoder=new GifLoopWriter(width,height,plan.fps);
   for(let i=0;i<plan.frames;i++){
     abortIfNeeded(signal);
     render(ctx,framePhase(i,plan.frames,plan.playback),i);
     abortIfNeeded(signal);
-    const pixels=ctx.getImageData(0,0,plan.size,plan.size);
+    const pixels=ctx.getImageData(0,0,width,height);
     encoder.addFrame(pixels.data,gifFrameDelay(i,plan.fps));
     onProgress(i+1,plan.frames);
     if(i%2===1)await yieldThread();
@@ -26,12 +27,13 @@ export async function exportSurfaceGIF({plan,canvas,render,onProgress=()=>{},sig
   return new Blob([encoder.finish()],{type:'image/gif'});
 }
 export async function exportSurfaceMP4({plan,canvas,render,onProgress=()=>{},
-  signal,Recorder=globalThis.MediaRecorder}){
+  onDiagnostics=()=>{},signal,Recorder=globalThis.MediaRecorder}){
   if(plan.format!=='mp4')throw Error('MP4 settings required');
   const mime=supportedMp4Mime(Recorder);
   if(!mime||typeof canvas.captureStream!=='function')
     throw Error('This browser cannot record genuine MP4 from a canvas. Use GIF instead.');
-  canvas.width=plan.size;canvas.height=plan.size;
+  const width=plan.width??plan.size,height=plan.height??plan.size;
+  canvas.width=width;canvas.height=height;
   const context=canvas.getContext('2d',{alpha:false});
   if(!context)throw Error('Canvas 2D unavailable');
   // Manual frames where supported; otherwise realtime captureStream(fps)
@@ -49,7 +51,8 @@ export async function exportSurfaceMP4({plan,canvas,render,onProgress=()=>{},
     }
     if(!track)throw Error('Canvas capture has no video track');
     recorder=new Recorder(stream,{mimeType:mime,
-      videoBitsPerSecond:Math.min(12000000,Math.max(5000000,plan.size*plan.size*12))});
+      videoBitsPerSecond:plan.videoBitsPerSecond??
+        Math.min(12000000,Math.max(5000000,width*height*12))});
     if(!recorder.mimeType?.toLowerCase().includes('mp4'))
       throw Error('Recorder selected a format other than MP4');
     const chunks=[];
@@ -63,13 +66,25 @@ export async function exportSurfaceMP4({plan,canvas,render,onProgress=()=>{},
     done.catch(()=>{});
     recorder.start();
     const origin=performance.now();
+    const diagnostics={requestedFps:plan.fps,targetBitrate:plan.videoBitsPerSecond??0,
+      recorderBitrate:recorder.videoBitsPerSecond??null,
+      lateFrames:0,maxRenderMs:0,totalRenderMs:0,frames:0,
+      requestFrameSupported:request};
     for(let i=0;i<plan.frames;i++){
       abortIfNeeded(signal);
       const target=origin+i*1000/plan.fps;
       const wait=target-performance.now();
       if(wait>0)await new Promise(resolve=>setTimeout(resolve,wait));
       abortIfNeeded(signal);
+      const start=performance.now();
       render(context,framePhase(i,plan.frames,plan.playback),i);
+      const renderMs=performance.now()-start;
+      diagnostics.totalRenderMs+=renderMs;
+      diagnostics.maxRenderMs=Math.max(diagnostics.maxRenderMs,renderMs);
+      diagnostics.frames++;
+      // This detects missed render deadlines, not dropped encoded frames.
+      if(performance.now()>origin+(i+1)*1000/plan.fps)
+        diagnostics.lateFrames++;
       if(request)track.requestFrame();
       onProgress(i+1,plan.frames);
       // Slow devices can miss realtime deadlines. The frame's mathematical
@@ -82,6 +97,15 @@ export async function exportSurfaceMP4({plan,canvas,render,onProgress=()=>{},
     abortIfNeeded(signal);
     const blob=new Blob(chunks,{type:recorder.mimeType});
     if(!blob.size)throw Error('Browser produced an empty MP4 recording');
+    // Verify ISO BMFF ftyp rather than trusting a browser-reported MIME
+    // that could still conceal WebM or an encoder failure.
+    const header=new Uint8Array(await blob.slice(0,12).arrayBuffer());
+    if(header.length<12||String.fromCharCode(...header.slice(4,8))!=='ftyp')
+      throw Error('Recorder output was not a valid MP4-family file header');
+    onDiagnostics({...diagnostics,
+      averageRenderMs:diagnostics.totalRenderMs/Math.max(1,diagnostics.frames),
+      elapsedMs:performance.now()-origin,
+      note:'Late render deadlines are measurable; actual encoded-frame drops are not'});
     return blob;
   }finally{
     if(recorder&&recorder.state!=='inactive'){
