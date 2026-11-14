@@ -1,13 +1,15 @@
 // EX NIHILO / 04H — exact periodic, reversible camera choreography.
 // Runs only on a PRESENTATION crop. Never changes deposited matter, RNG,
 // birth pigments, optical wavelengths, gesture fields or a 3D view camera.
+import {cameraPathPose,validCameraPath} from './surface-camera-path.js';
 export const SURFACE_CAMERA_MOVES=Object.freeze({
   still:'FROZEN CAMERA · ORIGINAL FRAME',
   orbit:'ORBITAL DRIFT · LENS CIRCLES THE FIELD',
   figure8:'FIGURE EIGHT · LISSAJOUS SCAN',
   microscope:'MICROSCOPE DIVE · APPROACH AND RETREAT',
   pendulum:'PENDULUM SURVEY · SWEEPING PAN',
-  target:'TARGET DIVE · VISIT A SELECTED DETAIL'
+  target:'TARGET DIVE · VISIT A SELECTED DETAIL',
+  drawn:'HAND-DRAWN PATH · YOUR OWN CAMERA ROUTE'
 });
 export const SURFACE_CAMERA_CYCLES=Object.freeze([1,2,3]);
 const TAU=Math.PI*2;
@@ -67,6 +69,13 @@ export function cameraPose(phase,{
 }
 function ease01(x){return .5+.5*x;}
 export function cameraPoseFromConfig(phase,config={}){
+  if(config.surfaceCameraMotion==='drawn'){
+    if(config.surfaceCameraPath&&validCameraPath(config.surfaceCameraPath))
+      return cameraPathPose(config.surfaceCameraPath,phase,config);
+    // An old/missing path does not crash the renderer; artist must draw one.
+    return {focusX:config.surfaceLoopFocusX??.5,
+      focusY:config.surfaceLoopFocusY??.5,zoom:config.surfaceLoopZoom??1};
+  }
   return cameraPose(phase,{
     motion:config.surfaceCameraMotion??'still',
     focusX:config.surfaceLoopFocusX??.5,
