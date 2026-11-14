@@ -150,6 +150,18 @@
 - [ ] Actual Vite production build and real iPhone Safari touch, shader quality, and FPS/memory characterization.
 - [ ] Investigate anisotropic cracks based on fiber lineage, reversible artist-directed healing, and more elaborate but GPU-safe optical fracture rendering.
 
+## Phase 03J — Prismatic Mineral Optics / Topology-aware crystal anatomy
+
+- [x] Seven actual 3D cell geometries: octahedron, cube, rounded nodule, hexagonal quartz termination, pentagonal prism, tetrahedral shard and dodecahedral gem.
+- [x] Five physically shaded mineral material profiles: inherit, opal, chromatic prism, frost and spectral alloy.
+- [x] Crystal face-normal orientation and anisotropic gem length based on actual six-face occupied-cell topology and stored crack status.
+- [x] Budgeted physical tetrahedral gemstone facets attached to living exposed crystal faces, giving priority to true fracture-scar neighbors.
+- [x] Preserve original pigment bytes, fracture history, current CA physics, all 194 artist MATHEMAGICAL vault palettes and five originals (199).
+- [x] Save optical choices in DNA/checkpoints, restore actual loaded geometry, retain original presentation for older checkpoints.
+- [x] Offline headless surface math, exact save/replay and parser/DOM validation.
+- [ ] Build and inspect actual WebGL2 visuals, material calibration, physical iPhone frame rate and native Safari interaction.
+- [ ] Consider trapped inclusions, facet-scale interference and material-age optical response only after visual QA.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.

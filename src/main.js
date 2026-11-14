@@ -5,6 +5,7 @@ import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
 import { FIBER_PROFILES, mineralOptics } from './mineral-optics.js';
+import { CRYSTAL_LENSES, crystalSurface, mineralCellDisplay, gemPigment } from './crystal-optics.js';
 import { FieldGestureTransaction, GrowthStrokeTransaction, CrystalPressureTransaction } from './gesture-witch.js';
 import { PALETTE_CATALOG, PALETTE_NAMES, filteredPalettes } from './palettes.js';
 import './styles.css';
@@ -114,22 +115,51 @@ const crystalCellSize=8/34;
 const crystalShapes={
   octa:new THREE.OctahedronGeometry(crystalCellSize*.66,0),
   cube:new THREE.BoxGeometry(crystalCellSize*.66,crystalCellSize*.66,crystalCellSize*.66),
-  sphere:new THREE.IcosahedronGeometry(crystalCellSize*.62,1)
+  sphere:new THREE.IcosahedronGeometry(crystalCellSize*.62,1),
+  // A true six-faced prismatic spine with two crystal-terminating points.
+  // Points lie on the Y axis so lattice gradients can orient the whole gem.
+  quartz:new THREE.LatheGeometry([
+    new THREE.Vector2(0,-crystalCellSize*.85),
+    new THREE.Vector2(crystalCellSize*.39,-crystalCellSize*.47),
+    new THREE.Vector2(crystalCellSize*.39,crystalCellSize*.30),
+    new THREE.Vector2(0,crystalCellSize*.88)
+  ],6),
+  prism:new THREE.CylinderGeometry(
+    crystalCellSize*.26,crystalCellSize*.44,crystalCellSize*1.54,5,1),
+  shard:new THREE.TetrahedronGeometry(crystalCellSize*.84,0),
+  jewel:new THREE.DodecahedronGeometry(crystalCellSize*.58,0)
 };
 const crystalMaterial=new THREE.MeshPhysicalMaterial({
   color:'#ffffff',metalness:.12,roughness:.23,clearcoat:.92,
   clearcoatRoughness:.12,iridescence:.85,iridescenceIOR:1.32,
   iridescenceThicknessRange:[110,420]
 });
-const crystals=new THREE.InstancedMesh(crystalShapes.octa,crystalMaterial,engine.colony.maxCells);
+const crystals=new THREE.InstancedMesh(crystalShapes[engine.config.crystalShape],
+  crystalMaterial,engine.colony.maxCells);
 crystals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 crystals.frustumCulled=false;
 crystals.count=0;
 scene.add(crystals);
+// Extra facet pieces are located ONLY on existing, exposed mineral surfaces,
+ // prioritizing actual stress/fracture boundaries. One capped draw call.
+const maxFacetGems=1200;
+const facetGeometry=new THREE.TetrahedronGeometry(crystalCellSize*.38,0);
+const facetMaterial=new THREE.MeshPhysicalMaterial({
+  color:'#ffffff',metalness:.33,roughness:.16,clearcoat:1,
+  clearcoatRoughness:.08,iridescence:1,iridescenceIOR:1.34,
+  iridescenceThicknessRange:[80,450],side:THREE.DoubleSide
+});
+const facetGems=new THREE.InstancedMesh(facetGeometry,facetMaterial,maxFacetGems);
+facetGems.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+facetGems.frustumCulled=false;
+facetGems.count=0;
+scene.add(facetGems);
 const crystalTransform=new THREE.Matrix4();
 const crystalPosition=new THREE.Vector3();
 const crystalRotation=new THREE.Quaternion();
 const crystalScale=new THREE.Vector3(1,1,1);
+const crystalUp=new THREE.Vector3(0,1,0);
+const crystalOutward=new THREE.Vector3();
 const crystalColor=new THREE.Color();
 const crystalWhite=new THREE.Color('#ffffff');
 const crystalCrackedTint=new THREE.Color('#ddd8ef');
@@ -152,7 +182,7 @@ scarLines.renderOrder=4;
 scene.add(scarLines);
 function syncCrystals(){
   if(!engine.colony.changed)return;
-  let visible=0,scarLinesDrawn=0,cracked=0,shattered=0;
+  let visible=0,facetCount=0,scarLinesDrawn=0,cracked=0,shattered=0;
   const colony=engine.colony;
   for(let i=0;i<colony.capacity;i++){
     const damage=colony.damage[i];
@@ -187,9 +217,31 @@ function syncCrystals(){
     const mature=colony.cells[i]===2;
     const scale=mature?1:Math.max(.36,Math.min(1,(colony.ages[i]+1)/colony.settings.crystallization));
     const stress=colony.strain[i];
-    crystalScale.set(scale*(damage===1?.88:1),
-      scale*(damage===1?.75:1),
-      scale*(damage===1?.84:1));
+    const surface=crystalSurface(colony.cells,colony.damage,i,colony.size);
+    const display=mineralCellDisplay({
+      index:i,strain:stress,damage,surface
+    },{
+      relief:engine.config.crystalRelief,glint:engine.config.crystalGlints
+    });
+    if(engine.config.crystalRelief>0){
+      crystalOutward.set(...surface.direction);
+      crystalRotation.setFromUnitVectors(crystalUp,crystalOutward);
+    }else crystalRotation.identity();
+    // The local Y axis is the mineral's crystallographic growth axis.
+    // Actual mesh anisotropy, not a pixel filter or image transformation.
+    const classicView=engine.config.crystalShape==='octa'&&
+      engine.config.crystalLens==='inherit'&&
+      engine.config.crystalRelief===0&&engine.config.crystalGlints===0;
+    if(classicView&&damage===1){
+      // Legacy visual restoration uses its original cracked-cell ratios.
+      crystalScale.set(scale*.88,scale*.75,scale*.84);
+    }else{
+      crystalScale.set(
+        scale*display.lateral,
+        scale*display.axial*(damage===1?.86:1),
+        scale*display.lateral
+      );
+    }
     crystalTransform.compose(crystalPosition,crystalRotation,crystalScale);
     crystals.setMatrixAt(visible,crystalTransform);
     const k=i*3;
@@ -198,7 +250,33 @@ function syncCrystals(){
     if(damage===1)crystalColor.lerp(crystalCrackedTint,.26);
     else if(stress>.15)crystalColor.lerp(crystalCrackedTint,
       Math.min(.16,stress*.12));
+    crystalColor.lerp(crystalWhite,display.pigmentMix);
     crystals.setColorAt(visible,crystalColor);
+    // A distinct physically shaded facet is anchored to the actual
+    // survivor's exterior; fracture chips face a genuine absent neighbor.
+    // Reserve a share of the small accent budget for fracture boundaries,
+    // instead of allowing early ordinary cells to consume every instance.
+    if(display.drawGem&&facetCount<maxFacetGems&&
+      (display.fractureGlint||facetCount<Math.floor(maxFacetGems*.66))){
+      const isFracture=display.fractureGlint;
+      const direction=display.gemDirection;
+      crystalOutward.set(...direction).normalize();
+      crystalRotation.setFromUnitVectors(crystalUp,crystalOutward);
+      const offset=crystalCellSize*(isFracture?.32:.36);
+      const gemSize=(isFracture?.69:.44)*Math.max(.25,scale)*
+        (.45+.55*engine.config.crystalGlints);
+      const gemPos=crystalPosition.clone().addScaledVector(crystalOutward,offset);
+      crystalScale.set(gemSize*.70,gemSize*1.55,gemSize*.70);
+      crystalTransform.compose(gemPos,crystalRotation,crystalScale);
+      facetGems.setMatrixAt(facetCount,crystalTransform);
+      const j=i*3;
+      const channels=gemPigment([
+        colony.colors[j]/255,colony.colors[j+1]/255,colony.colors[j+2]/255
+      ],stress,isFracture);
+      crystalColor.setRGB(...channels);
+      facetGems.setColorAt(facetCount,crystalColor);
+      facetCount++;
+    }
     visible++;
     if(visible>=colony.maxCells)break;
   }
@@ -208,6 +286,9 @@ function syncCrystals(){
   $('strain-stats').textContent=cracked.toLocaleString()+
     ' CRACKED CELLS · '+shattered.toLocaleString()+' FRACTURE SCARS'+
     (scarLinesDrawn>=maxScarLines?' · SCAR DISPLAY CAPPED':'');
+  facetGems.count=facetCount;
+  facetGems.instanceMatrix.needsUpdate=true;
+  if(facetGems.instanceColor)facetGems.instanceColor.needsUpdate=true;
   crystals.count=visible;
   crystals.instanceMatrix.needsUpdate=true;
   if(crystals.instanceColor)crystals.instanceColor.needsUpdate=true;
@@ -1040,6 +1121,13 @@ function updateCrystalControls(){
   $('strain-break-value').textContent=Math.round(c.breakThreshold*100)+'%';
   $('strain-enable').textContent=c.strainEnabled?'⚡ FRACTURE MEMORY ON':'◇ FRACTURE MEMORY OFF';
   $('strain-enable').setAttribute('aria-pressed',String(c.strainEnabled));
+  const visual=engine.config;
+  $('colony-geometry').value=visual.crystalShape;
+  $('crystal-lens').value=visual.crystalLens;
+  $('crystal-relief').value=Math.round(visual.crystalRelief*100);
+  $('crystal-relief-value').textContent=Math.round(visual.crystalRelief*100)+'%';
+  $('crystal-glints').value=Math.round(visual.crystalGlints*100);
+  $('crystal-glints-value').textContent=Math.round(visual.crystalGlints*100)+'%';
   updatePressureControls();
 }
 function readCrystalControls(){
@@ -1069,14 +1157,32 @@ $('colony-toggle').addEventListener('click',()=>{
 });
 $('crystal-seed').addEventListener('click',()=>setTool('crystal'));
 $('crystal-clear').addEventListener('click',()=>{
-  if(!engine.colony.population)return;
+  if(!engine.colony.population&&!engine.colony.damage.some(n=>n))return;
   if(!window.confirm('Erase the crystal colony only? Your fiber structures and nutrient world will remain.'))return;
   engine.colony.clear();
   syncCrystals();
 });
-$('colony-geometry').addEventListener('change',()=>{
-  crystals.geometry=crystalShapes[$('colony-geometry').value];
-});
+function readCrystalOptics(){
+  const previousLens=engine.config.crystalLens;
+  engine.setConfig({
+    crystalShape:$('colony-geometry').value,
+    crystalLens:$('crystal-lens').value,
+    crystalRelief:Number($('crystal-relief').value)/100,
+    crystalGlints:Number($('crystal-glints').value)/100
+  });
+  const shape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
+  if(crystals.geometry!==shape)crystals.geometry=shape;
+  // Coalesce repeated iPhone slider events into a single normal animation-
+  // frame rebuild. This touches ONLY view buffers, never the living state.
+  engine.colony.changed=true;
+  // A shader/material refresh is needed for lens choices only, not each
+  // relief or glint density adjustment.
+  if(previousLens!==engine.config.crystalLens)applyArtistFinish();
+  updateCrystalControls();
+}
+['colony-geometry','crystal-lens','crystal-relief','crystal-glints'].forEach(
+  id=>$(id).addEventListener(id==='colony-geometry'||id==='crystal-lens'?
+    'change':'input',readCrystalOptics));
 
 const morphologyControls={
   feed:{id:'morph-feed',format:n=>n.toFixed(4),read:n=>n},
@@ -1170,6 +1276,21 @@ function applyArtistFinish(){
     material.iridescence=finish.iridescence;
     material.needsUpdate=true;
   }
+  const lens=CRYSTAL_LENSES[engine.config.crystalLens]||CRYSTAL_LENSES.inherit;
+  if(lens.roughness!==null){
+    crystalMaterial.roughness=lens.roughness;
+    crystalMaterial.metalness=lens.metalness;
+    crystalMaterial.clearcoat=lens.clearcoat;
+    crystalMaterial.iridescence=lens.iridescence;
+    crystalMaterial.clearcoatRoughness=Math.max(.06,lens.roughness*.56);
+  }
+  // The single capped facet-jewel mesh shares the chosen mineral finish.
+  facetMaterial.roughness=Math.max(.06,crystalMaterial.roughness*.70);
+  facetMaterial.metalness=Math.max(.18,crystalMaterial.metalness);
+  facetMaterial.clearcoat=Math.max(.40,crystalMaterial.clearcoat);
+  facetMaterial.iridescence=Math.max(.30,crystalMaterial.iridescence);
+  crystalMaterial.needsUpdate=true;
+  facetMaterial.needsUpdate=true;
   const profile=FIBER_PROFILES[engine.config.fiberProfile]||FIBER_PROFILES.legacy;
   const geometry=fiberGeometryProfiles[engine.config.fiberProfile]||fiberGeometryProfiles.legacy;
   if(fibers.geometry!==geometry)fibers.geometry=geometry;
@@ -1427,6 +1548,11 @@ function updateControlsFromDNA(){
   renderPaletteStops();
   $('topology').value=engine.config.topology;
   updateCrystalControls();
+  // Restore the actual mesh on LOAD WORLD / LOAD DNA, not just the dropdown.
+  const selectedShape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
+  if(crystals.geometry!==selectedShape)crystals.geometry=selectedShape;
+  engine.colony.changed=true;
+  syncCrystals();
   updateMorphControls();
   updateStructuralControls();
   updateArtistControls();
