@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { surfacePixels,SURFACE_SIZE } from './surface-growth.js';
 import {surfaceOpticsPixels} from './surface-optics.js';
+import {SurfaceGestureEditor,SURFACE_TOUCH_MODES} from './surface-gesture-field.js';
 import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
@@ -72,6 +73,7 @@ orbit.enabled=false;
 orbit.update();
 
 const engine = new GrowthEngine();
+const surfaceGestureEditor=new SurfaceGestureEditor(engine.surface);
 function surfaceCompositionOptions(){
   const c=engine.config;
   return {boundary:c.surfaceBoundary,voids:c.surfaceVoids,
@@ -90,7 +92,67 @@ const surfacePixelContext=surfacePixelsCanvas.getContext('2d',{alpha:false});
 let surfaceClock=0,surfaceNeedsPresent=true,surfacePointerId=null;
 let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
 let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
-let surfaceLastX=null,surfaceLastY=null;
+const surfacePointerPositions=new Map();
+function surfaceTouchStatus(){
+  const editor=surfaceGestureEditor,mode=engine.config.surfaceTouchMode;
+  const count=engine.surface.marks.length;
+  $('surface-touch-status').textContent=(SURFACE_TOUCH_MODES[mode]||mode)+
+    ' · '+count+'/20 PERSISTENT FIELD MARKS'+
+    (editor.active?' · EDIT IN PROGRESS':'');
+  const history=editor.historyState();
+  $('surface-touch-undo').disabled=!history.undo||editor.active;
+  $('surface-touch-redo').disabled=!history.redo||editor.active;
+}
+function updateSurfaceTouchControls(){
+  const c=engine.config;
+  $('surface-touch-mode').value=c.surfaceTouchMode;
+  $('surface-touch-radius').value=Math.round(c.surfaceTouchRadius*100);
+  $('surface-touch-radius-value').textContent=Math.round(c.surfaceTouchRadius*100)+'%';
+  $('surface-touch-strength').value=Math.round(c.surfaceTouchStrength*100);
+  $('surface-touch-strength-value').textContent=Math.round(c.surfaceTouchStrength*100)+'%';
+  $('surface-touch-overlay').setAttribute('aria-pressed',String(c.surfaceTouchOverlay));
+  $('surface-touch-overlay').classList.toggle('active',c.surfaceTouchOverlay);
+  $('surface-touch-overlay').textContent=c.surfaceTouchOverlay?
+    '◉ SHOW FIELDS':'◇ FIELDS HIDDEN';
+  surfaceTouchStatus();
+}
+function drawSurfaceGestureOverlay(){
+  if(!engine.config.surfaceTouchOverlay||!engine.surface.marks.length)return;
+  const rect=surfaceDisplayRect(),ctx=surfaceContext;
+  const colors={attract:'#78ffe3',block:'#ff6a9c',guide:'#ffd56c'};
+  ctx.save();
+  ctx.lineJoin='round';ctx.lineCap='round';
+  for(const mark of engine.surface.marks){
+    const pts=mark.points;
+    if(!pts.length)continue;
+    const hue=colors[mark.kind]||'#ffffff';
+    ctx.strokeStyle=hue;ctx.fillStyle=hue;
+    ctx.lineWidth=Math.max(2,surfaceCanvas.width/320);
+    ctx.globalAlpha=.80;
+    ctx.setLineDash(mark.kind==='block'?[7,5]:[]);
+    ctx.beginPath();
+    ctx.moveTo(rect.left+pts[0][0]*rect.size,rect.top+pts[0][1]*rect.size);
+    for(const p of pts.slice(1))
+      ctx.lineTo(rect.left+p[0]*rect.size,rect.top+p[1]*rect.size);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const p=pts[pts.length-1],px=rect.left+p[0]*rect.size,
+      py=rect.top+p[1]*rect.size;
+    ctx.beginPath();
+    ctx.arc(px,py,Math.max(5,surfaceCanvas.width/120),0,Math.PI*2);
+    ctx.fill();
+    // One small radius ring marks the causal reach of this real growth field.
+    ctx.globalAlpha=.23;
+    ctx.beginPath();ctx.arc(px,py,mark.radius*rect.size,0,Math.PI*2);
+    ctx.stroke();ctx.globalAlpha=.80;
+  }
+  ctx.restore();
+}
+function presentGestureChanges(){
+  surfaceNeedsPresent=true;
+  drawSurface();
+  surfaceTouchStatus();
+}
 function surfaceDisplayRect(){
   const width=surfaceCanvas.width,height=surfaceCanvas.height;
   const extent=Math.max(width,height);
@@ -143,6 +205,7 @@ function drawSurface(force=false){
     surfaceContext.imageSmoothingQuality='high';
     surfaceContext.clearRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
     surfaceContext.drawImage(surfacePixelsCanvas,rect.left,rect.top,rect.size,rect.size);
+    drawSurfaceGestureOverlay();
     surfaceNeedsPresent=false;
   }
 }
@@ -171,6 +234,9 @@ function seedSurfaceIfEmpty(){
 function setCompositionDomain(next){
   engine.setConfig({compositionDomain:next});
   const active=engine.config.compositionDomain==='surface';
+  if(!active&&surfaceGestureEditor.active){
+    surfaceGestureEditor.cancel();surfacePointerPositions.clear();
+  }
   canvas.style.visibility=active?'hidden':'visible';
   canvas.style.pointerEvents=active?'none':'auto';
   surfaceCanvas.hidden=!active;
@@ -193,7 +259,7 @@ function setCompositionDomain(next){
   $('live').textContent=active?(paused?'SURFACE FROZEN':'SURFACE GERMINATING'):
     (paused?'FROZEN IN TIME':'LIVE GROWTH');
   $('hint').textContent=active?
-    'TAP / DRAG TO GERMINATE NEW MINERAL NUCLEI · PAUSE TO FREEZE':
+    'GESTURE WITCH: '+(SURFACE_TOUCH_MODES[engine.config.surfaceTouchMode]||'TOUCH GROWTH'):
     (hints[tool]||'DRAG TO ATTRACT GROWTH');
   if(active){
     seedSurfaceIfEmpty();
@@ -216,35 +282,83 @@ function surfaceNormalizedPoint(e){
   const y=((e.clientY-bounds.top)*dprY-r.top)/r.size;
   return x>=0&&x<1&&y>=0&&y<1?{x,y}:null;
 }
-function plantSurface(e){
-  const p=surfaceNormalizedPoint(e);
-  if(!p)return;
-  const dx=surfaceLastX===null?999:(e.clientX-surfaceLastX);
-  const dy=surfaceLastY===null?999:(e.clientY-surfaceLastY);
-  if(Math.hypot(dx,dy)<22)return;
-  if(engine.surface.seedSymmetricAt(p.x,p.y,engine.currentPalette(),surfaceCompositionOptions())){
-    surfaceLastX=e.clientX;surfaceLastY=e.clientY;
-    drawSurface();refreshSurfaceStats();
-  }
+// Gestures are atomic transactions: touch creates or edits real CA rules,
+// pointer-up commits, canceled/lost focus rolls back, pinch rotates/resizes.
+function cancelSurfaceTouch(){
+  if(!surfaceGestureEditor.active)return;
+  surfaceGestureEditor.cancel();
+  surfacePointerPositions.clear();
+  presentGestureChanges();
 }
-surfaceCanvas.addEventListener('pointerdown',e=>{
+function beginSurfaceTouch(e){
   if(engine.config.compositionDomain!=='surface')return;
+  const uv=surfaceNormalizedPoint(e);
+  if(!uv)return;
   e.preventDefault();
-  if(surfacePointerId!==null)return;
-  surfacePointerId=e.pointerId;surfaceLastX=null;surfaceLastY=null;
-  surfaceCanvas.setPointerCapture(e.pointerId);
-  plantSurface(e);
-});
-surfaceCanvas.addEventListener('pointermove',e=>{
-  if(surfacePointerId===e.pointerId)plantSurface(e);
-});
-function endSurfacePointer(e){
-  if(surfacePointerId!==e.pointerId)return;
-  surfacePointerId=null;surfaceLastX=null;surfaceLastY=null;
+  if(surfacePointerPositions.has(e.pointerId))return;
+  if(surfacePointerPositions.size>=2)return;
+  if(!surfaceGestureEditor.active){
+    const c=engine.config;
+    const began=surfaceGestureEditor.begin(c.surfaceTouchMode,uv.x,uv.y,{
+      radius:c.surfaceTouchRadius,strength:c.surfaceTouchStrength,
+      hitRadius:Math.max(.055,c.surfaceTouchRadius*.5),
+      palette:engine.currentPalette(),seedOptions:surfaceCompositionOptions()
+    });
+    if(!began){surfaceTouchStatus();return;}
+  }
+  surfacePointerPositions.set(e.pointerId,[uv.x,uv.y]);
+  try{surfaceCanvas.setPointerCapture(e.pointerId);}catch{/* cancel still works on blur */}
+  if(surfacePointerPositions.size===2){
+    const [a,b]=Array.from(surfacePointerPositions.values());
+    if(surfaceGestureEditor.tx)surfaceGestureEditor.tx.hadMulti=true;
+    surfaceGestureEditor.beginLens(a,b);
+  }
+  presentGestureChanges();
 }
-surfaceCanvas.addEventListener('pointerup',endSurfacePointer);
-surfaceCanvas.addEventListener('pointercancel',endSurfacePointer);
-surfaceCanvas.addEventListener('lostpointercapture',endSurfacePointer);
+function moveSurfaceTouch(e){
+  if(!surfacePointerPositions.has(e.pointerId))return;
+  const uv=surfaceNormalizedPoint(e);
+  if(!uv)return;
+  e.preventDefault();
+  surfacePointerPositions.set(e.pointerId,[uv.x,uv.y]);
+  if(surfacePointerPositions.size===2){
+    const [a,b]=Array.from(surfacePointerPositions.values());
+    surfaceGestureEditor.lensMove(a,b);
+  }else if(surfacePointerPositions.size===1){
+    surfaceGestureEditor.move(uv.x,uv.y);
+  }
+  presentGestureChanges();
+}
+function endSurfaceTouch(e){
+  if(!surfacePointerPositions.has(e.pointerId))return;
+  surfacePointerPositions.delete(e.pointerId);
+  if(surfacePointerPositions.size===0){
+    surfaceGestureEditor.commit();
+  }
+  presentGestureChanges();
+}
+surfaceCanvas.addEventListener('pointerdown',beginSurfaceTouch);
+surfaceCanvas.addEventListener('pointermove',moveSurfaceTouch);
+surfaceCanvas.addEventListener('pointerup',endSurfaceTouch);
+surfaceCanvas.addEventListener('pointercancel',cancelSurfaceTouch);
+surfaceCanvas.addEventListener('lostpointercapture',e=>{
+  if(surfacePointerPositions.has(e.pointerId))cancelSurfaceTouch();
+});
+window.addEventListener('blur',cancelSurfaceTouch);
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden)cancelSurfaceTouch();
+});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){cancelSurfaceTouch();return;}
+  const tag=document.activeElement?.tagName?.toLowerCase();
+  if(['input','select','textarea'].includes(tag))return;
+  if(engine.config.compositionDomain!=='surface'||!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
+  e.preventDefault();
+  if(e.shiftKey)surfaceGestureEditor.redo();
+  else surfaceGestureEditor.undo();
+  presentGestureChanges();
+});
+
 
 // Morphogenesis is a geometric isosurface of the live Gray–Scott B field.
 // CPU mesh extraction is capped and throttled, with adjustable stride.
