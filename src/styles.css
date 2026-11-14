@@ -93,3 +93,18 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
 .morph-advanced>summary:hover{background:#943da31d}
 .morph-advanced-grid{padding:7px 13px 17px}
 .ecology-actions{margin-top:16px}
+
+/* GESTURE WITCH — only the artwork captures touch. The controls still scroll. */
+#sculpt-quick.active{border-color:#f87ae8;background:#432049;color:#ffe8fc}
+.touch-editor{margin:14px 0;padding:13px;border:1px solid #af74dd67;border-radius:9px;background:#160f23b2}
+.touch-editor #gesture-selection{font-family:'DM Mono',monospace;font-size:10px;line-height:1.6;color:#bcefe7;margin:0 0 14px}
+.touch-editor input:disabled{opacity:.36;cursor:not-allowed}
+#world:focus-visible{outline:2px solid #f87ae8;outline-offset:-4px}
+@media (pointer:coarse){
+  #sculpt-quick{min-height:44px}
+  .choice{min-height:44px}
+  #undo,#redo{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){
+  .pulse{animation:none!important}
+}
