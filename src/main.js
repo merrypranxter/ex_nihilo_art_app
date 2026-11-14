@@ -254,6 +254,34 @@ function drawSurface(force=false){
     surfaceContext.fillStyle=background;
     surfaceContext.fillRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
     surfaceContext.drawImage(surfaceLoopPreviewCanvas,dx,dy,dw,dh);
+    // Aim reticle lives ONLY in preview; finished GIFs/MP4s remain clean.
+    if(engine.config.surfaceCameraMotion==='target'||
+       surfaceCameraTouchTool==='pick'){
+      const lens=cinematicFrameRect(edge,dims.width,dims.height,{
+        framing:engine.config.surfaceLoopFraming,...pose
+      });
+      const u=(engine.config.surfaceCameraTargetX*edge-lens.sx)/lens.sw;
+      const v=(engine.config.surfaceCameraTargetY*edge-lens.sy)/lens.sh;
+      if(u>=0&&u<=1&&v>=0&&v<=1){
+        const cx=dx+(lens.dx+u*lens.dw)/dims.width*dw;
+        const cy=dy+(lens.dy+v*lens.dh)/dims.height*dh;
+        surfaceContext.save();
+        surfaceContext.strokeStyle='rgba(255,224,144,.90)';
+        surfaceContext.lineWidth=Math.max(1.5,surfaceCanvas.width/480);
+        const r=Math.max(7,surfaceCanvas.width/95);
+        surfaceContext.beginPath();
+        surfaceContext.arc(cx,cy,r,0,Math.PI*2);
+        surfaceContext.moveTo(cx-r*1.7,cy);
+        surfaceContext.lineTo(cx-r*.55,cy);
+        surfaceContext.moveTo(cx+r*.55,cy);
+        surfaceContext.lineTo(cx+r*1.7,cy);
+        surfaceContext.moveTo(cx,cy-r*1.7);
+        surfaceContext.lineTo(cx,cy-r*.55);
+        surfaceContext.moveTo(cx,cy+r*.55);
+        surfaceContext.lineTo(cx,cy+r*1.7);
+        surfaceContext.stroke();surfaceContext.restore();
+      }
+    }
     if(engine.config.surfaceLoopGuides)
       drawCinematicGuides(surfaceContext,{
         x:dx,y:dy,width:dw,height:dh,aspect
