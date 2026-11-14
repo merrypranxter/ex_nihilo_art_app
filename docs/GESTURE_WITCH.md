@@ -6,7 +6,7 @@ This is a bounded integration of the Gesture Witch interaction contract into EX 
 
 1. Tap **🌀 SCULPT** in the top bar (or VORTEX SCULPT in the TOUCH tab).
 2. Touch empty artwork to create a persistent 3D vortex eye. **Drag** its visible core to relocate the physical flow source. The renderer follows its stable node ID. Existing material stays where it is; *future* growth changes course.
-3. Keep that finger down and place a second finger on the artwork. **Pinch** to change the vortex's influence radius; **twist** to change signed chirality. Moving both fingers together also relocates the core. Nothing claims to change mesh topology.
+3. Keep that finger down and place a second finger on the artwork. **Pinch** to change the vortex's influence radius; **twist** to change signed chirality. Moving both fingers together also relocates the core. Nothing claims to change mesh topology. A 24-sample 3D vector readout around the selected eye previews the **actual combined growth field** as it is edited, rather than pretending old fibers have deformed.
 4. Lift either finger to commit the entire gesture as one field edit. The remaining finger cannot unexpectedly start painting after one finger lifts.
 5. Tap ↶ UNDO FIELD EDIT / ↷ REDO FIELD EDIT (or Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z). These reverse **field documents**; they do **not** rewind living matter grown since a previous edit.
 6. Escape, lost pointer capture, pointercancel, app blur, app backgrounding, and viewport resize roll back an unfinished field gesture. To undo an entire grown world's history, save and restore the full `.exnihilo` checkpoint.
