@@ -157,6 +157,15 @@ function setCompositionDomain(next){
   }
   $('surface-start').textContent=active?
     '◆ RETURN TO 3D OBJECT':'▦ SWITCH TO FULL-CANVAS GROWTH';
+  const labTitle=document.querySelector('.console-head h2');
+  const labEyebrow=document.querySelector('.console-head .eyebrow');
+  const labSummary=document.querySelector('.console-head p');
+  if(labTitle)labTitle.textContent=active?'MINERAL TAPESTRY':'NERVE CATHEDRAL';
+  if(labEyebrow)labEyebrow.textContent=active?'EXPERIMENT 002 · SURFACE':'EXPERIMENT 001';
+  if(labSummary)labSummary.textContent=active?
+    'Let crystal fronts grow the whole composition.':'Growth is a process. Shape is its memory.';
+  $('live').textContent=active?(paused?'SURFACE FROZEN':'SURFACE GERMINATING'):
+    (paused?'FROZEN IN TIME':'LIVE GROWTH');
   $('hint').textContent=active?
     'TAP / DRAG TO GERMINATE NEW MINERAL NUCLEI · PAUSE TO FREEZE':
     (hints[tool]||'DRAG TO ATTRACT GROWTH');
@@ -2077,6 +2086,10 @@ function readArtistControls(){
 
 // Explicit camera framing is a view operation, never a simulation reset.
 function frameArtwork(){
+  if(engine.config.compositionDomain==='surface'){
+    fitSurfaceCanvas();drawSurface(true);
+    return;
+  }
   const bounds=new THREE.Box3();
   const point=new THREE.Vector3();
   for(let i=0;i<engine.segmentCount;i++){
@@ -2318,7 +2331,9 @@ function setPaused(next){
   paused=next;
   $('pause').textContent=paused?'▶ RESUME':'Ⅱ PAUSE';
   $('pause').setAttribute('aria-pressed',String(paused));
-  $('live').textContent=paused?'FROZEN IN TIME':'LIVE GROWTH';
+  $('live').textContent=engine.config.compositionDomain==='surface'?
+    (paused?'SURFACE FROZEN':'SURFACE GERMINATING'):
+    (paused?'FROZEN IN TIME':'LIVE GROWTH');
 }
 $('pause').addEventListener('click',()=>setPaused(!paused));
 const surfaceSettings=[
@@ -2415,7 +2430,7 @@ function exportSurfacePNG(){
 }
 $('surface-png').addEventListener('click',exportSurfacePNG);
 $('new').addEventListener('click',()=>{
-  if(!window.confirm('Erase this living organism and start a NEW universe? This cannot be undone.'))return;
+  if(!window.confirm('Start a NEW universe? This erases BOTH the 3D OBJECT and the 2D SURFACE material histories. Save each artwork first if you want to keep it. Continue?'))return;
   // A new universe must not accidentally bind to a reused old birth ID.
   engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
   familyInspectorNote='';
