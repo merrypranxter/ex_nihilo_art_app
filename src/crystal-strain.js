@@ -6,6 +6,8 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const CRACK_RATIO=.57;
 export const MIN_BREAK=.60;
 export const MAX_BREAK=1.20;
+export const MIN_SURVIVING_NUCLEUS=8;
+export const MAX_FRACTURE_FRACTION=.12;
 
 export function strainSourceAt(pos,marks){
   if(!marks?.length)return 0;
@@ -46,11 +48,13 @@ export function tickCrystalStrain({
   const conduct=clamp(transfer,0,.48);
   const breaking=clamp(breakThreshold,MIN_BREAK,MAX_BREAK);
   const crackPoint=breaking*CRACK_RATIO;
-  let active=false,damaged=0,shattered=0;
+  let active=false,damaged=0,shattered=0,occupied=0;
+  const breakCandidates=[];
   const strideY=size,strideZ=size*size,cellSize=extent/size;
   next.fill(0);
   for(let i=0;i<cells.length;i++){
     if(!cells[i])continue;
+    occupied++;
     const x=i%size,y=Math.floor(i/size)%size,z=Math.floor(i/strideZ);
     let neighbors=0,neighborsStrain=0;
     // Conduct through occupied face-sharing neighbors, never through void.
@@ -76,9 +80,18 @@ export function tickCrystalStrain({
     if(!cells[i]){strain[i]=0;continue;}
     strain[i]=next[i];
     if(strain[i]>=crackPoint&&damage[i]===0){damage[i]=1;damaged++;}
-    // Catastrophic failure is limited to existing mineralized cells.
-    // A cracked young cell can mature before it is eligible to fracture.
-    if(strain[i]>=breaking&&cells[i]===2){
+    // First collect overstressed mature cells, then break only a bounded
+    // fraction per CA tick. This protects the seed nucleus so touch never
+    // vaporizes the only structure before a viable colony can branch.
+    if(strain[i]>=breaking&&cells[i]===2)breakCandidates.push(i);
+  }
+  const budget=Math.max(0,Math.min(
+    Math.ceil(occupied*MAX_FRACTURE_FRACTION),
+    occupied-MIN_SURVIVING_NUCLEUS));
+  if(budget>0&&breakCandidates.length){
+    breakCandidates.sort((a,b)=>strain[b]-strain[a]||a-b);
+    for(let k=0;k<Math.min(budget,breakCandidates.length);k++){
+      const i=breakCandidates[k];
       damage[i]=2;
       cells[i]=0;ages[i]=0;strain[i]=0;
       shattered++;
