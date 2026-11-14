@@ -2630,9 +2630,10 @@ $('surface-start').addEventListener('click',()=>{
 $('surface-reseed').addEventListener('click',()=>{
   if(!window.confirm('Replace this 2D mineral surface with a NEW growth experiment? The separate 3D OBJECT world will remain untouched.'))return;
   const next=(engine.surface.random()*4294967296)>>>0;
-  engine.surface.reset(next||1);
-  surfaceGestureEditor.resetHistory();
-  seedSurfaceIfEmpty();
+  surfaceGestureEditor.atomicMutation(()=>{
+    engine.surface.reset(next||1);
+    seedSurfaceIfEmpty();
+  });
   engine.surface.changed=true;surfaceClock=0;
   surfaceOpticsTime=0;surfaceOpticsDirty=true;
   if(engine.config.compositionDomain==='surface')drawSurface(true);
