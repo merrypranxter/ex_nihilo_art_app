@@ -1039,6 +1039,90 @@ function readBranchControls(){
 ['branchMode','branchOrdering','branchPersistence','branchAngle','branchTaper','rhythmMode','rhythmDepth','rhythmRate']
   .forEach(id=>$(id).addEventListener('input',readBranchControls));
 
+// Searchable, source-credited MATHEMAGICAL palette catalog. Every stop is
+// kept as the exact hex source color; edits live only in this artwork's DNA.
+function renderPaletteOptions(query=''){
+  const selected=engine.config.palette;
+  const results=filteredPalettes(query);
+  const entries=results.some(p=>p.id===selected)
+    ?results:[PALETTE_CATALOG.find(p=>p.id===selected),...results].filter(Boolean);
+  const fragment=document.createDocumentFragment();
+  for(const p of entries){
+    const option=document.createElement('option');
+    option.value=p.id;
+    option.textContent=p.name+' · '+p.source;
+    fragment.appendChild(option);
+  }
+  $('palette').replaceChildren(fragment);
+  $('palette').value=selected;
+  $('palette-count').textContent=results.length+' / '+PALETTE_CATALOG.length+
+    ' PALETTES MATCH · '+(PALETTE_NAMES[selected]||selected)+
+    ' · '+engine.currentPalette().length+' ORIGINAL COLOR POSITIONS';
+}
+function randomHex(){
+  return '#'+Math.floor(Math.random()*16777216).toString(16).padStart(6,'0');
+}
+function applyPaletteStops(stops){
+  engine.setConfig({paletteStops:[...stops]});
+  renderPaletteStops();
+}
+function renderPaletteStops(){
+  const container=$('palette-stops'),colors=engine.currentPalette();
+  const fragment=document.createDocumentFragment();
+  for(let index=0;index<colors.length;index++){
+    const box=document.createElement('div');
+    box.className='palette-swatch';
+    const color=document.createElement('input');
+    color.type='color';color.value=colors[index];
+    color.title='Edit color stop '+(index+1);
+    color.setAttribute('aria-label','Edit color stop '+(index+1));
+    color.addEventListener('input',()=>{
+      const next=[...engine.currentPalette()];
+      next[index]=color.value;
+      applyPaletteStops(next);
+    });
+    const shuffle=document.createElement('button');
+    shuffle.type='button';shuffle.textContent='⚄ '+(index+1);
+    shuffle.title='Randomize only color stop '+(index+1);
+    shuffle.setAttribute('aria-label',shuffle.title);
+    shuffle.addEventListener('click',()=>{
+      const next=[...engine.currentPalette()];
+      next[index]=randomHex();
+      applyPaletteStops(next);
+    });
+    box.append(color,shuffle);fragment.append(box);
+  }
+  container.replaceChildren(fragment);
+  $('palette-count').textContent=PALETTE_CATALOG.length+
+    ' PALETTES · '+(PALETTE_NAMES[engine.config.palette]||engine.config.palette)+
+    ' · '+colors.length+' EDITABLE COLOR STOPS';
+}
+function choosePalette(id){
+  if(!PALETTES[id])return;
+  engine.setConfig({palette:id,paletteStops:null});
+  $('palette-search').value='';
+  renderPaletteOptions();
+  renderPaletteStops();
+}
+$('palette-search').addEventListener('input',()=>{
+  renderPaletteOptions($('palette-search').value);
+});
+$('palette-shuffle').addEventListener('click',()=>{
+  const stops=[...engine.currentPalette()];
+  for(let i=stops.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [stops[i],stops[j]]=[stops[j],stops[i]];
+  }
+  applyPaletteStops(stops);
+});
+$('palette-rgb').addEventListener('click',()=>{
+  applyPaletteStops(engine.currentPalette().map(()=>randomHex()));
+});
+$('palette-restore').addEventListener('click',()=>{
+  engine.setConfig({paletteStops:null});
+  renderPaletteStops();
+});
+
 const ranges={
   speed:{format:n=>n.toFixed(1)+'×',read:n=>n},
   agents:{format:n=>String(n),read:n=>n},
@@ -1069,7 +1153,9 @@ function updateControlsFromDNA(){
     $(key).value=String(number);
     $(key+'-value').textContent=opt.format(number);
   }
-  $('palette').value=engine.config.palette;
+  $('palette-search').value='';
+  renderPaletteOptions();
+  renderPaletteStops();
   $('topology').value=engine.config.topology;
   updateCrystalControls();
   updateMorphControls();
@@ -1082,12 +1168,14 @@ function updateControlsFromDNA(){
   requestFiligreeRefresh();
 }
 for(const key of Object.keys(ranges))$(key).addEventListener('input',readControls);
-$('palette').addEventListener('change',readControls);
+$('palette').addEventListener('change',()=>{
+  choosePalette($('palette').value);
+  readControls();
+});
 $('topology').addEventListener('change',readControls);
 $('palette-roll').addEventListener('click',()=>{
-  const names=Object.keys(PALETTES);
-  const other=names.filter(name=>name!==engine.config.palette);
-  $('palette').value=other[Math.floor(Math.random()*other.length)];
+  const other=PALETTE_CATALOG.filter(p=>p.id!==engine.config.palette);
+  choosePalette(other[Math.floor(Math.random()*other.length)].id);
   readControls();
 });
 $('background').addEventListener('change',()=>{scene.background.set(BACKGROUNDS[$('background').value]);});
@@ -1193,7 +1281,7 @@ $('analyze').addEventListener('click',async()=>{
   finally{$('analyze').disabled=false;}
 });
 function updateTips(){
-  const palette=PALETTES[engine.config.palette];
+  const palette=engine.currentPalette();
   const n=Math.min(engine.agents.length,maxTips);
   for(let i=0;i<n;i++){
     const a=engine.agents[i];
@@ -1219,6 +1307,9 @@ function handleStageResize(){
 }
 new ResizeObserver(handleStageResize).observe(canvas);
 window.addEventListener('resize',handleStageResize);
+renderPaletteOptions();
+renderPaletteStops();
+updateStrokeControls();syncStrokes();
 fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();updateBranchControls();applyArtistFinish();
 if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)setPaused(true);
 document.addEventListener('visibilitychange',()=>{
