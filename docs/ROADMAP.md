@@ -126,6 +126,18 @@
 - [ ] Real persistent fluid deformation and interactive pressure coupling to crystal colony; not a fake image warp.
 - [ ] Add palette import/export custom saves and optional per-stop warm/cool shuffle if desired.
 
+## Phase 03H — Crystal Pressure Witch
+
+- [x] Artist-authored growth pressure, protected shield regions and directional cleavage in the real nutrient-coupled 3D crystal CA.
+- [x] Near-parent birth probability modulation, centerline mature-cell erosion and two-sided front bias without spawning prebuilt geometry.
+- [x] Named marks with actual crystal-surface ray picking, 3D drag, two-finger radius and axis rotation; manual controls for radius and strength.
+- [x] Mobile pressure modes in CRYSTALS and TOUCH, clear dormant-state guidance, visible reach and directional axis, prominent quick-press action.
+- [x] Unified atomic Undo/Redo with previous field sources, cancellation rollback and strict world/DNA serialization with older save compatibility.
+- [x] Preserve 199 original source-defined palettes and use edited stops in crystal updates.
+- [x] 18 headless physics/transaction/checkpoint checks, syntax and DOM checks.
+- [ ] Production Vite build, actual iPhone Safari multitouch QA and FPS profiling.
+- [ ] Non-destructive accumulated strain and persistent fracture graph, optional future pressure-depth controls.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
