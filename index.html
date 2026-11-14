@@ -51,7 +51,28 @@
               <label class="control"><span>Material memory <output id="feedback-value">55%</output></span><input id="feedback" type="range" min="0" max="100" step="1" value="55"></label>
               <label class="control"><span>Fiber thickness <output id="thickness-value">0.040</output></span><input id="thickness" type="range" min="1" max="12" step="1" value="4"></label>
             </div>
-            <p class="help">Older material changes where future strands grow. Tweaking controls never wipes the existing organism.</p>
+            <details class="morph-advanced">
+              <summary>ADVANCED — BRANCH GEOMETRY &amp; GROWTH RHYTHMS</summary>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control select-control"><span>Branch arrangement</span><select id="branchMode">
+                  <option value="golden">GOLDEN ANGLE · 137.508°</option>
+                  <option value="opposite">ALTERNATING BILATERAL · 180°</option>
+                  <option value="whorl">SIXFOLD CRYSTALLINE WHORL · 60°</option>
+                  <option value="random">ORGANIC SCATTER · LEGACY</option>
+                </select></label>
+                <label class="control"><span>Daughter divergence <output id="branchAngle-value">56°</output></span><input id="branchAngle" type="range" min="0" max="85" step="1" value="56"/></label>
+                <label class="control"><span>Generational taper <output id="branchTaper-value">84%</output></span><input id="branchTaper" type="range" min="45" max="100" step="1" value="84"/></label>
+                <label class="control select-control"><span>Growth rhythm</span><select id="rhythmMode">
+                  <option value="beats">QUASIPERIODIC BEATS · TWO FREQUENCIES</option>
+                  <option value="tide">COHERENT TIDE · THE WHOLE SCULPTURE</option>
+                  <option value="stagger">STAGGERED · INDEPENDENT TIPS</option>
+                  <option value="steady">STEADY · ORIGINAL CONTINUOUS GROWTH</option>
+                </select></label>
+                <label class="control"><span>Rhythm depth <output id="rhythmDepth-value">62%</output></span><input id="rhythmDepth" type="range" min="0" max="100" step="5" value="62"/></label>
+                <label class="control"><span>Rhythm frequency <output id="rhythmRate-value">0.55 Hz</output></span><input id="rhythmRate" type="range" min=".05" max="2" step=".05" value=".55"/></label>
+              </div>
+            </details>
+            <p class="help">Branch geometry now controls the angle and spatial arrangement of <em>newly born</em> fibers, while rhythms control real deposition speed and branch timing. Existing artwork stays in place. <span id="branch-stats">0 BRANCH BIRTHS</span>.</p>
           </div>
           <div class="panel" data-panel="form" hidden>
             <p class="help first">Give the growing system a compositional intention. These are physical forces, not prebuilt shapes. Switching forms changes FUTURE growth; your existing artwork stays exactly where it is.</p>
