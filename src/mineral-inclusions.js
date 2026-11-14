@@ -26,7 +26,7 @@ export function mineralInclusionRecipe(cell,options={}){
   const density=clamp(Number(options.density)||0,0,1);
   const skin=clamp(Number(options.skin)||0,0,1);
   const surface=cell.surface;
-  if(style==='off'||!cell.occupied||!cell.mature||surface?.exposed<=0){
+  if(style==='off'||!cell.occupied||!cell.mature||!surface||surface.exposed<=0){
     return {shell:false,inclusion:false,skinScale:1,radialOffset:0,
       spectralLift:0,exposure:0,ageFraction:0};
   }
