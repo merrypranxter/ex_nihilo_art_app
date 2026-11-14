@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 04A — SURFACE ART / GROWING COMPOSITIONS:** EX NIHILO now supports independent **3D OBJECT** and **FULL-CANVAS SURFACE** domains. The new 192×192 stateful 2D material grows from multiple real nuclei across the whole screen, with competing crystal territories, retained frozen birth pigments, and three fundamentally distinct cellular laws—radial spherulites, branching dendrites with enduring negative space, and layered geological strata. Choose scattered/radial/hex/ribbon seed arrangements, adjust coverage/contrast/speed, touch to plant nuclei, and enable true periodic neighbor wrapping for repeating textures. Switch back to the original 3D organism without losing its growth history. Normal saved worlds include the complete 2D growth state; old worlds still open as OBJECT. Includes 2048px PNG *upsampling* with vector-scale genuine territory outlines (not a 2048² simulation). All 199 exact MATHEMAGICAL + EX NIHILO palette choices retained. See [Phase 04A architecture and device QA](docs/PHASE-04A-SURFACE-GROWTH.md).
+
+
 **Phase 03O — CRYSTAL FAMILY WITCH:** A non-destructive family inspector now lets you tap a visible crystal (even when multiple optical-stage meshes are active) and select its immutable *birth event*, then highlight either all living relatives sharing its founder family or the descendants connected by actual living parent/child records. Bright bounded beacons, historical-color parent–child links and an individual selection ring remain accurate as the organism grows. Dead ancestors are never represented by invented paths; old untracked crystals get a truthful explanation. Family focus saves in DNA/checkpoints and resets when the crystal colony is cleared. All 199 artist palettes and real growth/fracture genetics stay untouched. See [Phase 03O family lens and QA](docs/PHASE-03O-FAMILY-INSPECTOR.md).
 
 
