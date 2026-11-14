@@ -99,9 +99,11 @@ test('rendering has no effect on checkpoint ownership, age, live fronts or RNG',
   assert.deepEqual(render(restored,'opal'),render(s,'opal'));
 });
 test('optical normal cache is invalidated by real growth and restoration',()=>{
-  const surface=setup(),saved=surface.snapshot(),first=render(surface,'quartz');
+  const surface=new SurfaceGrowth(555,48);
+  assert.equal(surface.seedAt(.5,.5,palette),true);
+  const saved=surface.snapshot(),first=render(surface,'quartz');
   const rev1=surface.visualRevision;
-  surface.seedAt(.01,.01,palette);
+  assert.equal(surface.seedAt(.05,.05,palette),true);
   assert.ok(surface.visualRevision>rev1);
   const second=render(surface,'quartz');
   assert.notDeepEqual(first,second);
