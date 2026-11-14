@@ -130,14 +130,17 @@ export class SurfaceGrowth {
     if(!this.frontier.size||this.population>=this.capacity*coverage)return false;
     const mode=Object.hasOwn(SURFACE_MORPHOLOGIES,morphology)?morphology:'spherulite';
     const proposals=new Map();
+    // Freeze the entire old cell lattice: later same-tick births must not
+    // alter contender scores, contact count, or the probability of a peer.
+    const prior=this.owner.slice();
     const n=this.size;
     const stillActive=new Set();
     for(const parent of this.frontier){
-      if(!this.owner[parent])continue;
+      if(!prior[parent])continue;
       let open=false;
-      const owner=this.owner[parent],source=this.seeds[owner-1];
+      const owner=prior[parent],source=this.seeds[owner-1];
       this.neighbors(parent,wrap,(ni,dx,dy)=>{
-        if(this.owner[ni])return;
+        if(prior[ni])return;
         open=true;
         const existing=proposals.get(ni);
         const familyAngle=source.angle;
@@ -165,9 +168,9 @@ export class SurfaceGrowth {
       if(this.population+births>=this.capacity*coverage||births>=limit)break;
       let neighbors=0,competitive=false;
       this.neighbors(i,wrap,ni=>{
-        if(this.owner[ni]){
+        if(prior[ni]){
           neighbors++;
-          if(this.owner[ni]!==candidate.family)competitive=true;
+          if(prior[ni]!==candidate.family)competitive=true;
         }
       });
       const grain=(hash32((i+1)^Math.imul(this.generation+7,0x9e3779b1))&255)/255;
