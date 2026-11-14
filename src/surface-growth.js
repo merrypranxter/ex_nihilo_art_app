@@ -4,6 +4,7 @@
 // Every painted pixel starts as a real birth in a seeded, competing CA.
 // NO DOM / THREE imports: testable offline and safe to checkpoint.
 import {buildCompositionField,compositionSample,symmetricSeedPoints,COMPOSITION_LAWS} from './surface-composition.js';
+import {bakeSurfaceGestureField,cloneSurfaceMarks,validSurfaceMarks} from './surface-gesture-field.js';
 export const SURFACE_SIZE=192;
 export const SURFACE_MORPHOLOGIES=Object.freeze({
   spherulite:'RADIAL SPHERULITES',dendrite:'DENDRITIC VEINS',
@@ -46,6 +47,9 @@ export class SurfaceGrowth {
     this.generation=0;this.population=0;
     this.stallTicks=0;
     this.compositionKey=null;this.compositionField=null;
+    this.marks=[];this.nextMarkId=1;
+    this.gestureRevision=0;this.gestureCacheKey='';
+    this.gestureField=null;
     this.changed=true;
     this.visualRevision=(this.visualRevision??0)+1;
   }
@@ -63,6 +67,19 @@ export class SurfaceGrowth {
       else if(nx<0||nx>=n||ny<0||ny>=n)continue;
       visit(nx+ny*n,dx,dy);
     }
+  }
+  touchMarks(){
+    this.gestureRevision++;
+    this.gestureField=null;
+    this.changed=true;
+  }
+  gestureFor(wrap=false){
+    const key=this.gestureRevision+':'+Number(!!wrap);
+    if(!this.gestureField||this.gestureCacheKey!==key){
+      this.gestureField=bakeSurfaceGestureField(this.size,this.marks,wrap);
+      this.gestureCacheKey=key;
+    }
+    return this.gestureField;
   }
   seedAt(u,v,palette){
     if(this.seeds.length>=MAX_SEEDS)return false;
@@ -149,11 +166,12 @@ export class SurfaceGrowth {
   // The existing deposits remain immutable.
   rebuildFrontier(wrap=false,options={}){
     const field=this.compositionFor({...options,wrap});
+    const edits=this.gestureFor(wrap);
     const next=new Set();
     for(let i=0;i<this.capacity;i++){
       if(!this.owner[i])continue;
       let open=false;
-      this.neighbors(i,wrap,ni=>{if(!this.owner[ni]&&field.gates[ni]>field.threshold)open=true;});
+      this.neighbors(i,wrap,ni=>{if(!this.owner[ni]&&!edits.blocked[ni]&&field.gates[ni]>field.threshold)open=true;});
       if(open)next.add(i);
     }
     this.frontier=next;this.stallTicks=0;
@@ -182,6 +200,7 @@ export class SurfaceGrowth {
     if(!this.frontier.size||this.population>=this.capacity*coverage)return false;
     const mode=Object.hasOwn(SURFACE_MORPHOLOGIES,morphology)?morphology:'spherulite';
     const field=this.compositionFor({boundary,voids,regions,wrap});
+    const edits=this.gestureFor(wrap);
     const proposals=new Map();
     // Freeze the entire old cell lattice: later same-tick births must not
     // alter contender scores, contact count, or the probability of a peer.
@@ -193,7 +212,7 @@ export class SurfaceGrowth {
       let open=false;
       const owner=prior[parent],source=this.seeds[owner-1];
       this.neighbors(parent,wrap,(ni,dx,dy)=>{
-        if(prior[ni]||field.gates[ni]<=field.threshold)return;
+        if(prior[ni]||edits.blocked[ni]||field.gates[ni]<=field.threshold)return;
         open=true;
         const localMode=regions==='single'?mode:COMPOSITION_LAWS[field.laws[ni]];
         const existing=proposals.get(ni);
@@ -206,9 +225,14 @@ export class SurfaceGrowth {
         else if(localMode==='strata')affinity=.6+.5*Math.cos((x+y)*Math.PI*3+familyAngle);
         else affinity=1;
         // Competing active fronts choose a factual parent deterministically.
-        const score=affinity + .12*((hash32(ni^Math.imul(owner,0x85ebca6b))&65535)/65535);
+        // The drawn comb favors future front segments aligned to its
+        // tangent. This changes ancestry and cell births, not rendered UVs.
+        const steer=(edits.guideX[ni]*dx+edits.guideY[ni]*dy)/
+          Math.hypot(dx,dy);
+        const score=affinity+.75*steer+
+          .12*((hash32(ni^Math.imul(owner,0x85ebca6b))&65535)/65535);
         if(!existing||score>existing.score)
-          proposals.set(ni,{family:owner,depth:Math.min(65535,this.depth[parent]+1),score,mode:localMode});
+          proposals.set(ni,{family:owner,depth:Math.min(65535,this.depth[parent]+1),score,mode:localMode,dx,dy});
       });
       if(open)stillActive.add(parent);
     }
@@ -250,6 +274,11 @@ export class SurfaceGrowth {
       if(competitive)probability*=.96;
       // Field permeability is a physical resistance at the prospective cell.
       probability*=.65+.35*(field.gates[i]/255);
+      // Birth acceptance responds to spatial attraction and directional
+      // alignment of the actual candidate-parent edge.
+      const steer=(edits.guideX[i]*candidate.dx+
+        edits.guideY[i]*candidate.dy)/Math.hypot(candidate.dx,candidate.dy);
+      probability*=clamp(1+.88*edits.attraction[i]+.44*steer,.35,2.2);
       probability*=.83+.30*grain;
       if(this.random()>=clamp(probability,0,.997))continue;
       this.owner[i]=candidate.family;
@@ -263,7 +292,7 @@ export class SurfaceGrowth {
     const fresh=new Set();
     for(const i of next){
       let hasVacancy=false;
-      this.neighbors(i,wrap,ni=>{if(!this.owner[ni]&&field.gates[ni]>field.threshold)hasVacancy=true;});
+      this.neighbors(i,wrap,ni=>{if(!this.owner[ni]&&!edits.blocked[ni]&&field.gates[ni]>field.threshold)hasVacancy=true;});
       if(hasVacancy)fresh.add(i);
     }
     this.stallTicks=births?0:this.stallTicks+1;
@@ -285,7 +314,8 @@ export class SurfaceGrowth {
       stallTicks:this.stallTicks,
       owner:Array.from(this.owner),depth:Array.from(this.depth),age:Array.from(this.age),
       birthColor:Array.from(this.birthColor),seeds:this.seeds.map(s=>({...s})),
-      frontier:Array.from(this.frontier)};
+      frontier:Array.from(this.frontier),
+      marks:cloneSurfaceMarks(this.marks),nextMarkId:this.nextMarkId};
   }
   validateSnapshot(s){
     const n=this.capacity;
@@ -305,7 +335,12 @@ export class SurfaceGrowth {
          num(seed.phase)&&seed.phase>=0&&seed.phase<1&&
          num(seed.angle)&&seed.angle>=0&&seed.angle<Math.PI*2)||
        !Array.isArray(s.frontier)||s.frontier.length>n||
-       !s.frontier.every(i=>Number.isInteger(i)&&i>=0&&i<n&&s.owner[i]>0))
+       !s.frontier.every(i=>Number.isInteger(i)&&i>=0&&i<n&&s.owner[i]>0)||
+       (s.marks!==undefined&&!validSurfaceMarks(s.marks))||
+       (s.nextMarkId!==undefined&&
+         (!Number.isInteger(s.nextMarkId)||s.nextMarkId<1||s.nextMarkId>1000001))||
+       (s.marks?.length&&
+        (!Number.isInteger(s.nextMarkId)||s.nextMarkId<=Math.max(...s.marks.map(m=>m.id)))))
       throw Error('Invalid or incompatible saved surface material.');
     if(s.owner.filter(Boolean).length!==s.population||
        new Set(s.frontier).size!==s.frontier.length||
@@ -323,6 +358,11 @@ export class SurfaceGrowth {
     this.birthColor.set(s.birthColor);
     this.seeds=s.seeds.map(v=>({...v}));
     this.frontier=new Set(s.frontier);
+    this.marks=cloneSurfaceMarks(s.marks??[]);
+    this.nextMarkId=s.nextMarkId??1;
+    this.gestureRevision++;
+    this.gestureCacheKey='';
+    this.gestureField=null;
     this.compositionKey=null;this.compositionField=null;
     this.changed=true;
     this.visualRevision++;
