@@ -20,13 +20,16 @@ const TAU=Math.PI*2;
 // One tiny, self-contained hash-domain detail specimen. All coordinates are
 // normalized within an ACTUAL occupied cell (0..1), so empty cells stay empty.
 export function forEachMineralMicrofeature(surface,{
-  mode='off',density=.65,quality='export',wrap=false
+  mode='off',density=.65,quality='export',wrap=false,
+  phase=0,wave=0
 }={},visit){
   const n=surface?.size;
   if(!Number.isInteger(n)||n<16||n>192||
     typeof visit!=='function')throw Error('Invalid microstructure source');
   if(mode==='off'||!Object.hasOwn(SURFACE_MICROSTRUCTURES,mode))return 0;
   const d=clamp(Number.isFinite(density)?density:.65,0,1);
+  const microWave=clamp(Number.isFinite(wave)?wave:0,0,1);
+  const motionPhase=Number.isFinite(phase)?phase:0;
   if(d<=0)return 0;
   // Preview computes a sparse but geometrically honest sample. Export
   // evaluates every actual occupied cell. No falsely claimed 2048² CA grid.
@@ -45,7 +48,8 @@ export function forEachMineralMicrofeature(surface,{
     const step=depth[i];
     const j=hash32(i^Math.imul(family,0x9e3779b1));
     if(unit(j+5)>d)continue;
-    const a=(seed?.angle??0)+.24*Math.sin(step*.19+(seed?.phase??0)*TAU);
+    const a=(seed?.angle??0)+.24*Math.sin(step*.19+(seed?.phase??0)*TAU)+
+      microWave*.22*Math.sin(motionPhase+step*.13+(seed?.phase??0)*TAU);
     const vx=Math.cos(a),vy=Math.sin(a),nx=-vy,ny=vx;
     const cx=.34+.32*unit(j+11),cy=.34+.32*unit(j+19);
     if(mode==='lamella'){
@@ -88,7 +92,8 @@ export function forEachMineralMicrofeature(surface,{
       // Globular opal microdomains: 6-segment facet arcs, size/distribution
       // tied to the retained family phase and birth distance.
       const phase=seed?.phase??0;
-      const radius=.13+.12*unit(j+31);
+      const radius=(.13+.12*unit(j+31))*(1+microWave*.16*
+        Math.sin(motionPhase+step*.08+phase*TAU));
       const spread=phase*TAU+step*.10;
       for(let k=0;k<5;k++){
         const t0=spread+TAU*k/7,t1=spread+TAU*(k+1)/7;
@@ -105,13 +110,14 @@ export function forEachMineralMicrofeature(surface,{
 // per-cell draw calls (important for iPhone Safari 2048px still exports).
 export function paintSurfaceMicrostructure(ctx,surface,{
   mode='off',density=.65,quality='export',wrap=false,
-  left=0,top=0,size=2048,lightAngle=40
+  left=0,top=0,size=2048,lightAngle=40,
+  phase=0,wave=0
 }={}){
   if(!ctx||typeof ctx.beginPath!=='function')throw Error('Canvas 2D required');
   if(mode==='off'||density<=0)return 0;
   const n=surface.size,step=size/n;
   const paths={shadow:[],glint:[]};
-  const total=forEachMineralMicrofeature(surface,{mode,density,quality,wrap},feature=>{
+  const total=forEachMineralMicrofeature(surface,{mode,density,quality,wrap,phase,wave},feature=>{
     paths[feature.layer].push(feature);
   });
   if(!total)return 0;
