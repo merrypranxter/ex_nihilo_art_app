@@ -7,9 +7,11 @@ An interactive, mobile-first 3D mathematical art laboratory. Its first experimen
 ## Phase 03C: mathematical branching and growth rhythms
 
 - Wolfram Language-verified golden-angle phyllotaxis (137.507764°), alternate bilateral, sixfold whorl, or original scatter branching.
+- **Filigree Anatomy**: optional parent-local daughter spacing and decaying birth-direction memory. Distinct related branches remain spatially legible instead of immediately merging back into the environmental flow.
+- **Hierarchical material relief**: each deposited segment remembers the generation of its growing tip. A reversible render-only control emphasizes trunks and fine luminous descendants while preserving stored historical RGB pigments.
 - True daughter branch divergence, generational taper, and coherent/staggered/quasiperiodic growth rhythms. They influence future trajectories and branching, not an ornamental shader.
 - Cohesive lineage-derived fiber color, adjustable without recoloring existing deposited matter.
-- New growth laws persist in DNA and living-world checkpoints. Older saves retain original random branches and steady motion.
+- New growth laws persist in DNA and living-world checkpoints. Older saves retain original random branches and steady motion. Old saves from before Filigree Anatomy continue using their global branch order and zero directional memory.
 - Full calculations in [docs/BRANCHING_MATH.md](docs/BRANCHING_MATH.md). **No Wolfram API calls during animation.**
 
 ## First playable proof — Nerve Cathedral
@@ -64,6 +66,7 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 - `src/structural.js` — solid-cell collision solver and trajectory guidance along the evolving chemical isosurface.
 - `src/art-direction.js` — procedural vector laws for visual silhouette and artist-facing material configurations.
 - `src/branching.js` — exact phyllotactic branch geometry and bounded, deterministic temporal growth rhythms.
+- `src/filigree.js` — decaying birth-direction memory and display-only, generation-aware material emphasis.
 - `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js`, `tests/art-direction.test.js`, `tests/branching.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, smooth surface normals, branching law, temporal rhythm and checkpoint regression tests (`npm test`).
 - `src/main.js` — Three.js renderer, inputs, camera, views and exporting.
 - `src/styles.css` — mobile-first control layout.
