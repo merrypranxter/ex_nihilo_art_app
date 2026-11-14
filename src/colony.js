@@ -4,6 +4,7 @@
 // No Three.js import: can be tested separately from its renderer.
 
 import {pressureAt} from './crystal-pressure.js';
+import {tickCrystalStrain} from './crystal-strain.js';
 const lim=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const DIRS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 
@@ -16,10 +17,15 @@ export class CrystalColony {
     this.cells=new Uint8Array(this.capacity); // 0 void, 1 growing, 2 mineral
     this.ages=new Uint8Array(this.capacity);
     this.colors=new Uint8Array(this.capacity*3);
+    this.strain=new Float32Array(this.capacity); // accumulated lattice stress
+    this.damage=new Uint8Array(this.capacity);   // 0 intact, 1 cracked, 2 permanent fracture void
+    this.strainScratch=new Float32Array(this.capacity); // scratch, recomputable
+    this.strainActive=false;
     this.population=0;
     this.generation=0;
     this.changed=true;
-    this.settings={enabled:false,growth:.75,erosion:.08,crystallization:4};
+    this.settings={enabled:false,growth:.75,erosion:.08,crystallization:4,
+      strainTransfer:.24,breakThreshold:.96};
   }
   index(x,y,z){return x+this.size*(y+this.size*z)}
   inside(x,y,z){
@@ -42,7 +48,9 @@ export class CrystalColony {
       enabled:values.enabled===undefined?this.settings.enabled:!!values.enabled,
       growth:lim(Number.isFinite(+values.growth)?+values.growth:this.settings.growth,0,2),
       erosion:lim(Number.isFinite(+values.erosion)?+values.erosion:this.settings.erosion,0,1),
-      crystallization:Math.round(lim(Number.isFinite(+values.crystallization)?+values.crystallization:this.settings.crystallization,2,12))
+      crystallization:Math.round(lim(Number.isFinite(+values.crystallization)?+values.crystallization:this.settings.crystallization,2,12)),
+      strainTransfer:lim(Number.isFinite(+values.strainTransfer)?+values.strainTransfer:this.settings.strainTransfer,0,.48),
+      breakThreshold:lim(Number.isFinite(+values.breakThreshold)?+values.breakThreshold:this.settings.breakThreshold,.6,1.2)
     };
   }
   colorAt(i,food,palette,rng){
@@ -60,9 +68,11 @@ export class CrystalColony {
     }
   }
   birth(i,nutrient,palette,rng){
-    if(this.cells[i]!==0||this.population>=this.maxCells)return false;
+    if(this.cells[i]!==0||this.damage[i]===2||this.population>=this.maxCells)return false;
     this.cells[i]=1;
     this.ages[i]=0;
+    this.strain[i]=0;
+    this.damage[i]=0;
     this.population++;
     const [x,y,z]=this.decode(i);
     const p=this.worldPos(x,y,z);
@@ -85,6 +95,7 @@ export class CrystalColony {
     const mature=[];
     const hasMarks=!!pressureMarks?.length;
     const hasCleave=hasMarks&&pressureMarks.some(p=>p.mode==='cleave');
+    const hasStrain=hasMarks&&pressureMarks.some(p=>p.mode==='strain'||p.mode==='cleave');
     for(let i=0;i<this.cells.length;i++){
       if(!this.cells[i])continue;
       const [x,y,z]=this.decode(i);
@@ -96,7 +107,7 @@ export class CrystalColony {
         const nx=x+dx,ny=y+dy,nz=z+dz;
         if(!this.inside(nx,ny,nz))continue;
         const ni=this.index(nx,ny,nz);
-        if(this.cells[ni]!==0)continue;
+        if(this.cells[ni]!==0||this.damage[ni]===2)continue;
         candidates.set(ni,(candidates.get(ni)||0)+1);
       }
     }
@@ -131,15 +142,32 @@ export class CrystalColony {
       if(rng()<probability)births.push(i);
     }
     for(const i of births)this.birth(i,nutrient,palette,rng);
+    // Synchronous strain transport happens exclusively through occupied face
+    // neighbors. The CA's deterministic history determines fracture timing.
+    if(hasStrain||this.strainActive){
+      const result=tickCrystalStrain({
+        cells:this.cells,ages:this.ages,strain:this.strain,
+        damage:this.damage,next:this.strainScratch,
+        size:this.size,extent:this.extent,marks:pressureMarks,
+        transfer:this.settings.strainTransfer,
+        breakThreshold:this.settings.breakThreshold
+      });
+      this.strainActive=result.active;
+      if(result.damaged||result.shattered||result.active)this.changed=true;
+      this.population-=result.shattered;
+    }
     // Erosion is a *different* local chemical rule and is intentionally slow.
     for(const i of mature){
+      if(!this.cells[i])continue; // already fractured this CA tick
       const [x,y,z]=this.decode(i);
       const food=nutrient.sample(this.worldPos(x,y,z));
       const usual=food<.21&&rng()<this.settings.erosion*.016;
       const pressureErode=hasCleave?
         pressureAt(this.worldPos(x,y,z),pressureMarks).erosion:0;
       if(usual||(pressureErode>0&&rng()<pressureErode)){
-        this.cells[i]=0;this.ages[i]=0;this.population--;this.changed=true;
+        if(this.damage[i]===1)this.damage[i]=2;
+        this.cells[i]=0;this.ages[i]=0;this.strain[i]=0;
+        this.population--;this.changed=true;
       }
     }
     this.generation++;
@@ -147,13 +175,16 @@ export class CrystalColony {
   }
   clear(){
     this.cells.fill(0);this.ages.fill(0);this.colors.fill(0);
+    this.strain.fill(0);this.strainScratch.fill(0);this.damage.fill(0);
+    this.strainActive=false;
     this.population=0;this.generation=0;this.changed=true;
   }
   snapshot(){
     return {
       settings:{...this.settings},
       generation:this.generation,population:this.population,
-      cells:Array.from(this.cells),ages:Array.from(this.ages),colors:Array.from(this.colors)
+      cells:Array.from(this.cells),ages:Array.from(this.ages),colors:Array.from(this.colors),
+      strain:Array.from(this.strain),damage:Array.from(this.damage)
     };
   }
   validateSnapshot(data){
@@ -164,6 +195,12 @@ export class CrystalColony {
        !valid(data.cells,this.capacity,2)||
        !valid(data.ages,this.capacity,255)||
        !valid(data.colors,this.capacity*3,255)||
+       (data.strain!==undefined&&(!Array.isArray(data.strain)||
+         data.strain.length!==this.capacity||!data.strain.every(n=>
+           typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1.35)))||
+       (data.damage!==undefined&&!valid(data.damage,this.capacity,2))||
+       ((data.strain===undefined)!==(data.damage===undefined))||
+       (data.damage!==undefined&&data.damage.some((v,i)=>v===2&&data.cells[i]!==0))||
        data.cells.reduce((sum,n)=>sum+(n>0?1:0),0)!==data.population){
       throw new Error('Corrupted or incompatible cellular-colony checkpoint.');
     }
@@ -177,6 +214,10 @@ export class CrystalColony {
     this.cells.set(data.cells);
     this.ages.set(data.ages);
     this.colors.set(data.colors);
+    if(data.strain)this.strain.set(data.strain);else this.strain.fill(0);
+    if(data.damage)this.damage.set(data.damage);else this.damage.fill(0);
+    this.strainScratch.fill(0);
+    this.strainActive=this.strain.some(n=>n>0);
     this.changed=true;
   }
 }
