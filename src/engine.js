@@ -9,7 +9,7 @@ import { lineageSteering } from './filigree.js';
 import { FIBER_PROFILES } from './mineral-optics.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
-import { MAX_PRESSURES, PRESSURE_MODES, validPressures, normalizePressureAxis } from './crystal-pressure.js';
+import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
 export { PALETTES } from './palettes.js';
 
 const WORLD = 8;
