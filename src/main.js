@@ -515,6 +515,7 @@ function readArtistControls(){
     glow:Number($('glow').value)/100
   });
   updateArtistControls();
+  updateBranchControls();
   applyArtistFinish();
 }
 ['form','formStrength','formTwist','finish','glow'].forEach(
@@ -560,6 +561,33 @@ function frameArtwork(){
 }
 $('frame-art').addEventListener('click',frameArtwork);
 $('compose-frame').addEventListener('click',frameArtwork);
+
+function updateBranchControls(){
+  const c=engine.config;
+  $('branchMode').value=c.branchMode;
+  $('branchAngle').value=String(Math.round(c.branchAngle));
+  $('branchAngle-value').textContent=Math.round(c.branchAngle)+'°';
+  $('branchTaper').value=String(Math.round(c.branchTaper*100));
+  $('branchTaper-value').textContent=Math.round(c.branchTaper*100)+'%';
+  $('rhythmMode').value=c.rhythmMode;
+  $('rhythmDepth').value=String(Math.round(c.rhythmDepth*100));
+  $('rhythmDepth-value').textContent=Math.round(c.rhythmDepth*100)+'%';
+  $('rhythmRate').value=String(c.rhythmRate);
+  $('rhythmRate-value').textContent=c.rhythmRate.toFixed(2)+' Hz';
+}
+function readBranchControls(){
+  engine.setConfig({
+    branchMode:$('branchMode').value,
+    branchAngle:Number($('branchAngle').value),
+    branchTaper:Number($('branchTaper').value)/100,
+    rhythmMode:$('rhythmMode').value,
+    rhythmDepth:Number($('rhythmDepth').value)/100,
+    rhythmRate:Number($('rhythmRate').value)
+  });
+  updateBranchControls();
+}
+['branchMode','branchAngle','branchTaper','rhythmMode','rhythmDepth','rhythmRate']
+  .forEach(id=>$(id).addEventListener('input',readBranchControls));
 
 const ranges={
   speed:{format:n=>n.toFixed(1)+'×',read:n=>n},
@@ -731,7 +759,7 @@ function fit(){
 }
 new ResizeObserver(fit).observe(canvas);
 window.addEventListener('resize',fit);
-fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();applyArtistFinish();
+fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();updateBranchControls();applyArtistFinish();
 let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
@@ -759,6 +787,7 @@ function frame(now){
   if(now-lastStatus>600){
     $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+engine.colony.population.toLocaleString()+' CELLS';
     $('crystal-stats').textContent=engine.colony.population.toLocaleString()+' CRYSTALS · '+engine.colony.generation+' GENERATIONS · '+engine.contactEvents.toLocaleString()+' FIBER CONTACTS';
+    $('branch-stats').textContent=engine.branchEvents.toLocaleString()+' BRANCH BIRTHS';
     $('morph-stats').textContent=engine.morphogenesis.generation.toLocaleString()+' CHEMICAL STEPS · '+morphTriangles.toLocaleString()+' SURFACE TRIANGLES'
       +(morphClipped?' · MESH BUDGET CAPPED':'');
     lastStatus=now;
