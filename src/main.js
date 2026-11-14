@@ -363,24 +363,85 @@ function positionFromEvent(e){
   return point.clone().clampLength(0,3.35);
 }
 
-let tool='attract',draggedNode=null,activePointer=null,paused=false;
+let tool='attract',paused=false,gestureSuspended=false;
+const fingers=new Map();
+const fieldEdit=new FieldGestureTransaction(engine);
+let sliderEdit=null,gestureMode='idle',primaryPointer=null,lensAnchor=null;
+let transientSnapshot=null;
 const hints={
+  sculpt:'DRAG A VORTEX EYE · PINCH RADIUS · TWIST CHIRALITY',
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
   chemical:'DRAG TO INOCULATE THE 3D CHEMICAL FIELD',
   crystal:'TOUCH TO SEED THREE-DIMENSIONAL CELLS',
   feed:'DRAG TO INJECT NUTRIENTS INTO 3D SPACE',
-  orbit:'DRAG TO ORBIT · PINCH TO ZOOM',
+  orbit:'DRAG TO ORBIT · PINCH TO ZOOM THE CAMERA',
   erase:'TAP A FIELD NODE TO ERASE IT'
 };
+function updateSculptButton(){
+  $('sculpt-quick').setAttribute('aria-pressed',String(tool==='sculpt'));
+  $('sculpt-quick').classList.toggle('active',tool==='sculpt');
+}
+function refreshGestureView(){
+  syncNodes();
+  showNodeSelection();
+}
+function cancelSliderEdit(){
+  if(!sliderEdit)return;
+  sliderEdit.cancel();
+  sliderEdit=null;
+  refreshGestureView();
+}
+function finishGesture(cancel=false){
+  if(fieldEdit.active){
+    if(cancel)fieldEdit.cancel();
+    else fieldEdit.commit();
+  }
+  if(cancel&&transientSnapshot){
+    const snap=transientSnapshot;
+    if(snap.tool==='feed'){
+      engine.nutrients.values.set(snap.food);
+      if(showFood)updateFoodCloud();
+    }else if(snap.tool==='chemical'){
+      engine.morphogenesis.u.set(snap.u);
+      engine.morphogenesis.v.set(snap.v);
+      engine.morphogenesis.changed=true;
+      refreshMorphSurface(performance.now(),true);
+    }else if(snap.tool==='crystal'){
+      engine.colony.restore(snap.colony);
+      engine.nutrients.values.set(snap.food);
+      engine.rngState=snap.rng;
+      syncCrystals();
+    }else if(snap.tool==='seed'){
+      engine.agents=snap.agents;
+      engine.rngState=snap.rng;
+    }
+  }
+  transientSnapshot=null;
+  primaryPointer=null;
+  lensAnchor=null;
+  gestureSuspended=fingers.size>0;
+  refreshGestureView();
+}
+function cancelGesture(){
+  if(gestureMode==='idle'&&!fieldEdit.active&&!sliderEdit)return;
+  if(sliderEdit)cancelSliderEdit();
+  finishGesture(true);
+  gestureMode=fingers.size?'blocked':'idle';
+}
 function setTool(next){
+  if(fingers.size||fieldEdit.active||sliderEdit)cancelGesture();
   tool=next;
   orbit.enabled=tool==='orbit';
   $('hint').textContent=hints[tool];
-  for(const btn of document.querySelectorAll('[data-tool]'))btn.classList.toggle('active',btn.dataset.tool===tool);
+  for(const btn of document.querySelectorAll('[data-tool]'))
+    btn.classList.toggle('active',btn.dataset.tool===tool);
+  updateSculptButton();
 }
-document.querySelectorAll('[data-tool]').forEach(btn=>btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
+document.querySelectorAll('[data-tool]').forEach(btn=>
+  btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
+$('sculpt-quick').addEventListener('click',()=>setTool('sculpt'));
 $('food-tool').addEventListener('click',()=>setTool('feed'));
 $('food-view').addEventListener('click',()=>{
   showFood=!showFood;
@@ -390,46 +451,190 @@ $('food-view').addEventListener('click',()=>{
   $('food-view').textContent=showFood?'◈ HIDE NUTRIENT VOLUME':'◇ SHOW NUTRIENT VOLUME';
   if(showFood)updateFoodCloud();
 });
-canvas.addEventListener('pointerdown',e=>{
-  if(tool==='orbit'||(activePointer!==null))return;
-  if(e.pointerType==='mouse'&&e.button!==0)return;
-  activePointer=e.pointerId;
-  canvas.setPointerCapture(e.pointerId);
-  const pos=positionFromEvent(e);
-  if(tool==='feed'){engine.feedAt(pos);if(showFood)updateFoodCloud();return;}
-  if(tool==='crystal'){engine.seedCrystal(pos);syncCrystals();return;}
-  if(tool==='chemical'){engine.seedChemical(pos,.42);return;}
-  if(tool==='seed'){
+function snapshotTransient(tool){
+  if(tool==='feed')return {tool,food:new Float32Array(engine.nutrients.values)};
+  if(tool==='chemical')return {
+    tool,u:new Float32Array(engine.morphogenesis.u),
+    v:new Float32Array(engine.morphogenesis.v)
+  };
+  if(tool==='crystal')return {
+    tool,colony:engine.colony.snapshot(),
+    food:new Float32Array(engine.nutrients.values),rng:engine.rngState
+  };
+  if(tool==='seed')return {
+    tool,rng:engine.rngState,
+    agents:engine.agents.map(a=>({...a,p:a.p.clone(),prev:a.prev.clone(),dir:a.dir.clone()}))
+  };
+  return null;
+}
+function applyTransient(pos,isFirst){
+  if(tool==='feed'){
+    engine.feedAt(pos);
+    if(showFood)updateFoodCloud();
+  }else if(tool==='chemical'){
+    engine.seedChemical(pos,isFirst?.42:.30);
+  }else if(tool==='crystal'&&isFirst){
+    engine.seedCrystal(pos);
+    syncCrystals();
+  }else if(tool==='seed'&&isFirst){
     const count=18;
-    if(engine.agents.length>engine.config.agents-count) engine.agents.splice(0,Math.min(count,engine.agents.length));
+    if(engine.agents.length>engine.config.agents-count)
+      engine.agents.splice(0,Math.min(count,engine.agents.length));
     engine.seedAt(pos,count);
-    return;
   }
-  if(tool==='erase'){engine.deleteNode(pos);syncNodes();return;}
-  draggedNode=engine.nearestNode(pos,.45);
-  if(draggedNode){engine.recordNodeEdit();}
-  else{draggedNode=engine.addNode(tool,pos);}
-  draggedNode.pos.copy(pos);
-  syncNodes();
+}
+function screenPoint(e){return {x:e.clientX,y:e.clientY};}
+function worldFromClient(x,y){return positionFromEvent({clientX:x,clientY:y});}
+function beginFieldPointer(pos){
+  const selecting=tool==='erase'||tool==='sculpt'||tool==='attract'||tool==='repel';
+  if(!selecting)return false;
+  const found=engine.nearestNode(pos,tool==='erase'?1.1:.55);
+  const nearest=found&&(tool==='erase'||found.type===(tool==='sculpt'?'vortex':tool))?found:null;
+  const began=fieldEdit.begin({
+    type:tool==='sculpt'?'vortex':tool,
+    pos,
+    nodeId:nearest?.id??null
+  });
+  if(began){
+    selectedNodeId=fieldEdit.node?.id??null;
+    refreshGestureView();
+  }
+  return began;
+}
+canvas.addEventListener('pointerdown',e=>{
+  if(tool==='orbit'||(e.pointerType==='mouse'&&e.button!==0))return;
+  if(fingers.size>=2 || gestureMode==='blocked')return;
+  e.preventDefault();
+  try{canvas.setPointerCapture(e.pointerId);}catch{}
+  fingers.set(e.pointerId,screenPoint(e));
+  gestureSuspended=true;
+  if(fingers.size===1){
+    cancelSliderEdit();
+    primaryPointer=e.pointerId;
+    const pos=positionFromEvent(e);
+    if(['sculpt','attract','repel','erase'].includes(tool)){
+      gestureMode=beginFieldPointer(pos)?'single':'blocked';
+    }else{
+      transientSnapshot=snapshotTransient(tool);
+      gestureMode='transient';
+      applyTransient(pos,true);
+    }
+  }else if(fingers.size===2){
+    if(!fieldEdit.active){
+      // A second finger cannot silently paint an extra chemical source.
+      finishGesture(true);
+      gestureMode='blocked';
+      return;
+    }
+    const [a,b]=[...fingers.values()];
+    if(fieldEdit.beginLens(a,b)){
+      const mid=worldFromClient((a.x+b.x)*.5,(a.y+b.y)*.5);
+      lensAnchor={center:mid,origin:fieldEdit.node.pos.clone()};
+      gestureMode='lens';
+    }else gestureMode='blocked';
+  }
 });
 canvas.addEventListener('pointermove',e=>{
-  if(e.pointerId!==activePointer)return;
-  if(tool==='feed'){engine.feedAt(positionFromEvent(e));return;}
-  if(tool==='chemical'){engine.seedChemical(positionFromEvent(e),.30);return;}
-  if(!draggedNode)return;
-  draggedNode.pos.copy(positionFromEvent(e));
-  syncNodes();
+  if(!fingers.has(e.pointerId)||tool==='orbit')return;
+  e.preventDefault();
+  fingers.set(e.pointerId,screenPoint(e));
+  if(gestureMode==='single'&&e.pointerId===primaryPointer&&fieldEdit.active){
+    fieldEdit.move(positionFromEvent(e));
+    refreshGestureView();
+  }else if(gestureMode==='transient'&&e.pointerId===primaryPointer){
+    if(tool==='feed'||tool==='chemical')applyTransient(positionFromEvent(e),false);
+  }else if(gestureMode==='lens'&&fieldEdit.active&&fingers.size===2){
+    const [a,b]=[...fingers.values()];
+    fieldEdit.lensPreview(a,b);
+    if(lensAnchor){
+      const center=worldFromClient((a.x+b.x)*.5,(a.y+b.y)*.5);
+      const destination=lensAnchor.origin.clone().add(center.sub(lensAnchor.center));
+      destination.clampLength(0,3.35);
+      fieldEdit.move(destination);
+    }
+    refreshGestureView();
+  }
 });
-function stopPointer(e){
-  if(e.pointerId!==activePointer)return;
-  activePointer=null;draggedNode=null;
+function onPointerEnd(e,canceled=false){
+  if(!fingers.has(e.pointerId))return;
+  if(canceled)finishGesture(true);
+  else if(gestureMode!=='blocked')finishGesture(false);
+  fingers.delete(e.pointerId);
+  gestureMode=fingers.size?'blocked':'idle';
+  gestureSuspended=fingers.size>0;
+  if(!fingers.size){primaryPointer=null;lensAnchor=null;}
 }
-canvas.addEventListener('pointerup',stopPointer);
-canvas.addEventListener('pointercancel',stopPointer);
-$('undo').addEventListener('click',()=>{engine.undoNodes();syncNodes();});
-$('redo').addEventListener('click',()=>{engine.redoNodes();syncNodes();});
-$('clear-nodes').addEventListener('click',()=>{engine.clearNodes();syncNodes();});
-
+canvas.addEventListener('pointerup',e=>onPointerEnd(e,false));
+canvas.addEventListener('pointercancel',e=>onPointerEnd(e,true));
+canvas.addEventListener('lostpointercapture',e=>{
+  if(fingers.has(e.pointerId))onPointerEnd(e,true);
+});
+window.addEventListener('blur',()=>{
+  cancelGesture();
+  fingers.clear();
+  gestureMode='idle';
+  gestureSuspended=false;
+});
+for(const [id,key] of [['gesture-radius','radius'],['gesture-spin','spin']]){
+  const input=$(id);
+  input.addEventListener('input',()=>{
+    const node=selectedNode();
+    if(!node||node.type!=='vortex')return;
+    if(!sliderEdit){
+      sliderEdit=new FieldGestureTransaction(engine);
+      sliderEdit.begin({nodeId:node.id});
+    }
+    const edit=sliderEdit.node;
+    edit[key]=Number(input.value);
+    showNodeSelection();
+    syncNodes();
+  });
+  input.addEventListener('change',()=>{
+    if(!sliderEdit)return;
+    sliderEdit.commit();
+    sliderEdit=null;
+    refreshGestureView();
+  });
+  input.addEventListener('pointercancel',cancelSliderEdit);
+}
+$('undo').addEventListener('click',()=>{
+  if(fingers.size)cancelGesture();
+  cancelSliderEdit();
+  engine.undoNodes();
+  refreshGestureView();
+});
+$('redo').addEventListener('click',()=>{
+  if(fingers.size)cancelGesture();
+  cancelSliderEdit();
+  engine.redoNodes();
+  refreshGestureView();
+});
+$('clear-nodes').addEventListener('click',()=>{
+  if(fingers.size)cancelGesture();
+  cancelSliderEdit();
+  engine.clearNodes();
+  selectedNodeId=null;
+  refreshGestureView();
+});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(fingers.size)cancelGesture();
+    cancelSliderEdit();
+    return;
+  }
+  if(e.target instanceof HTMLElement&&
+    e.target.matches('input,textarea,select,[contenteditable]'))return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){
+    e.preventDefault();
+    cancelGesture();
+    if(e.shiftKey)engine.redoNodes();
+    else engine.undoNodes();
+    refreshGestureView();
+  }else if(!e.ctrlKey&&!e.metaKey&&!e.altKey){
+    if(e.key.toLowerCase()==='s')setTool('sculpt');
+    if(e.key.toLowerCase()==='o')setTool('orbit');
+  }
+});
 document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
   for(const tab of document.querySelectorAll('.tab')){
     tab.classList.toggle('active',tab===btn);
