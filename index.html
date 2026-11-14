@@ -177,6 +177,48 @@
             <div class="small-actions ecology-actions">
               <button type="button" class="choice" id="surface-wrap" aria-pressed="false">◇ PERIODIC TILE EDGES: OFF</button>
             </div>
+            <details class="morph-advanced" id="surface-optics-lab" open>
+              <summary>✦ MINERAL OPTICAL LAB · LIGHT &amp; MATERIAL</summary>
+              <div class="morph-advanced-grid">
+              <p class="help first">Lighting reacts to mineral age, real growth-distance ridges, exposed edges, and genuine competing crystal families. Changes affect APPEARANCE ONLY: original pigments and living physics are preserved. The 3D OBJECT's independent optical materials are untouched.</p>
+              <div class="control-grid">
+                <label class="control select-control"><span>Mineral optical finish</span>
+                  <select id="surface-optics-mode">
+                    <option value="off">ORIGINAL MINERAL · NO OPTICS</option>
+                    <option value="opal" selected>OPAL FIRE · THREE-BAND INTERFERENCE</option>
+                    <option value="prism">PRISM GLASS · SPECTRAL REFRACTION</option>
+                    <option value="quartz">WET QUARTZ · POLISHED FACETS</option>
+                    <option value="frost">FROSTED AGATE · MATTE MINERAL GRAIN</option>
+                    <option value="ghost">GHOST MINERAL · TRANSLUCENT VEIL</option>
+                  </select>
+                </label>
+                <label class="control"><span>Optical intensity <output id="surface-optics-strength-value">80%</output></span>
+                  <input id="surface-optics-strength" type="range" min="0" max="150" step="5" value="80"/>
+                </label>
+                <label class="control"><span>Interference film thickness <output id="surface-optics-thickness-value">330 nm</output></span>
+                  <input id="surface-optics-thickness" type="range" min="90" max="800" step="10" value="330"/>
+                </label>
+                <label class="control"><span>Microfacet roughness <output id="surface-optics-roughness-value">30%</output></span>
+                  <input id="surface-optics-roughness" type="range" min="0" max="100" step="5" value="30"/>
+                </label>
+                <label class="control"><span>Light azimuth <output id="surface-optics-angle-value">40°</output></span>
+                  <input id="surface-optics-angle" type="range" min="0" max="360" step="5" value="40"/>
+                </label>
+                <label class="control select-control"><span>One complete light orbit</span>
+                  <select id="surface-optics-loop">
+                    <option value="4">4 SECONDS · QUICK SHIMMER</option>
+                    <option value="8" selected>8 SECONDS · GLACIAL OPAL</option>
+                    <option value="12">12 SECONDS · SLOW ECLIPSE</option>
+                  </select>
+                </label>
+              </div>
+              <div class="small-actions ecology-actions">
+                <button type="button" class="choice" id="surface-optics-motion" aria-pressed="false">▷ ANIMATE LIGHT</button>
+                <button type="button" class="choice" id="surface-optics-restart">↻ RESTART LIGHT LOOP</button>
+              </div>
+              <p class="help">The lamp can move over PAUSED growth, so your mineral art remains frozen while the light changes. FREEZE LIGHT locks the current moment for still PNG. OPAL uses an illustrative three-wavelength dielectric interference model; PRISM approximates RGB refraction. Neither is a full spectral ray tracer. Existing 2048px PNG remains upscaled from 192² real mineral cells.</p>
+              </div>
+            </details>
             <p class="help">ART DIRECTION · Boundaries are actual resistance to future mineral births, not drawn-on masks. Set Resistant / empty territory to 0% to disable this resistance; OPEN ignores it. Biomes change the local physical growth law across the same living canvas. Seed symmetry plants actual independent mirrored/rotated nuclei; later stochastic branches may differ, so this is not image-mirror symmetry. Changes never delete deposits. A NEW SURFACE SEED uses all the selected settings.</p>
             <p class="help">PERIODIC TILE EDGES connects opposite sides of the actual material lattice. For the cleanest repeating experiment, enable it before NEW SURFACE SEED. Existing pigments stay frozen even when you change palette, growth law, void geometry, or symmetry. New births use the currently selected LIGHT palette. PNG is 2048px upscaled from a 192-cell simulation, not native 2048-cell simulation.</p>
           </div>

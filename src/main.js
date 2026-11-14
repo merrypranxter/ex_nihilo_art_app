@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { surfacePixels,SURFACE_SIZE } from './surface-growth.js';
+import {surfaceOpticsPixels} from './surface-optics.js';
 import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
@@ -87,6 +88,8 @@ surfacePixelsCanvas.width=SURFACE_SIZE;
 surfacePixelsCanvas.height=SURFACE_SIZE;
 const surfacePixelContext=surfacePixelsCanvas.getContext('2d',{alpha:false});
 let surfaceClock=0,surfaceNeedsPresent=true,surfacePointerId=null;
+let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
+let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
 let surfaceLastX=null,surfaceLastY=null;
 function surfaceDisplayRect(){
   const width=surfaceCanvas.width,height=surfaceCanvas.height;
@@ -108,15 +111,30 @@ function fitSurfaceCanvas(){
 function drawSurface(force=false){
   if(engine.config.compositionDomain!=='surface')return;
   if(!surfaceCanvas.width||!surfaceCanvas.height)fitSurfaceCanvas();
-  if(engine.surface.changed){
+  if(force||engine.surface.changed||surfaceOpticsDirty){
+    const opticalStart=performance.now();
+    const c=engine.config;
+    const background=BACKGROUNDS[$('background').value]||BACKGROUNDS.void;
+    const base=surfacePixels(engine.surface,{
+      contrast:c.surfaceContrast,background,wrap:c.surfaceWrap
+    });
+    const phase=Math.PI*2*((surfaceOpticsTime%c.surfaceOpticsLoop)/c.surfaceOpticsLoop);
+    const pixels=c.surfaceOpticsMode==='off'?base:surfaceOpticsPixels(engine.surface,base,{
+      mode:c.surfaceOpticsMode,strength:c.surfaceOpticsStrength,
+      thickness:c.surfaceOpticsThickness,roughness:c.surfaceOpticsRoughness,
+      angle:c.surfaceOpticsAngle,phase,background,wrap:c.surfaceWrap
+    });
     const image=surfacePixelContext.createImageData(SURFACE_SIZE,SURFACE_SIZE);
-    image.data.set(surfacePixels(engine.surface,{
-      contrast:engine.config.surfaceContrast,
-      background:BACKGROUNDS[$('background').value]||BACKGROUNDS.void,
-      wrap:engine.config.surfaceWrap
-    }));
+    image.data.set(pixels);
     surfacePixelContext.putImageData(image,0,0);
+    const cost=performance.now()-opticalStart;
+    // Self-throttle expensive finishes on mobile instead of spending the
+    // entire frame budget continuously recomputing CPU illumination.
+    surfaceOpticsRenderCost=surfaceOpticsRenderCost===0?cost:
+      .65*surfaceOpticsRenderCost+.35*cost;
+    lastSurfaceVisualPaint=performance.now();
     engine.surface.changed=false;
+    surfaceOpticsDirty=false;
     surfaceNeedsPresent=true;
   }
   if(force||surfaceNeedsPresent){
@@ -2295,6 +2313,7 @@ function updateControlsFromDNA(){
   renderPaletteStops();
   $('topology').value=engine.config.topology;
   updateSurfaceControls();
+  surfaceOpticsTime=0;surfaceOpticsDirty=true;
   setCompositionDomain(engine.config.compositionDomain);
   updateCrystalControls();
   familyInspectorNote='';
@@ -2352,6 +2371,16 @@ const surfaceSettings=[
   ['surface-contrast','surfaceContrast',x=>x/100,v=>Math.round(v*100)+'%'],
   ['surface-voids','surfaceVoids',x=>x/100,v=>Math.round(v*100)+'%']
 ];
+const surfaceOpticsControls=[
+  ['surface-optics-strength','surfaceOpticsStrength',
+    v=>Math.round(v*100)+'%',v=>Math.round(v*100)],
+  ['surface-optics-thickness','surfaceOpticsThickness',
+    v=>Math.round(v)+' nm',v=>Math.round(v)],
+  ['surface-optics-roughness','surfaceOpticsRoughness',
+    v=>Math.round(v*100)+'%',v=>Math.round(v*100)],
+  ['surface-optics-angle','surfaceOpticsAngle',
+    v=>Math.round(v)+'°',v=>Math.round(v)]
+];
 function updateSurfaceControls(){
   const c=engine.config;
   $('surface-morphology').value=c.surfaceMorphology;
@@ -2368,6 +2397,16 @@ function updateSurfaceControls(){
   $('surface-wrap').classList.toggle('active',c.surfaceWrap);
   $('surface-wrap').textContent=c.surfaceWrap?
     '◈ PERIODIC TILE EDGES: ON':'◇ PERIODIC TILE EDGES: OFF';
+  $('surface-optics-mode').value=c.surfaceOpticsMode;
+  $('surface-optics-loop').value=String(c.surfaceOpticsLoop);
+  for(const [id,key,format,fromValue] of surfaceOpticsControls){
+    $(id).value=fromValue(c[key]);
+    $(id+'-value').textContent=format(c[key]);
+  }
+  $('surface-optics-motion').textContent=c.surfaceOpticsMotion?
+    '◉ FREEZE LIGHT':'▷ ANIMATE LIGHT';
+  $('surface-optics-motion').classList.toggle('active',c.surfaceOpticsMotion);
+  $('surface-optics-motion').setAttribute('aria-pressed',String(c.surfaceOpticsMotion));
   refreshSurfaceStats();
 }
 function readSurfaceControls(){
@@ -2396,6 +2435,36 @@ for(const id of ['surface-morphology','surface-nucleation',
   'surface-boundary','surface-regions','surface-symmetry'])
   $(id).addEventListener('change',readSurfaceControls);
 for(const [id] of surfaceSettings)$(id).addEventListener('input',readSurfaceControls);
+function readSurfaceOpticsControls(){
+  const values={
+    surfaceOpticsMode:$('surface-optics-mode').value,
+    surfaceOpticsLoop:Number($('surface-optics-loop').value)
+  };
+  for(const [id,key] of surfaceOpticsControls){
+    const value=Number($(id).value);
+    values[key]=(key==='surfaceOpticsThickness'||key==='surfaceOpticsAngle')?
+      value:value/100;
+  }
+  engine.setConfig(values);
+  surfaceOpticsDirty=true;
+  updateSurfaceControls();
+  drawSurface();
+}
+for(const id of ['surface-optics-mode','surface-optics-loop'])
+  $(id).addEventListener('change',readSurfaceOpticsControls);
+for(const [id] of surfaceOpticsControls)
+  $(id).addEventListener('input',readSurfaceOpticsControls);
+$('surface-optics-motion').addEventListener('click',()=>{
+  engine.setConfig({surfaceOpticsMotion:!engine.config.surfaceOpticsMotion});
+  surfaceOpticsDirty=true;
+  updateSurfaceControls();
+  drawSurface();
+});
+$('surface-optics-restart').addEventListener('click',()=>{
+  surfaceOpticsTime=0;
+  surfaceOpticsDirty=true;
+  drawSurface();
+});
 $('surface-wrap').addEventListener('click',()=>{
   engine.setConfig({surfaceWrap:!engine.config.surfaceWrap});
   engine.surface.rebuildFrontier(engine.config.surfaceWrap,surfaceCompositionOptions());
@@ -2415,12 +2484,13 @@ $('surface-reseed').addEventListener('click',()=>{
   engine.surface.reset(next||1);
   seedSurfaceIfEmpty();
   engine.surface.changed=true;surfaceClock=0;
+  surfaceOpticsTime=0;surfaceOpticsDirty=true;
   if(engine.config.compositionDomain==='surface')drawSurface(true);
   refreshSurfaceStats();
 });
 function exportSurfacePNG(){
   if(engine.config.compositionDomain!=='surface')setCompositionDomain('surface');
-  drawSurface();
+  drawSurface(true);
   const dim=2048,n=engine.surface.size,px=dim/n;
   const exportCanvas=document.createElement('canvas');
   exportCanvas.width=dim;exportCanvas.height=dim;
@@ -2456,6 +2526,7 @@ $('new').addEventListener('click',()=>{
   engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
   familyInspectorNote='';
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
+  surfaceOpticsTime=0;surfaceOpticsDirty=true;
   if(engine.config.compositionDomain==='surface'){
     seedSurfaceIfEmpty();
     engine.surface.changed=true;
@@ -2668,6 +2739,16 @@ function frame(now){
   if(graphicsLost&&engine.config.compositionDomain!=='surface')return;
   let elapsed=Math.min((now-last)/1000,.1);last=now;
   if(engine.config.compositionDomain==='surface'){
+    // The optical loop is presentation-only; it can shimmer over PAUSED
+    // crystalline history. No simulation RNG or birth state is touched.
+    if(engine.config.surfaceOpticsMotion&&engine.config.surfaceOpticsMode!=='off'){
+      surfaceOpticsTime+=elapsed;
+      const adaptiveInterval=Math.max(85,Math.min(450,surfaceOpticsRenderCost*2.15));
+      if(now-lastSurfaceOpticsRedraw>adaptiveInterval){
+        surfaceOpticsDirty=true;
+        lastSurfaceOpticsRedraw=now;
+      }
+    }
     // Separate material-growth clock. The original 3D physics sleeps while
     // composing 2D art; switching back resumes its exact saved organism.
     if(!paused){
@@ -2685,7 +2766,10 @@ function frame(now){
       }
       if(advances===6)surfaceClock=0;
     }
-    drawSurface();
+    // Decouple biology from CPU-bound optics rendering. Live material keeps
+    // advancing while the presentation yields time back to iPhone gestures.
+    const minPaintGap=Math.max(50,Math.min(450,surfaceOpticsRenderCost*1.9));
+    if(now-lastSurfaceVisualPaint>=minPaintGap)drawSurface();
     if(now-lastStatus>450){refreshSurfaceStats();lastStatus=now;}
     return;
   }

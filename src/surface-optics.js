@@ -1,0 +1,199 @@
+// EX NIHILO 04C / MINERAL OPTICAL WITCHCRAFT
+// CPU-bounded, deterministic view-space light transport approximations over
+// actual surface genealogy. This module NEVER mutates growth, birth pigments,
+// seeds, saved checkpoints, or frame clocks.
+export const SURFACE_OPTICS=Object.freeze({
+  off:'ORIGINAL MINERAL · NO OPTICS',
+  opal:'OPAL FIRE · THIN FILM',
+  prism:'PRISM GLASS · DISPERSION',
+  quartz:'WET QUARTZ · SPECULAR FACETS',
+  frost:'FROSTED AGATE · DIFFUSE GRAIN',
+  ghost:'GHOST MINERAL · TRANSLUCENT VEIL'
+});
+export const SURFACE_OPTICS_LOOPS=Object.freeze([4,8,12]);
+const TAU=Math.PI*2;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const safe=(x,fallback)=>Number.isFinite(x)?x:fallback;
+const rgb=(hex)=>{
+  if(!/^#[0-9a-fA-F]{6}$/.test(hex))return [5,6,12];
+  return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
+};
+const wrapIndex=(x,n)=>(x%n+n)%n;
+function refractedChannel(owner,rgba,size,wrap,family,x,y,c,fallback){
+  // Bilinear pigment refraction, conservatively restricted to this one
+  // family. Near real mineral borders light falls back to original pigment.
+  const x0=Math.floor(x),y0=Math.floor(y),tx=x-x0,ty=y-y0;
+  let value=0;
+  for(let dy=0;dy<=1;dy++)for(let dx=0;dx<=1;dx++){
+    let nx=x0+dx,ny=y0+dy;
+    const weight=(dx?tx:1-tx)*(dy?ty:1-ty);
+    if(wrap){nx=wrapIndex(nx,size);ny=wrapIndex(ny,size);}
+    if(nx<0||nx>=size||ny<0||ny>=size){value+=fallback*weight;continue;}
+    const j=nx+ny*size;
+    value+=(owner[j]===family?rgba[j*4+c]:fallback)*weight;
+  }
+  return value;
+}
+
+// Geometry is derived only when the underlying living material changes.
+// Lamp motion then shades cached normals instead of rescanning four neighbors
+// on every display frame. A transient revision counter prevents stale caches
+// after reset / restore without changing saved checkpoint formats.
+const geometryCache=new WeakMap();
+function opticalGeometry(surface,wrap){
+  const revision=surface.visualRevision??0;
+  const previous=geometryCache.get(surface);
+  if(previous&&previous.wrap===wrap&&previous.revision===revision)
+    return previous;
+  const n=surface.size,capacity=surface.capacity,owners=surface.owner;
+  const normalsX=new Float32Array(capacity),normalsY=new Float32Array(capacity),
+    normalsZ=new Float32Array(capacity),rims=new Float32Array(capacity);
+  const sides=[0,0,0,0];
+  for(let i=0;i<capacity;i++){
+    const family=owners[i];if(!family)continue;
+    const x=i%n,y=(i/n)|0;
+    const left=x>0?i-1:wrap?i+n-1:-1;
+    const right=x+1<n?i+1:wrap?i-n+1:-1;
+    const up=y>0?i-n:wrap?i+n*(n-1):-1;
+    const down=y+1<n?i+n:wrap?i-n*(n-1):-1;
+    sides[0]=left;sides[1]=right;sides[2]=up;sides[3]=down;
+    let exposed=0,contact=0;
+    for(const j of sides){
+      if(j<0||!owners[j])exposed++;
+      else if(owners[j]!==family)contact++;
+    }
+    const same=j=>j>=0&&owners[j]===family?surface.depth[j]:surface.depth[i];
+    const slopeX=clamp((same(right)-same(left))*.12,-1.8,1.8);
+    const slopeY=clamp((same(down)-same(up))*.12,-1.8,1.8);
+    const edgeX=((right<0||!owners[right])?1:0)-
+      ((left<0||!owners[left])?1:0);
+    const edgeY=((down<0||!owners[down])?1:0)-
+      ((up<0||!owners[up])?1:0);
+    let nx=-slopeX-.60*edgeX,ny=-slopeY-.60*edgeY,nz=1;
+    const norm=Math.hypot(nx,ny,nz)||1;
+    normalsX[i]=nx/norm;normalsY[i]=ny/norm;normalsZ[i]=nz/norm;
+    rims[i]=clamp((exposed*.18+contact*.24),0,1);
+  }
+  const cache={revision,wrap,normalsX,normalsY,normalsZ,rims};
+  geometryCache.set(surface,cache);
+  return cache;
+}
+
+// The lamp is a direction, not a screen-space rainbow color wheel.
+// A single angle is combined with a repeatable loop phase (radians).
+export function opticalLight(angle=40,phase=0){
+  const a=clamp(safe(angle,40),0,360)*Math.PI/180+
+    safe(phase,0);
+  const elevation=.68;
+  return [Math.cos(a)*elevation,Math.sin(a)*elevation,
+    Math.sqrt(1-elevation*elevation)];
+}
+
+// Approximate phase response of a dielectric film for three visible bands.
+// Color bands: red 630 nm, green 540 nm, blue 460 nm.
+// 4π*n*d*cos(theta)/lambda models round-trip optical path difference.
+// This is a three-band illustrative interference approximation, NOT a
+// calibrated spectrum, ray tracer, or physically exact iridescence.
+export function dielectricInterference(thicknessNm,cosIncident=1,index=1.46){
+  const n=clamp(safe(index,1.46),1,2);
+  const d=clamp(safe(thicknessNm,300),40,1400);
+  const ci=clamp(safe(cosIncident,1),.08,1);
+  return [630,540,460].map(lambda=>
+    .5+.5*Math.cos(4*Math.PI*n*d*ci/lambda));
+}
+
+export function surfaceOpticsPixels(surface,baseRGBA,{
+  mode='off',strength=.8,thickness=330,roughness=.3,
+  angle=40,phase=0,background='#05060c',wrap=false
+}={}){
+  const n=surface?.size,capacity=n*n;
+  if(!Number.isInteger(n)||n<16||n>192||
+    !(baseRGBA instanceof Uint8ClampedArray)||
+    baseRGBA.length!==capacity*4)throw Error('Invalid mineral optics input');
+  // Keeping the original renderer exact is important for existing saved art.
+  const out=new Uint8ClampedArray(baseRGBA);
+  if(mode==='off'||!Object.hasOwn(SURFACE_OPTICS,mode)||!surface.population)return out;
+  const power=clamp(safe(strength,.8),0,1.5);
+  if(power===0)return out;
+  const film=clamp(safe(thickness,330),90,800);
+  const grain=clamp(safe(roughness,.3),0,1);
+  const light=opticalLight(angle,phase);
+  const back=rgb(background);
+  const owner=surface.owner,depth=surface.depth,age=surface.age;
+  const seeds=surface.seeds;
+  const geometry=opticalGeometry(surface,wrap);
+  const channels=new Float64Array(3),indices=[1.503,1.518,1.535],
+    raw=new Float64Array(3),waves=[630,540,460];
+  for(let i=0;i<capacity;i++){
+    const family=owner[i];if(!family)continue;
+    const x=i%n,y=(i/n)|0;
+    const nx=geometry.normalsX[i],ny=geometry.normalsY[i],
+      nz=geometry.normalsZ[i];
+    const incidence=clamp(nx*light[0]+ny*light[1]+nz*light[2],0,1);
+    const halfz=1+light[2];
+    const halfnorm=Math.hypot(light[0],light[1],halfz)||1;
+    const highlight=clamp((nx*light[0]+ny*light[1]+nz*halfz)/halfnorm,0,1);
+    const spec=Math.pow(highlight,5+Math.round((1-grain)*28));
+    const rim=geometry.rims[i];
+    const maturity=clamp(age[i]/90,0,1);
+    const seedPhase=seeds[family-1]?.phase??0;
+    const original=i*4,p=i*3;
+    const originalR=baseRGBA[original],originalG=baseRGBA[original+1],
+      originalB=baseRGBA[original+2];
+    channels[0]=originalR;channels[1]=originalG;channels[2]=originalB;
+    if(mode==='opal'){
+      // Deposited layer thickness follows actual family phase, graph
+      // distance and maturation; none depend on external pixel noise.
+      const layers=film*(.76+.27*Math.sin(depth[i]*.24+seedPhase*TAU)
+        +.10*maturity);
+      const opticalPath=4*Math.PI*1.46*layers*
+        clamp(.26+.70*incidence,.08,1);
+      const fresnel=.08+.29*Math.pow(1-incidence,3);
+      const reflect=power*(.23+.47*rim+.20*(1-grain));
+      for(let c=0;c<3;c++){
+        const interference=.5+.5*Math.cos(opticalPath/waves[c]);
+        const spectral=(interference-.38)*190;
+        channels[c]=channels[c]*(1-.12*power)+
+          spectral*reflect+255*spec*power*(.15+.45*rim)+
+          26*fresnel*power;
+      }
+    }else if(mode==='prism'){
+      // Cheap lateral spectral refraction. Cauchy-like inverse-lambda²
+      // dispersion makes blue bend more than red; the sampled site must
+      // belong to this *same* living family to avoid color-family bleeding.
+      const shift=(1-grain)*power*85;
+      raw[0]=originalR;raw[1]=originalG;raw[2]=originalB;
+      for(let c=0;c<3;c++){
+        const delta=(indices[c]-1.518)*shift;
+        const refracted=refractedChannel(owner,baseRGBA,n,wrap,family,
+          x+nx*delta,y+ny*delta,c,raw[c]);
+        channels[c]=refracted*(.91+.13*incidence)+
+          (42*rim+85*spec)*power*(.30+c*.23);
+      }
+    }else if(mode==='quartz'){
+      const faceted=.83+.22*incidence+.1*maturity;
+      const shine=(.55*spec+.35*rim)*power*(1-grain*.65);
+      for(let c=0;c<3;c++)
+        channels[c]=channels[c]*(1+power*(faceted-1))+
+          195*shine;
+    }else if(mode==='frost'){
+      // High surface roughness = wide matte scattering, microscopic
+      // mineral distance banding and significantly reduced clear glints.
+      const distanceBand=.5+.5*Math.cos(depth[i]*.73+seedPhase*TAU);
+      const diff=.70+.29*incidence+.19*distanceBand+.08*maturity;
+      for(let c=0;c<3;c++)
+        channels[c]=channels[c]*(1+power*(diff-1))+
+          (16+25*rim)*power+(32*spec*power*(1-grain));
+    }else if(mode==='ghost'){
+      // No transparent pixels: glass-like transmission is composited over
+      // the chosen artwork background. Read-only tint from birth pigment.
+      const transmit=clamp(power*(.26+.34*(1-maturity)+.12*(1-incidence)),0,.86);
+      for(let c=0;c<3;c++)
+        channels[c]=channels[c]*(1-transmit)+back[c]*transmit+
+          (90*rim+75*spec)*power;
+    }
+    for(let c=0;c<3;c++)out[original+c]=clamp(Math.round(channels[c]),0,255);
+    out[original+3]=255;
+  }
+  return out;
+}
