@@ -135,3 +135,23 @@ test('older saved DNA without inclusion keys remains GPU-cheap and historically 
   assert.equal(old.config.crystalSkin,0);
   assert.equal(old.config.crystalInclusions,0);
 });
+
+test('mature mineral skins refresh at a low fixed cadence without new crystal births',()=>{
+  const world=new GrowthEngine(1410);
+  world.setConfig({crystalInterior:'opal',crystalSkin:.7,crystalInclusions:.8});
+  world.colony.setSettings({enabled:true,growth:0,erosion:0,strainEnabled:false});
+  world.seedCrystal(new Vector3());
+  while(world.colony.generation<5)world.step(1/60);
+  assert.equal(world.colony.population,1);
+  world.colony.changed=false;
+  while(world.colony.generation<6)world.step(1/60);
+  assert.equal(world.colony.changed,true,'a six-generation display refresh should mature old skins');
+  const other=new GrowthEngine(1410);
+  other.setConfig({crystalInterior:'off',crystalSkin:0,crystalInclusions:0});
+  other.colony.setSettings({enabled:true,growth:0,erosion:0,strainEnabled:false});
+  other.seedCrystal(new Vector3());
+  while(other.colony.generation<5)other.step(1/60);
+  other.colony.changed=false;
+  while(other.colony.generation<6)other.step(1/60);
+  assert.equal(other.colony.changed,false,'OFF mode does not schedule extra work');
+});
