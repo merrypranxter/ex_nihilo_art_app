@@ -134,3 +134,15 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
 .palette-swatch button:focus-visible,#palette-search:focus-visible{
   outline:2px solid #ff6bc9;outline-offset:2px
 }
+
+/* CRYSTAL PRESSURE WITCH — visible touch affordances; no overlay steals taps. */
+#pressure-quick.active{border-color:#a8ffbb;background:#1b3e37;color:#e6ffe9}
+#pressure-selection{color:#c5f9d8;overflow-wrap:anywhere}
+#pressure-stats{margin:0;align-self:center}
+[data-panel=colony] details.morph-advanced[open]{margin-top:15px}
+[data-panel=colony] details .choice-grid{margin:14px 0}
+[data-tool^="pressure-"].active{border-color:#afffae;background:#244740;color:#e9ffea}
+@media(max-width:500px){
+  .top-actions{gap:4px}
+  .top-actions .mini{padding:8px 7px;font-size:9px}
+}
