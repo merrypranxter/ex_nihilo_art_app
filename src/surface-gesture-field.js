@@ -101,7 +101,7 @@ export function nearestSurfaceMark(marks,u,v,reach=.055){
 // Each completed operation captures one compatible CA checkpoint, so Undo
 // restores growth consequences too, not just UI sliders or overlays.
 export class SurfaceGestureEditor{
-  constructor(surface){this.surface=surface;this.undoStack=[];this.redoStack=[];this.tx=null;}
+  constructor(surface){this.surface=surface;this.undoStack=[];this.redoStack=[];this.tx=null;this.selectedId=null;}
   get active(){return this.tx!==null;}
   historyState(){return {undo:this.undoStack.length,redo:this.redoStack.length};}
   changed(){
@@ -111,7 +111,8 @@ export class SurfaceGestureEditor{
     if(this.tx||!point([u,v]))return false;
     const before=this.surface.snapshot();
     const tx={kind,before,start:[u,v],last:[u,v],markId:null,
-      initialPoints:null,lens:null,seedOptions,palette,changed:false,hadMulti:false};
+      initialPoints:null,lens:null,seedOptions,palette,changed:false,hadMulti:false,
+      previousSelected:this.selectedId};
     this.tx=tx;
     if(kind==='seed'){
       tx.changed=!!this.surface.seedSymmetricAt(u,v,palette,seedOptions);
@@ -119,13 +120,14 @@ export class SurfaceGestureEditor{
       const mark=nearestSurfaceMark(this.surface.marks,u,v,hitRadius);
       if(!mark){this.tx=null;return false;}
       tx.markId=mark.id;tx.initialPoints=mark.points.map(p=>[...p]);
+      this.selectedId=mark.id;
     }else if(['attract','block','guide'].includes(kind)){
       if(this.surface.marks.length>=MAX_SURFACE_MARKS||
          this.surface.nextMarkId>1000000){this.tx=null;return false;}
       const id=this.surface.nextMarkId++;
       const mark=newSurfaceMark(id,kind,u,v,radius,strength);
       this.surface.marks.push(mark);
-      tx.markId=id;tx.changed=true;this.changed();
+      tx.markId=id;tx.changed=true;this.selectedId=id;this.changed();
     }else{this.tx=null;return false;}
     return true;
   }
@@ -197,20 +199,25 @@ export class SurfaceGestureEditor{
   }
   cancel(){
     if(!this.tx)return false;
-    const previous=this.tx.before;this.tx=null;
+    const previous=this.tx.before,selection=this.tx.previousSelected;
+    this.tx=null;this.selectedId=selection;
     this.surface.restore(previous);return true;
   }
   undo(wrap=false,options={}){
     if(this.tx||!this.undoStack.length)return false;
     const current=this.surface.snapshot();
     const before=this.undoStack.pop();this.redoStack.push(current);
-    this.surface.restore(before);return true;
+    this.surface.restore(before);
+    if(!this.surface.marks.some(m=>m.id===this.selectedId))this.selectedId=null;
+    return true;
   }
   redo(){
     if(this.tx||!this.redoStack.length)return false;
     const current=this.surface.snapshot();
     const next=this.redoStack.pop();this.undoStack.push(current);
-    this.surface.restore(next);return true;
+    this.surface.restore(next);
+    if(!this.surface.marks.some(m=>m.id===this.selectedId))this.selectedId=null;
+    return true;
   }
   atomicMutation(operation){
     if(this.tx||typeof operation!=='function')return false;
@@ -223,13 +230,23 @@ export class SurfaceGestureEditor{
     this.redoStack=[];
     return true;
   }
+  deleteSelected(wrap=false,options={}){
+    if(this.tx||!this.surface.marks.some(m=>m.id===this.selectedId))return false;
+    const id=this.selectedId;
+    this.atomicMutation(()=>{
+      this.surface.marks=this.surface.marks.filter(m=>m.id!==id);
+      this.surface.touchMarks();
+      this.surface.rebuildFrontier(wrap,options);
+    });
+    this.selectedId=null;return true;
+  }
   clear(){
     if(this.tx||!this.surface.marks.length)return false;
     this.undoStack.push(this.surface.snapshot());
     if(this.undoStack.length>6)this.undoStack.shift();
     this.redoStack=[];
-    this.surface.marks=[];this.changed();
+    this.surface.marks=[];this.selectedId=null;this.changed();
     return true;
   }
-  resetHistory(){this.tx=null;this.undoStack=[];this.redoStack=[];}
+  resetHistory(){this.tx=null;this.selectedId=null;this.undoStack=[];this.redoStack=[];}
 }
