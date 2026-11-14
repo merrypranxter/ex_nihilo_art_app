@@ -156,3 +156,66 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
   .masthead .top-actions .mini{width:100%;min-height:44px;white-space:nowrap;padding:8px 2px;font-size:9px}
   main{flex:1;height:auto;min-height:0}
 }
+
+/* 03K MOBILE STAGE RELIABILITY
+   A fixed 62px masthead from the old single-row UI collides with the new
+   five-action/two-row iPhone header. Let actual content determine its height.
+   Keep the canvas and controls INSIDE the visual viewport, including the
+   compact landscape Safari viewport.
+*/
+@media (max-width:600px) and (orientation:portrait){
+  #app{height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .masthead{
+    height:auto;min-height:0;max-height:none;
+    flex:0 0 auto;display:flex;flex-direction:column;
+    align-items:stretch;gap:7px;padding:9px 10px
+  }
+  .masthead .top-actions{
+    width:100%;display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));gap:4px
+  }
+  .masthead .top-actions .mini{
+    width:100%;min-height:44px;padding:8px 2px;
+    line-height:1.1;font-size:clamp(8px,2.1vw,10px);letter-spacing:0
+  }
+  main{flex:1 1 auto;height:auto;min-height:0;max-width:100%;display:flex;flex-direction:column}
+  .stage{height:49%;min-height:min(230px,39dvh);flex:0 0 auto}
+  .console{flex:1 1 auto;min-height:0;overflow-y:auto}
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:560px){
+  html,body,#app{height:100%;min-height:0;overflow:hidden}
+  #app{height:100dvh;display:flex;flex-direction:column}
+  .masthead{
+    height:auto;min-height:0;max-height:none;
+    flex:0 0 auto;display:flex;flex-direction:row;
+    align-items:center;justify-content:space-between;
+    padding:5px 10px;gap:8px
+  }
+  .masthead .star,.masthead .brand p{display:none}
+  .masthead h1{font-size:16px;letter-spacing:.11em;white-space:nowrap}
+  .masthead .top-actions{
+    width:auto;display:flex;flex-wrap:nowrap;
+    justify-content:flex-end;gap:4px
+  }
+  .masthead .top-actions .mini{
+    width:auto;min-height:39px;min-width:0;
+    padding:6px 9px;font-size:9px;line-height:1.2
+  }
+  main{
+    display:grid;grid-template-columns:minmax(0,1.3fr) minmax(275px,.87fr);
+    flex:1 1 auto;width:100%;height:auto;min-height:0;
+  }
+  .stage{height:auto;min-height:0;min-width:0}
+  .console{
+    height:auto;min-height:0;min-width:0;overflow-y:auto;
+    border-left:1px solid #a265c13f;border-top:0
+  }
+  .console-head{padding:10px 12px 8px}
+  .console-head p{display:none}
+  .panels{padding:11px 12px 22px}
+  .tab{padding:10px 8px;font-size:9px}
+}
+@media (pointer:coarse) and (orientation:portrait) and (max-height:490px){
+  .stage{height:38%;min-height:125px}
+  .masthead .top-actions .mini{min-height:39px}
+}
