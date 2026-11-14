@@ -96,9 +96,13 @@ const surfacePointerPositions=new Map();
 function surfaceTouchStatus(){
   const editor=surfaceGestureEditor,mode=engine.config.surfaceTouchMode;
   const count=engine.surface.marks.length;
+  const selected=engine.surface.marks.some(m=>m.id===editor.selectedId)?
+    editor.selectedId:null;
   $('surface-touch-status').textContent=(SURFACE_TOUCH_MODES[mode]||mode)+
     ' · '+count+'/20 PERSISTENT FIELD MARKS'+
-    (editor.active?' · EDITING #'+(editor.tx?.markId??'SEEDS'):'');
+    (editor.active?' · EDITING #'+(editor.tx?.markId??'SEEDS'):
+      selected!==null?' · SELECTED #'+selected:'');
+  $('surface-touch-delete').disabled=editor.active||selected===null;
   const history=editor.historyState();
   $('surface-touch-undo').disabled=!history.undo||editor.active;
   $('surface-touch-redo').disabled=!history.redo||editor.active;
@@ -127,7 +131,7 @@ function drawSurfaceGestureOverlay(){
     if(!pts.length)continue;
     const hue=colors[mark.kind]||'#ffffff';
     ctx.strokeStyle=hue;ctx.fillStyle=hue;
-    const chosen=surfaceGestureEditor.tx?.markId===mark.id;
+    const chosen=surfaceGestureEditor.selectedId===mark.id;
     ctx.lineWidth=Math.max(chosen?4:2,surfaceCanvas.width/320);
     ctx.globalAlpha=chosen?1:.80;
     ctx.setLineDash(mark.kind==='block'?[7,5]:[]);
@@ -2577,6 +2581,10 @@ $('surface-touch-undo').addEventListener('click',()=>{
 });
 $('surface-touch-redo').addEventListener('click',()=>{
   if(surfaceGestureEditor.redo())presentGestureChanges();
+});
+$('surface-touch-delete').addEventListener('click',()=>{
+  if(surfaceGestureEditor.deleteSelected(engine.config.surfaceWrap,
+      surfaceCompositionOptions()))presentGestureChanges();
 });
 $('surface-touch-clear').addEventListener('click',()=>{
   if(!engine.surface.marks.length)return;
