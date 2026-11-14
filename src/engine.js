@@ -7,14 +7,9 @@ import { formField, FORM_NAMES, FINISHES } from './art-direction.js';
 import { branchVector, growthRhythm, BRANCH_MODES, RHYTHM_MODES } from './branching.js';
 import { lineageSteering } from './filigree.js';
 import { FIBER_PROFILES } from './mineral-optics.js';
-
-export const PALETTES = {
-  acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
-  molten: ['#ffeb45', '#ff532b', '#ef38a7', '#45d9ff'],
-  biolume: ['#50ffee', '#51adff', '#7b4dff', '#ebffa8'],
-  candy: ['#ff499b', '#48e3ff', '#e8ff58', '#b46aff'],
-  ivory: ['#f6e9ff', '#b8d5eb', '#ffb8df', '#e6fbf0']
-};
+import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
+import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
+export { PALETTES } from './palettes.js';
 
 const WORLD = 8;
 const GRID = 34;
@@ -35,7 +30,8 @@ export class GrowthEngine {
       branchMode:'golden',branchAngle:56,branchTaper:.84,lineageColor:.65,
       rhythmMode:'beats',rhythmDepth:.62,rhythmRate:.55,
       branchOrdering:'family',branchPersistence:.78,filigreeContrast:.70,
-      fiberProfile:'needle',mineralStrength:.65,mineralHalfLife:18
+      fiberProfile:'needle',mineralStrength:.65,mineralHalfLife:18,
+      paletteStops:null,strokeRadius:.75,strokeStrength:1.15
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -55,6 +51,7 @@ export class GrowthEngine {
     this.cursor = 0;
     this.agents = [];
     this.nodes = [];
+    this.strokes=[];
     this.nodeUndo = [];
     this.nodeRedo = [];
     this.density = new Uint16Array(GRID * GRID * GRID);
@@ -145,6 +142,10 @@ export class GrowthEngine {
     candidate.filigreeContrast=clamp(safe(+candidate.filigreeContrast),0,1);
     candidate.mineralStrength=clamp(safe(+candidate.mineralStrength),0,1);
     candidate.mineralHalfLife=clamp(safe(+candidate.mineralHalfLife),3,120);
+    candidate.strokeRadius=clamp(safe(+candidate.strokeRadius),.2,1.8);
+    candidate.strokeStrength=clamp(safe(+candidate.strokeStrength),.1,3);
+    if(!isPaletteStops(candidate.paletteStops))throw new Error('Invalid custom palette stops');
+    candidate.paletteStops=candidate.paletteStops?.map(h=>h.toLowerCase())??null;
     if(!FIBER_PROFILES[candidate.fiberProfile])candidate.fiberProfile='legacy';
     if(!['global','family'].includes(candidate.branchOrdering))candidate.branchOrdering='global';
     if(!BRANCH_MODES[candidate.branchMode])candidate.branchMode='random';
@@ -158,14 +159,18 @@ export class GrowthEngine {
     if(this.agents.length>candidate.agents) this.agents.length=candidate.agents;
   }
 
+  currentPalette(){return activeStops(this.config);}
   getDNA() {
-    return {format:'ex-nihilo/dna-v1', experiment:'nerve-cathedral', seed:this.seed, config:{...this.config}, colony:{...this.colony.settings}, morphogenesis:{...this.morphogenesis.settings}};
+    return {format:'ex-nihilo/dna-v1',experiment:'nerve-cathedral',seed:this.seed,
+      config:{...this.config},colony:{...this.colony.settings},
+      morphogenesis:{...this.morphogenesis.settings},strokes:this.snapshotStrokes()};
   }
 
   loadDNA(dna) {
     if(dna?.format !== 'ex-nihilo/dna-v1' || dna?.experiment !== 'nerve-cathedral' || typeof dna.config !== 'object') {
       throw new Error('This is not Nerve Cathedral DNA.');
     }
+    if(dna.strokes!==undefined&&!validStrokes(dna.strokes))throw new Error('Invalid saved growth paths');
     // Historical DNA from before visual composition should remain unconstrained.
     const historicalForm=dna.config.form===undefined
       ?{...dna.config,form:'wild',formStrength:0,finish:'opal',glow:.6}
@@ -181,6 +186,7 @@ export class GrowthEngine {
       ?{...historicalAnatomy,fiberProfile:'legacy',mineralStrength:0,mineralHalfLife:18}
       :historicalAnatomy;
     this.setConfig(historicalOptics);
+    if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.colony)this.colony.setSettings(dna.colony);
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
@@ -259,6 +265,9 @@ export class GrowthEngine {
     // Artistic silhouette is an advective force, never a prebuilt path/mesh.
     const grammar=formField(pos,this.time,c);
     f.add(v(grammar.x,grammar.y,grammar.z));
+    // Finger-drawn world-space rails and deformations guide actual tip motion.
+    const strokeForce=strokeFieldAt(pos,this.strokes);
+    f.add(v(strokeForce.x,strokeForce.y,strokeForce.z));
     // Hand-authored field sources are persistent causes of future growth.
     for(const node of this.nodes){
       const delta=node.pos.clone().sub(pos);
@@ -282,7 +291,7 @@ export class GrowthEngine {
   }
 
   pickColor(agent) {
-    const colors=PALETTES[this.config.palette];
+    const colors=this.currentPalette();
     const oldHue=(.16*this.time+agent.identity*.6+agent.p.y*.04) % 1;
     const familyPart=this.config.branchOrdering==='family'
       ?(agent.familyPhase??agent.identity*Math.PI*2)/(Math.PI*2)*.18
@@ -436,6 +445,16 @@ export class GrowthEngine {
     }
   }
 
+  snapshotStrokes(){return this.strokes.map(s=>({id:s.id,kind:s.kind,radius:s.radius,
+    strength:s.strength,points:s.points.map(p=>[...p])}));}
+  restoreStrokes(strokes){this.strokes=strokes.map(s=>({id:s.id,kind:s.kind,radius:s.radius,
+    strength:s.strength,points:s.points.map(p=>[...p])}));}
+  snapshotField(){return {nodes:this.snapshotNodes(),strokes:this.snapshotStrokes()};}
+  restoreField(doc){
+    if(Array.isArray(doc)){this.restoreNodes(doc);return;}
+    this.restoreNodes(doc.nodes);
+    this.restoreStrokes(doc.strokes);
+  }
   snapshotNodes() {
     return this.nodes.map(n=>({
       id:n.id,type:n.type,pos:[n.pos.x,n.pos.y,n.pos.z],
@@ -449,7 +468,7 @@ export class GrowthEngine {
     }));
   }
   recordNodeEdit(){
-    this.nodeUndo.push(this.snapshotNodes());
+    this.nodeUndo.push(this.snapshotField());
     if(this.nodeUndo.length>25)this.nodeUndo.shift();
     this.nodeRedo=[];
   }
@@ -486,22 +505,48 @@ export class GrowthEngine {
   }
   undoNodes(){
     if(!this.nodeUndo.length)return false;
-    this.nodeRedo.push(this.snapshotNodes());
-    this.restoreNodes(this.nodeUndo.pop());
+    this.nodeRedo.push(this.snapshotField());
+    this.restoreField(this.nodeUndo.pop());
     return true;
   }
   redoNodes(){
     if(!this.nodeRedo.length)return false;
-    this.nodeUndo.push(this.snapshotNodes());
-    this.restoreNodes(this.nodeRedo.pop());
+    this.nodeUndo.push(this.snapshotField());
+    this.restoreField(this.nodeRedo.pop());
     return true;
   }
 
+  addStroke(kind,pos,{record=true}={}){
+    if(!['guide','push'].includes(kind))throw Error('Invalid stroke kind');
+    if(this.strokes.length>=MAX_STROKES)throw Error('Maximum of '+MAX_STROKES+' growth paths reached; erase one first.');
+    if(record)this.recordNodeEdit();
+    const stroke={id:Math.floor(this.random()*1e9),kind,
+      radius:this.config.strokeRadius,strength:this.config.strokeStrength,
+      points:[pos.toArray()]};
+    this.strokes.push(stroke);
+    return stroke;
+  }
+  appendStroke(stroke,pos){return appendStrokePoint(stroke,pos);}
+  nearestStroke(pos,maxDistance=.6){
+    let best=null,dist=maxDistance;
+    for(const item of this.strokes)for(const pt of item.points){
+      const d=Math.hypot(pos.x-pt[0],pos.y-pt[1],pos.z-pt[2]);
+      if(d<dist){dist=d;best=item;}
+    }
+    return best;
+  }
+  deleteStroke(id){
+    const target=this.strokes.find(s=>s.id===id);
+    if(!target)return false;
+    this.recordNodeEdit();
+    this.strokes=this.strokes.filter(s=>s.id!==id);
+    return true;
+  }
   feedAt(pos){
     this.nutrients.inject(pos);
   }
   seedCrystal(pos){
-    return this.colony.seedAt(pos,this.nutrients,PALETTES[this.config.palette],()=>this.random());
+    return this.colony.seedAt(pos,this.nutrients,this.currentPalette(),()=>this.random());
   }
 
   seedChemical(pos,radius=.53){
@@ -536,6 +581,7 @@ export class GrowthEngine {
       colony:this.colony.snapshot(),
       morphogenesis:this.morphogenesis.snapshot(),
       nodes:this.snapshotNodes(),
+      strokes:this.snapshotStrokes(),
       agents:this.agents.map(agentRecord)
     };
   }
@@ -579,6 +625,9 @@ export class GrowthEngine {
       !validArray(data.density,GRID**3,n=>Number.isInteger(n)&&n>=0&&n<=MAX_DENSITY)||
       !validArray(data.nutrients,GRID**3,n=>finite(n)&&n>=0&&n<=1)||
       !Array.isArray(data.nodes)||data.nodes.length>15||!data.nodes.every(node)||
+      (data.strokes!==undefined&&!validStrokes(data.strokes))||
+      (data.dna.strokes!==undefined&&!validStrokes(data.dna.strokes))||
+      (data.dna.config.paletteStops!==undefined&&!isPaletteStops(data.dna.config.paletteStops))||
       !Array.isArray(data.agents)||data.agents.length>360||!data.agents.every(agent)){
       throw new Error('Invalid, damaged, or unsupported Nerve Cathedral checkpoint.');
     }
@@ -624,6 +673,7 @@ export class GrowthEngine {
     if(isV3)this.morphogenesis.restore(data.morphogenesis);
     else this.morphogenesis.setSettings({enabled:false});
     this.restoreNodes(data.nodes);
+    this.restoreStrokes(data.strokes??[]);
     this.agents=data.agents.map(a=>({
       p:v(...a.p),prev:v(...a.prev),dir:v(...a.dir),
       traveled:a.traveled,age:a.age,life:a.life,identity:a.identity,
