@@ -106,6 +106,30 @@ test('redo is invalidated by a divergent new touch and clear is reversible',()=>
   assert.equal(ed.undo(),true);
   assert.deepEqual(s.snapshot(),previous);
 });
+test('NEW SURFACE SEED is an atomic undoable replacement including pre-reset RNG',()=>{
+  const s=setup(),editor=new SurfaceGestureEditor(s);
+  const before=s.snapshot();
+  editor.atomicMutation(()=>{
+    const next=(s.random()*4294967296)>>>0;
+    s.reset(next||1);
+    s.seedArrangement(16,'radial',colors,{wrap:false});
+  });
+  const after=s.snapshot();
+  assert.notDeepEqual(before,after);
+  assert.ok(s.population>=1);
+  assert.equal(editor.undo(),true);
+  assert.deepEqual(s.snapshot(),before);
+  assert.equal(editor.redo(),true);
+  assert.deepEqual(s.snapshot(),after);
+});
+test('unexpected failures inside atomic reset cannot corrupt the live surface',()=>{
+  const s=setup(),editor=new SurfaceGestureEditor(s),before=s.snapshot();
+  assert.throws(()=>editor.atomicMutation(()=>{
+    s.reset(77);throw Error('Simulated reseed failure');
+  }));
+  assert.deepEqual(s.snapshot(),before);
+  assert.deepEqual(editor.historyState(),{undo:0,redo:0});
+});
 test('restoring a surface mark checkpoint reproduces deterministic future growth',()=>{
   const a=setup(),ed=performStroke(a,'attract',[[.25,.35],[.75,.6]],.18);
   const checkpoint=a.snapshot(),b=new SurfaceGrowth(4,48);
