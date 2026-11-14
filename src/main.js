@@ -9,6 +9,8 @@ import {cinematicDimensions,cinematicFrameRect,paintCinematicFrame,
 import {renderSurfaceLoopFrame} from './surface-loop-renderer.js';
 import {SURFACE_CAMERA_MOVES,cameraPoseFromConfig,cameraGesturePose}
   from './surface-camera-choreography.js';
+import {CameraPathEditor,sampleCameraPath}
+  from './surface-camera-path.js';
 import {exportSurfaceGIF,exportSurfaceMP4} from './surface-loop-export.js';
 import {surfaceOpticsPixels} from './surface-optics.js';
 import {paintSurfaceMicrostructure} from './surface-microstructure.js';
@@ -82,6 +84,7 @@ orbit.enabled=false;
 orbit.update();
 
 const engine = new GrowthEngine();
+const surfaceCameraPathEditor=new CameraPathEditor(engine.config.surfaceCameraPath);
 const surfaceGestureEditor=new SurfaceGestureEditor(engine.surface);
 function surfaceCompositionOptions(){
   const c=engine.config;
@@ -103,7 +106,9 @@ let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
 let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
 let surfaceLoopPreview=false,surfaceLoopElapsed=0,surfaceLoopPriorPause=true;
 let surfaceLoopScrubbing=false,surfaceCameraTouchTool='off';
-let surfaceCameraPreviewDirty=true;
+let surfaceCameraPreviewDirty=true,surfaceCameraPathVisible=false;
+let surfaceCameraPathPointerId=null,surfaceCameraPathStartMs=0;
+let surfaceCameraPathDrawingLens=null,surfaceCameraPathDrawingGeometry=null;
 let surfaceCameraDrag=null;
 const surfaceCameraPointers=new Map();
 let surfaceLoopController=null,surfaceLoopBusy=false;
@@ -255,6 +260,7 @@ function drawSurface(force=false){
     surfaceContext.fillStyle=background;
     surfaceContext.fillRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
     surfaceContext.drawImage(surfaceLoopPreviewCanvas,dx,dy,dw,dh);
+    drawAuthoredCameraPathOverlay({edge,aspect,dims,dw,dh,dx,dy},pose);
     // Aim reticle lives ONLY in preview; finished GIFs/MP4s remain clean.
     if(engine.config.surfaceCameraMotion==='target'||
        surfaceCameraTouchTool==='pick'){
@@ -2793,6 +2799,18 @@ function updateSurfaceControls(){
   $('surface-camera-offset').value=Math.round(c.surfaceCameraOffset*360);
   $('surface-camera-offset-value').textContent=
     Math.round(c.surfaceCameraOffset*360)+'°';
+  $('surface-camera-path-mode').value=c.surfaceCameraPathMode;
+  $('surface-camera-path-timing').value=c.surfaceCameraPathTiming;
+  for(const [id,key] of [
+    ['surface-camera-path-smooth','surfaceCameraPathSmooth'],
+    ['surface-camera-path-pulse','surfaceCameraPathPulse']]){
+    $(id).value=Math.round(c[key]*100);
+    $(id+'-value').textContent=Math.round(c[key]*100)+'%';
+  }
+  $('surface-camera-path-zoom').value=Math.round(c.surfaceCameraPathZoom*100);
+  $('surface-camera-path-zoom-value').textContent=
+    c.surfaceCameraPathZoom.toFixed(2)+'×';
+  updateCameraPathStatus();
   $('surface-loop-guides').setAttribute('aria-pressed',String(c.surfaceLoopGuides));
   $('surface-loop-guides').classList.toggle('active',c.surfaceLoopGuides);
   $('surface-loop-guides').textContent=c.surfaceLoopGuides?
@@ -3050,6 +3068,7 @@ function stopSurfaceLoopPreview(){
   surfaceLoopScrubbing=false;surfaceCameraPreviewDirty=true;
   surfaceCameraTouchTool='off';
   surfaceCameraPointers.clear();surfaceCameraDrag=null;
+  cancelDrawnCameraPath();
   updateCameraTouchToolButtons();
   setPaused(surfaceLoopPriorPause);
   surfaceOpticsDirty=true;surfaceNeedsPresent=true;
