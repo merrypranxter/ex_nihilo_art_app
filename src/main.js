@@ -54,7 +54,7 @@ function refreshMorphSurface(now,force=false){
   lastMorphMesh=now;
   const raw=extractIsosurface(field,field.settings.iso,{
     stride:Number($('morph-mesh').value)||2,maxTriangles:14000,
-    palette:PALETTES[engine.config.palette]
+    palette:engine.currentPalette()
   });
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.BufferAttribute(raw.positions,3));
