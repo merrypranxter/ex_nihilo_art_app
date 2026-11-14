@@ -310,6 +310,11 @@ function showNodeSelection(){
     :'NO FIELD SOURCE SELECTED — TAP TO CREATE ONE';
   $('gesture-radius').disabled=!vortex;
   $('gesture-spin').disabled=!vortex;
+  $('gesture-strength').disabled=!node||vortex;
+  if(node){
+    $('gesture-strength').value=String(node.strength);
+    $('gesture-strength-value').textContent=node.strength.toFixed(2);
+  }
   if(vortex){
     $('gesture-radius').value=String(node.radius);
     $('gesture-radius-value').textContent=node.radius.toFixed(2);
@@ -582,11 +587,13 @@ window.addEventListener('blur',()=>{
   gestureMode='idle';
   gestureSuspended=false;
 });
-for(const [id,key] of [['gesture-radius','radius'],['gesture-spin','spin']]){
+for(const [id,key] of [
+  ['gesture-radius','radius'],['gesture-spin','spin'],['gesture-strength','strength']
+]){
   const input=$(id);
   input.addEventListener('input',()=>{
     const node=selectedNode();
-    if(!node||node.type!=='vortex')return;
+    if(!node||(key==='strength'?node.type==='vortex':node.type!=='vortex'))return;
     if(!sliderEdit){
       sliderEdit=new FieldGestureTransaction(engine);
       sliderEdit.begin({nodeId:node.id});
@@ -1085,9 +1092,25 @@ function fit(){
   camera.aspect=w/h;camera.updateProjectionMatrix();
   renderer.setSize(w,h,false);
 }
-new ResizeObserver(fit).observe(canvas);
-window.addEventListener('resize',fit);
+function handleStageResize(){
+  // Active inverse-projected world coordinates become invalid on resize.
+  // Cancel the draft instead of abruptly teleporting a source.
+  if(fingers.size||sliderEdit)cancelGesture();
+  fit();
+}
+new ResizeObserver(handleStageResize).observe(canvas);
+window.addEventListener('resize',handleStageResize);
 fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();updateBranchControls();applyArtistFinish();
+if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)setPaused(true);
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    cancelGesture();
+    fingers.clear();
+    gestureMode='idle';
+    gestureSuspended=false;
+    setPaused(true);
+  }
+});
 let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
