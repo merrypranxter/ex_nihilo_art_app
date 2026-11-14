@@ -167,3 +167,31 @@ test('historical DNA remains OFF and all 199 stored color palettes survive',()=>
   assert.equal(restored.config.crystalHeritageStrength,1);
   assert.equal(Object.keys(PALETTES).length,199);
 });
+
+test('directional inherited genes materially change the occupied cellular shape',()=>{
+  const a=createColony(0,true),b=createColony(0,false);
+  a.setSettings({ancestryInfluence:1});
+  b.setSettings({ancestryInfluence:1});
+  for(let i=0;i<8;i++){
+    a.update(food,palette,()=>.3);
+    b.update(food,palette,()=>.3);
+  }
+  assert.notDeepEqual(a.cells,b.cells,
+    'gene-based 3D birth bias must alter real future crystal cells, not only render geometry');
+  assert.ok(a.population>1&&b.population>1);
+});
+
+test('separate seeds establish distinct families while descendants keep their origin',()=>{
+  const c=new CrystalColony(16,8);
+  c.setSettings({enabled:true,growth:1,erosion:0,strainEnabled:false,
+    ancestryEnabled:true,ancestryMutation:0});
+  assert.ok(c.seedAt(point(-1.5,0,0),food,palette,()=>.1));
+  assert.ok(c.seedAt(point(1.5,0,0),food,palette,()=>.1));
+  const founders=Array.from(c.families).filter(x=>x!==0);
+  assert.deepEqual(founders.sort((a,b)=>a-b),[1,2]);
+  for(let i=0;i<2;i++)c.update(food,palette,()=>.1);
+  assert.ok(Array.from(c.families).includes(1));
+  assert.ok(Array.from(c.families).includes(2));
+  assert.ok(c.parentBirthIds.some(x=>x>0));
+  assert.ok(c.families.every(x=>x===0||x===1||x===2));
+});
