@@ -855,18 +855,54 @@ for(const [id,key] of [
   });
   input.addEventListener('pointercancel',cancelSliderEdit);
 }
+// Brush sliders alter the selected stamp (one undoable edit) or the defaults
+// for the next touch. No native iPhone slider is recreated while dragging.
+for(const [id,key,configKey] of [
+  ['pressure-radius','radius','pressureRadius'],
+  ['pressure-strength','strength','pressureStrength']
+]){
+  $(id).addEventListener('input',()=>{
+    const node=selectedPressure();
+    const value=Number($(id).value);
+    if(node){
+      if(!pressureSliderEdit){
+        pressureSliderEdit=new CrystalPressureTransaction(engine);
+        pressureSliderEdit.begin(node.mode,new THREE.Vector3(...node.center),{id:node.id});
+      }
+      pressureSliderEdit.mark[key]=value;
+    }else engine.setConfig({[configKey]:value});
+    syncPressures();
+  });
+  $(id).addEventListener('change',()=>{
+    if(pressureSliderEdit){
+      pressureSliderEdit.commit();
+      pressureSliderEdit=null;
+    }
+    syncPressures();
+  });
+  $(id).addEventListener('pointercancel',cancelPressureSliderEdit);
+}
+$('clear-pressures').addEventListener('click',()=>{
+  if(!engine.pressures.length)return;
+  if(!window.confirm('Clear the crystal pressure marks? Existing grown crystals remain. This edit is undoable.'))return;
+  cancelGesture();
+  engine.recordNodeEdit();
+  engine.pressures=[];
+  selectedPressureId=null;
+  syncPressures();
+});
 $('undo').addEventListener('click',()=>{
   if(fingers.size)cancelGesture();
-  cancelSliderEdit();
+  cancelSliderEdit();cancelPressureSliderEdit();
   engine.undoNodes();
-  syncStrokes();
+  syncStrokes();syncPressures();
   refreshGestureView();
 });
 $('redo').addEventListener('click',()=>{
   if(fingers.size)cancelGesture();
-  cancelSliderEdit();
+  cancelSliderEdit();cancelPressureSliderEdit();
   engine.redoNodes();
-  syncStrokes();
+  syncStrokes();syncPressures();
   refreshGestureView();
 });
 $('clear-strokes').addEventListener('click',()=>{
@@ -899,7 +935,7 @@ $('clear-nodes').addEventListener('click',()=>{
 window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(fingers.size)cancelGesture();
-    cancelSliderEdit();
+    cancelSliderEdit();cancelPressureSliderEdit();
     return;
   }
   if(e.target instanceof HTMLElement&&
@@ -907,9 +943,10 @@ window.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){
     e.preventDefault();
     cancelGesture();
+    cancelPressureSliderEdit();
     if(e.shiftKey)engine.redoNodes();
     else engine.undoNodes();
-    syncStrokes();
+    syncStrokes();syncPressures();
     refreshGestureView();
   }else if(!e.ctrlKey&&!e.metaKey&&!e.altKey){
     if(e.key.toLowerCase()==='s')setTool('sculpt');
@@ -1315,7 +1352,7 @@ function updateControlsFromDNA(){
   updateArtistControls();
   updateBranchControls();
   updateStrokeControls();
-  syncStrokes();
+  syncStrokes();syncPressures();
   applyArtistFinish();
   requestFiligreeRefresh();
 }
@@ -1346,7 +1383,7 @@ $('new').addEventListener('click',()=>{
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
   if(engine.colony.settings.enabled)engine.seedCrystal(new THREE.Vector3());
   if(engine.morphogenesis.settings.enabled)engine.seedChemical(new THREE.Vector3(),.72);
-  syncNodes();syncStrokes();syncCrystals();refreshMorphSurface(performance.now(),true);setPaused(false);
+  syncNodes();syncStrokes();syncPressures();syncCrystals();refreshMorphSurface(performance.now(),true);setPaused(false);
 });
 $('dna-save').addEventListener('click',async()=>{
   const text=JSON.stringify(engine.getDNA(),null,2);
@@ -1454,14 +1491,14 @@ function fit(){
 function handleStageResize(){
   // Active inverse-projected world coordinates become invalid on resize.
   // Cancel the draft instead of abruptly teleporting a source.
-  if(fingers.size||sliderEdit)cancelGesture();
+  if(fingers.size||sliderEdit||pressureSliderEdit)cancelGesture();
   fit();
 }
 new ResizeObserver(handleStageResize).observe(canvas);
 window.addEventListener('resize',handleStageResize);
 renderPaletteOptions();
 renderPaletteStops();
-updateStrokeControls();syncStrokes();
+updateStrokeControls();syncStrokes();syncPressures();
 fit();readControls();updateCrystalControls();updateMorphControls();updateStructuralControls();updateArtistControls();updateBranchControls();applyArtistFinish();
 if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)setPaused(true);
 document.addEventListener('visibilitychange',()=>{
@@ -1477,7 +1514,7 @@ let last=performance.now(),accumulator=0,lastStatus=0;
 function frame(now){
   requestAnimationFrame(frame);
   let elapsed=Math.min((now-last)/1000,.1);last=now;
-  if(!paused&&!gestureSuspended&&!sliderEdit){
+  if(!paused&&!gestureSuspended&&!sliderEdit&&!pressureSliderEdit){
     accumulator+=elapsed;
     const fixed=1/60;
     let steps=0;
@@ -1509,6 +1546,9 @@ function frame(now){
   for(const node of nodeViews.values()){
     const ring=node.children.find(child=>child.userData.reachRing);
     if(ring)ring.quaternion.copy(camera.quaternion);
+  }
+  for(const item of pressureViews.values()){
+    item.ring.quaternion.copy(camera.quaternion);
   }
   renderer.render(scene,camera);
   if(now-lastStatus>600){
