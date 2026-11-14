@@ -68,6 +68,17 @@
 - [ ] Real iPhone visual inspection and tuning, including default growth density, composition and quality-performance tradeoffs.
 - [ ] More substantial morphology-based growth control, selective coloring by material age, and improved low-cost glow treatment.
 
+## Phase 03C — Phyllotactic branch choreography
+
+- [x] Golden-angle divergence verified numerically using Wolfram Language (137.507764°) and implemented as daughter orientation, not a prebuilt object.
+- [x] Three structured branch arrangement modes plus original organic-scatter physics.
+- [x] Daughter angle, hereditary taper, coherent/staggered/quasiperiodic growth-speed rhythms.
+- [x] Chromatic family coherence based on ancestry, with existing material colors preserved.
+- [x] Branch serial and agent generation persisted through checkpoints; old DNA and worlds retain their prior physics.
+- [x] Headless exact replay, bounded rates, numerical-angle and non-destructive control tests.
+- [ ] Production Vite build and iPhone Safari runtime verification.
+- [ ] More detailed growth-density and optical presentation tuning based on actual previews.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
