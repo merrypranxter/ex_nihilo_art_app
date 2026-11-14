@@ -515,7 +515,7 @@ export class GrowthEngine {
       ?{...data.dna.config,form:'wild',formStrength:0,glow:.6,finish:'opal'}:data.dna.config;
     const legacyGrowth=legacyForm.branchMode===undefined
       ?{...legacyForm,branchMode:'random',branchTaper:1,branchAngle:56,
-        rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55}
+        rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55,lineageColor:0}
       :legacyForm;
     this.setConfig(legacyGrowth);
     this.reset(data.dna.seed);
