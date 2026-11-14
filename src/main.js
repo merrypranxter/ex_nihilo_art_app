@@ -425,6 +425,155 @@ function surfaceNormalizedPoint(e){
 }
 // 04H Camera Witch: camera touch cannot reach a real mineral owner cell.
 // These coordinates invert only the PREVIEW lens; no growth brush is invoked.
+// Path authoring reads the SAME inverse crop as Target Dive. A draft path
+// exists only in the camera-document editor until pointerup succeeds.
+function updateCameraPathStatus(note=''){
+  const editor=surfaceCameraPathEditor,stored=editor.path;
+  const h=editor.history(),active=!!editor.draft;
+  $('surface-camera-path-undo').disabled=active||!h.undo;
+  $('surface-camera-path-redo').disabled=active||!h.redo;
+  $('surface-camera-path-reverse').disabled=active||!stored;
+  $('surface-camera-path-clear').disabled=active||!stored;
+  $('surface-camera-path-status').textContent=note||
+    (active?'DRAWING · '+editor.draft.points.length+'/72 ANCHORS · RELEASE TO SAVE':
+    stored?'PATH #'+stored.id+' · '+stored.points.length+
+      ' ANCHORS · '+h.undo+' UNDO / '+h.redo+' REDO':
+    'NO DRAWN PATH · Tap DRAW and sweep across the mineral artwork.');
+  $('surface-camera-path-show').setAttribute('aria-pressed',
+    String(surfaceCameraPathVisible));
+  $('surface-camera-path-show').classList.toggle('active',surfaceCameraPathVisible);
+  $('surface-camera-path-show').textContent=surfaceCameraPathVisible?
+    '◉ SHOW PATH: ON':'◇ SHOW PATH';
+}
+function applyCameraPathDocument(selectDrawn=true){
+  const document=surfaceCameraPathEditor.path;
+  if(selectDrawn)$('surface-camera-motion').value=document?'drawn':'still';
+  engine.setConfig({
+    surfaceCameraPath:document,
+    surfaceCameraMotion:$('surface-camera-motion').value
+  });
+  surfaceCameraPreviewDirty=true;
+  updateCameraPathStatus();
+  if(surfaceLoopPreview)drawSurface();
+}
+function cancelDrawnCameraPath(){
+  if(!surfaceCameraPathEditor.draft)return false;
+  surfaceCameraPathEditor.cancel();
+  surfaceCameraPathPointerId=null;surfaceCameraPathDrawingLens=null;
+  surfaceCameraPathDrawingGeometry=null;
+  surfaceCameraPreviewDirty=true;
+  updateCameraPathStatus('DRAW CANCELED · Previously saved camera route preserved.');
+  if(surfaceLoopPreview)drawSurface();
+  return true;
+}
+function cameraPathSourceAtPointer(e,geometry,lens){
+  const bounds=surfaceCanvas.getBoundingClientRect();
+  if(!bounds.width||!bounds.height)return null;
+  const px=(e.clientX-bounds.left)*surfaceCanvas.width/bounds.width;
+  const py=(e.clientY-bounds.top)*surfaceCanvas.height/bounds.height;
+  const u=(px-geometry.dx)/geometry.dw,v=(py-geometry.dy)/geometry.dh;
+  return pickCinematicSource(u,v,geometry.edge,geometry.dims.width,
+    geometry.dims.height,{framing:engine.config.surfaceLoopFraming,...lens});
+}
+function drawAuthoredCameraPathOverlay(g,pose){
+  if(!surfaceCameraPathVisible&&surfaceCameraTouchTool!=='draw')return;
+  const editor=surfaceCameraPathEditor;
+  const path=editor.draft?{points:editor.draft.points}:editor.path;
+  if(!path||path.points.length<1)return;
+  const ctx=surfaceContext;
+  const view=cinematicFrameRect(g.edge,g.dims.width,g.dims.height,{
+    framing:engine.config.surfaceLoopFraming,...pose});
+  const screen=q=>[
+    g.dx+(view.dx+(q[0]*g.edge-view.sx)/view.sw*view.dw)/g.dims.width*g.dw,
+    g.dy+(view.dy+(q[1]*g.edge-view.sy)/view.sh*view.dh)/g.dims.height*g.dh
+  ];
+  const points=editor.draft?path.points:
+    Array.from({length:130},(_,i)=>sampleCameraPath(path,
+      i/129*Math.PI*2,{
+        mode:engine.config.surfaceCameraPathMode,
+        timing:engine.config.surfaceCameraPathTiming,
+        smooth:engine.config.surfaceCameraPathSmooth
+      }));
+  ctx.save();
+  ctx.beginPath();ctx.rect(g.dx,g.dy,g.dw,g.dh);ctx.clip();
+  ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.lineWidth=Math.max(2.3,surfaceCanvas.width/280);
+  ctx.strokeStyle=editor.draft?'#eeff75':'#ff74df';
+  ctx.shadowColor='#6c22c7';ctx.shadowBlur=Math.max(3,surfaceCanvas.width/140);
+  const first=screen(points[0]);
+  ctx.beginPath();ctx.moveTo(first[0],first[1]);
+  for(let i=1;i<points.length;i++){
+    const p=screen(points[i]);ctx.lineTo(p[0],p[1]);
+  }
+  ctx.stroke();ctx.shadowBlur=0;
+  ctx.fillStyle='#80ffe5';
+  ctx.beginPath();ctx.arc(first[0],first[1],Math.max(4,surfaceCanvas.width/200),
+    0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ff8ba9';
+  const end=screen(points.at(-1));ctx.beginPath();
+  ctx.arc(end[0],end[1],Math.max(3,surfaceCanvas.width/250),
+    0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+function handleCameraPathPointerDown(e){
+  if(surfaceCameraPathEditor.draft){
+    // A second finger is a cancellation, NEVER an accidental stroke.
+    cancelDrawnCameraPath();
+    return true;
+  }
+  const g=cinematicPreviewGeometry();
+  const lens=cameraPoseFromConfig(currentCameraLoopPhase(),engine.config);
+  const at=cameraPathSourceAtPointer(e,g,lens);
+  if(!at){
+    updateCameraPathStatus('OUTSIDE MINERAL · Touch inside the actual artwork, not a background bar.');
+    return true;
+  }
+  if(!surfaceCameraPathEditor.begin(at.x,at.y,performance.now()))return true;
+  surfaceCameraPathPointerId=e.pointerId;
+  surfaceCameraPathStartMs=performance.now();
+  surfaceCameraPathDrawingGeometry=g;
+  surfaceCameraPathDrawingLens=lens;
+  try{surfaceCanvas.setPointerCapture(e.pointerId);}catch{/* pointercancel fallback */}
+  surfaceCameraPreviewDirty=true;
+  updateCameraPathStatus();
+  if(surfaceLoopPreview)drawSurface();
+  return true;
+}
+function handleCameraPathPointerMove(e){
+  if(surfaceCameraPathPointerId!==e.pointerId)return false;
+  e.preventDefault();
+  const at=cameraPathSourceAtPointer(e,
+    surfaceCameraPathDrawingGeometry,surfaceCameraPathDrawingLens);
+  if(at){
+    const changed=surfaceCameraPathEditor.append(at.x,at.y,
+      performance.now()-surfaceCameraPathStartMs);
+    if(changed){
+      surfaceCameraPreviewDirty=true;
+      if(performance.now()-lastSurfaceVisualPaint>65)drawSurface();
+      updateCameraPathStatus();
+    }
+  }
+  return true;
+}
+function handleCameraPathPointerEnd(e){
+  if(surfaceCameraPathPointerId!==e.pointerId)return false;
+  surfaceCameraPathPointerId=null;
+  surfaceCameraPathDrawingLens=null;surfaceCameraPathDrawingGeometry=null;
+  const committed=surfaceCameraPathEditor.commit();
+  if(committed){
+    surfaceCameraPathVisible=true;
+    surfaceCameraTouchTool='off';
+    updateCameraTouchToolButtons();
+    applyCameraPathDocument();
+    updateCameraPathStatus('PATH SAVED · #'+surfaceCameraPathEditor.path.id+
+      ' · '+surfaceCameraPathEditor.path.points.length+
+      ' ANCHORS · Press RESUME for the cinematic journey.');
+  }else{
+    updateCameraPathStatus('DRAW TOO SHORT · At least two separated points are needed. Original path kept.');
+    surfaceCameraPreviewDirty=true;if(surfaceLoopPreview)drawSurface();
+  }
+  return true;
+}
 function previewCameraPointer(e){
   const bounds=surfaceCanvas.getBoundingClientRect();
   if(!bounds.width||!bounds.height)return null;
