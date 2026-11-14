@@ -7,6 +7,7 @@ import { formField, FORM_NAMES, FINISHES } from './art-direction.js';
 import { branchVector, growthRhythm, BRANCH_MODES, RHYTHM_MODES } from './branching.js';
 import { lineageSteering } from './filigree.js';
 import { FIBER_PROFILES } from './mineral-optics.js';
+import { CRYSTAL_PROFILES, CRYSTAL_LENSES } from './crystal-optics.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -33,7 +34,9 @@ export class GrowthEngine {
       branchOrdering:'family',branchPersistence:.78,filigreeContrast:.70,
       fiberProfile:'needle',mineralStrength:.65,mineralHalfLife:18,
       paletteStops:null,strokeRadius:.75,strokeStrength:1.15,
-      pressureRadius:.85,pressureStrength:1.2
+      pressureRadius:.85,pressureStrength:1.2,
+      crystalShape:'quartz',crystalLens:'prism',
+      crystalRelief:.62,crystalGlints:.63
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -149,6 +152,10 @@ export class GrowthEngine {
     candidate.strokeStrength=clamp(safe(+candidate.strokeStrength),.1,3);
     candidate.pressureRadius=clamp(safe(+candidate.pressureRadius),.25,2.1);
     candidate.pressureStrength=clamp(safe(+candidate.pressureStrength),.1,2.4);
+    candidate.crystalRelief=clamp(safe(+candidate.crystalRelief),0,1);
+    candidate.crystalGlints=clamp(safe(+candidate.crystalGlints),0,1);
+    if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
+    if(!CRYSTAL_LENSES[candidate.crystalLens])candidate.crystalLens='inherit';
     if(!isPaletteStops(candidate.paletteStops))throw new Error('Invalid custom palette stops');
     candidate.paletteStops=candidate.paletteStops?.map(h=>h.toLowerCase())??null;
     if(!FIBER_PROFILES[candidate.fiberProfile])candidate.fiberProfile='legacy';
@@ -192,7 +199,12 @@ export class GrowthEngine {
     const historicalOptics=historicalAnatomy.fiberProfile===undefined
       ?{...historicalAnatomy,fiberProfile:'legacy',mineralStrength:0,mineralHalfLife:18}
       :historicalAnatomy;
-    this.setConfig(historicalOptics);
+    // Historical DNA cannot silently replace an artist's cell geometry.
+    const historicalCrystalOptics=historicalOptics.crystalShape===undefined
+      ?{...historicalOptics,crystalShape:'octa',crystalLens:'inherit',
+        crystalRelief:0,crystalGlints:0}
+      :historicalOptics;
+    this.setConfig(historicalCrystalOptics);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings(
@@ -702,7 +714,11 @@ export class GrowthEngine {
     const legacyOptics=legacyAnatomy.fiberProfile===undefined
       ?{...legacyAnatomy,fiberProfile:'legacy',mineralStrength:0,mineralHalfLife:18}
       :legacyAnatomy;
-    this.setConfig(legacyOptics);
+    const historicalCrystalOptics=legacyOptics.crystalShape===undefined
+      ?{...legacyOptics,crystalShape:'octa',crystalLens:'inherit',
+        crystalRelief:0,crystalGlints:0}
+      :legacyOptics;
+    this.setConfig(historicalCrystalOptics);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
