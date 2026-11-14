@@ -2635,8 +2635,26 @@ function readSurfaceOpticsControls(){
 }
 for(const id of ['surface-optics-mode','surface-optics-loop'])
   $(id).addEventListener('change',readSurfaceOpticsControls);
-for(const [id] of surfaceOpticsControls)
-  $(id).addEventListener('input',readSurfaceOpticsControls);
+for(const [id] of surfaceOpticsControls){
+  // 81-wavelength LUT rebuild is deliberately COMMIT-only on expensive
+  // film parameters, avoiding long iPhone stalls for each slider pixel.
+  const costly=['surface-optics-thickness','surface-film-index',
+    'surface-substrate-index','surface-polarization'].includes(id);
+  $(id).addEventListener('input',()=>{
+    if(costly&&engine.config.surfaceOpticsMode==='spectral'){
+      const value=Number($(id).value);
+      $(id+'-value').textContent=
+        id==='surface-optics-thickness'?value+' nm':
+        id==='surface-polarization'?value+'%':(value/100).toFixed(2);
+      return;
+    }
+    readSurfaceOpticsControls();
+  });
+  if(costly)$(id).addEventListener('change',()=>{
+    if(engine.config.surfaceOpticsMode==='spectral')
+      readSurfaceOpticsControls();
+  });
+}
 function readMicrostructureControls(){
   engine.setConfig({
     surfaceMicroMode:$('surface-micro-mode').value,
