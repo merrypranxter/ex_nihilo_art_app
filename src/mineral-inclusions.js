@@ -22,7 +22,7 @@ export const INTERIOR_STYLES=Object.freeze({
  * interior lattice positions, or immature crystals can spawn false inclusions.
  */
 export function mineralInclusionRecipe(cell,options={}){
-  const style=INTERIOR_STYLES[options.style] ? options.style : 'off';
+  const style=Object.hasOwn(INTERIOR_STYLES,options.style) ? options.style : 'off';
   const density=clamp(Number(options.density)||0,0,1);
   const skin=clamp(Number(options.skin)||0,0,1);
   const surface=cell.surface;
