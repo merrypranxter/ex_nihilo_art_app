@@ -45,6 +45,17 @@ test('mineralization makes actual cracks and then permanent missing cells on fut
   assert.ok(c.seedAt(V(),food,palette,()=>.15));
   const i=c.cells.findIndex(Boolean);
   const p=c.worldPos(...c.decode(i));
+  // A viable crystal body: strain can fracture its interior without
+  // annihilating an isolated seed before the organism gets to grow.
+  const [cx,cy,cz]=c.decode(i);
+  for(const [dx,dy,dz] of [
+    [1,0,0],[-1,0,0],[0,1,0],[0,-1,0],
+    [0,0,1],[0,0,-1],[1,1,0],[1,0,1],[0,1,1],
+    [-1,-1,0],[0,-1,-1]
+  ]){
+    const pos=c.worldPos(cx+dx,cy+dy,cz+dz);
+    assert.ok(c.seedAt(pos,food,palette,()=>.15));
+  }
   const mark={...stress(2.4,.45),center:[p.x,p.y,p.z]};
   let cracked=false;
   for(let k=0;k<18;k++){
@@ -55,7 +66,7 @@ test('mineralization makes actual cracks and then permanent missing cells on fut
   assert.ok(cracked,'cracks must emerge before shattering');
   assert.equal(c.damage[i],2);
   assert.equal(c.cells[i],0);
-  assert.equal(c.population,0);
+  assert.ok(c.population>=8,'protected living crystal nucleus remains');
   assert.equal(c.seedAt(p,food,palette,()=>.15),false,
     'fracture scar must block automatic re-growth at the split');
 });
