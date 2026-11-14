@@ -118,7 +118,10 @@ test('full GrowthEngine checkpoint includes 2D history and restores identical fu
   copy.restoreCheckpoint(checkpoint);
   assert.deepEqual(copy.getCheckpoint(),checkpoint);
   for(let i=0;i<10;i++){
-    w.surface.advance(w.currentPalette(),w.config);
+    w.surface.advance(w.currentPalette(),{
+      morphology:w.config.surfaceMorphology,wrap:w.config.surfaceWrap,
+      growth:w.config.surfaceGrowth,coverage:w.config.surfaceCoverage
+    });
     copy.surface.advance(copy.currentPalette(),{
       morphology:copy.config.surfaceMorphology,wrap:copy.config.surfaceWrap,
       growth:copy.config.surfaceGrowth,coverage:copy.config.surfaceCoverage
@@ -153,7 +156,7 @@ test('switching growth domains does not reset or mutate 3D organism state',()=>{
   assert.deepEqual(w.segmentCount,before.segmentCount);
 });
 
-test('DOM exposes separate surface canvas, independent reseed and PNG export',()=>{
+test('DOM exposes separate surface canvas, independent reseed and PNG export',async()=>{
   // We deliberately never create a second Three.js scene or automatically
   // route OBJ/3D touch edits onto the new 2D canvas.
   const {readFileSync}=await import('node:fs');
