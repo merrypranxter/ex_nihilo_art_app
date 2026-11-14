@@ -35,6 +35,8 @@ export function loopPlan({seconds=3,fps=12,size=512,
   const {width,height}=cinematicDimensions(size,aspect);
   const pixelFrames=width*height*frames;
   // Prevent runaway iPhone GPU/CPU frame allocation before rendering starts.
+  if(format==='gif'&&size>1024)
+    throw Error('GIF is capped at a 1024px long edge. Use MP4 for full-HD frames.');
   if(format==='gif'&&pixelFrames>50_000_000)
     throw Error('That GIF exceeds the mobile pixel-frame budget. Try 512px, 12fps, or a shorter loop.');
   if(format==='mp4'&&pixelFrames>200_000_000)
