@@ -37,7 +37,8 @@ export function strainSourceAt(pos,marks){
  * 0=pristine, 1=crack, 2=permanent fracture scar (void). The crack threshold
  * is a fraction of the configurable break point.
  *
- * Newly born cells take part in this tick only when present at tick start.
+ * The colony first commits its CA births, then runs this synchronous
+ * stress update. Neighbor transport always reads the previous strain buffer.
  * No stress is transmitted through void or diagonal corners.
  */
 export function tickCrystalStrain({
