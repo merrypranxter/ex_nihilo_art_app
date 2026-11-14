@@ -119,7 +119,10 @@
               <summary>🎞 LOOP FORGE · CINEMATIC COMPOSITION</summary>
               <div class="morph-advanced-grid">
                 <p class="help first">Capture a frozen mineral specimen as a mathematically looping animation. The growth simulation, Gesture Witch marks, pigments and 3D organism do not change. GIF frames are rendered OFFLINE and loop perfectly; MP4 uses realtime browser recording and may drop frames on slow phones.</p>
-                <div class="control-grid">
+                <details class="morph-advanced" open>
+                  <summary>OUTPUT · FORMAT / LENGTH / FPS / QUALITY</summary>
+                  <div class="morph-advanced-grid">
+                    <div class="control-grid">
                   <label class="control select-control"><span>Export format</span>
                     <select id="surface-loop-format">
                       <option value="gif">GIF · EXACT FRAME PHASES / 256 COLORS</option>
@@ -143,8 +146,8 @@
                   </label>
                   <label class="control select-control"><span>Output long edge (not square size)</span>
                     <select id="surface-loop-size">
-                      <option value="512" selected>512 × 512 · IPHONE FRIENDLY</option>
-                      <option value="768">768 × 768 · MORE DETAIL</option>
+                      <option value="512" selected>512px LONG EDGE · FAST</option>
+                      <option value="768">768px LONG EDGE · MORE DETAIL</option>
                       <option value="1024">1024 px · HD-ish GIF / MOBILE MP4</option>
                       <option value="1920">1920 px · FULL-HD MP4 ONLY</option>
                     </select>
@@ -162,6 +165,20 @@
                       <option value="boomerang">BOOMERANG · FORWARD AND BACK</option>
                     </select>
                   </label>
+                    <label class="control select-control"><span>MP4 requested bitrate (browser-dependent)</span>
+                    <select id="surface-loop-bitrate">
+                      <option value="balanced">BALANCED · 5 Mbps</option>
+                      <option value="high" selected>HIGH · 12 Mbps</option>
+                      <option value="maximum">MAXIMUM · 20 Mbps</option>
+                    </select>
+                  </label>
+                    </div>
+                  </div>
+                </details>
+                <details class="morph-advanced">
+                  <summary>CAMERA · ASPECT / CROP / PAN / ZOOM</summary>
+                  <div class="morph-advanced-grid">
+                    <div class="control-grid">
                   <label class="control select-control"><span>Composition / aspect ratio</span>
                     <select id="surface-loop-aspect">
                       <option value="1:1">1:1 · SQUARE ORIGINAL</option>
@@ -186,14 +203,9 @@
                   <label class="control"><span>Framing zoom <output id="surface-loop-zoom-value">1.00×</output></span>
                     <input id="surface-loop-zoom" type="range" min="100" max="250" step="5" value="100"/>
                   </label>
-                  <label class="control select-control"><span>MP4 requested bitrate (browser-dependent)</span>
-                    <select id="surface-loop-bitrate">
-                      <option value="balanced">BALANCED · 5 Mbps</option>
-                      <option value="high" selected>HIGH · 12 Mbps</option>
-                      <option value="maximum">MAXIMUM · 20 Mbps</option>
-                    </select>
-                  </label>
-                </div>
+                    </div>
+                  </div>
+                </details>
                 <div class="small-actions ecology-actions">
                   <button type="button" class="choice active" id="surface-loop-guides" aria-pressed="true">▣ SOCIAL SAFE AREA: ON</button>
                   <button type="button" class="choice" id="surface-loop-preview" aria-pressed="false">▷ PREVIEW LOOP</button>
