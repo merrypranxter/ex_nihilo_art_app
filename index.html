@@ -206,6 +206,56 @@
                     </div>
                   </div>
                 </details>
+                <details class="morph-advanced" id="surface-camera-choreography" open>
+                  <summary>✧ CHOREOGRAPHY · MAKE THE CAMERA DANCE</summary>
+                  <div class="morph-advanced-grid">
+                    <p class="help first">Camera paths are genuine periodic mathematical motion of the artwork's CROP, independent of living mineral births. Orbit, scan, dive and sweep without moving the crystals. Use TARGET DIVE to fly toward a chosen detail. ALL motions return to their first framing in one cycle. FROZEN CAMERA reproduces 04G exactly.</p>
+                    <div class="control-grid">
+                      <label class="control select-control"><span>Camera choreography</span>
+                        <select id="surface-camera-motion">
+                          <option value="still">FROZEN CAMERA · ORIGINAL</option>
+                          <option value="orbit">ORBITAL DRIFT · CIRCULAR SURVEY</option>
+                          <option value="figure8">FIGURE EIGHT · LISSAJOUS SCAN</option>
+                          <option value="microscope">MICROSCOPE DIVE · APPROACH / RETREAT</option>
+                          <option value="pendulum">PENDULUM SURVEY · SWEEPING PAN</option>
+                          <option value="target">TARGET DIVE · VISIT A SELECTED DETAIL</option>
+                        </select>
+                      </label>
+                      <label class="control"><span>Travel distance <output id="surface-camera-travel-value">60%</output></span>
+                        <input id="surface-camera-travel" type="range" min="0" max="100" step="5" value="60"/>
+                      </label>
+                      <label class="control"><span>Zoom / dive depth <output id="surface-camera-dive-value">55%</output></span>
+                        <input id="surface-camera-dive" type="range" min="0" max="100" step="5" value="55"/>
+                      </label>
+                      <label class="control select-control"><span>Complete camera orbits per loop</span>
+                        <select id="surface-camera-cycles">
+                          <option value="1">1 · SLOW, LARGE GESTURE</option>
+                          <option value="2">2 · DOUBLE ORBIT</option>
+                          <option value="3">3 · TRIPLE ORBIT</option>
+                        </select>
+                      </label>
+                      <label class="control"><span>Starting phase <output id="surface-camera-offset-value">0°</output></span>
+                        <input id="surface-camera-offset" type="range" min="0" max="360" step="5" value="0"/>
+                      </label>
+                      <label class="control"><span>Dive target X <output id="surface-camera-target-x-value">50%</output></span>
+                        <input id="surface-camera-target-x" type="range" min="0" max="100" step="1" value="50"/>
+                      </label>
+                      <label class="control"><span>Dive target Y <output id="surface-camera-target-y-value">50%</output></span>
+                        <input id="surface-camera-target-y" type="range" min="0" max="100" step="1" value="50"/>
+                      </label>
+                      <label class="control"><span>Scrub the loop <output id="surface-camera-scrub-value">0%</output></span>
+                        <input id="surface-camera-scrub" type="range" min="0" max="100" step="1" value="0"/>
+                      </label>
+                    </div>
+                    <div class="small-actions ecology-actions">
+                      <button type="button" class="choice" id="surface-camera-grab" aria-pressed="false">✋ GRAB CAMERA · DRAG / PINCH</button>
+                      <button type="button" class="choice" id="surface-camera-pick" aria-pressed="false">🎯 PICK DIVE TARGET</button>
+                      <button type="button" class="choice" id="surface-camera-replay">▶ RESUME FROM SCRUB</button>
+                      <button type="button" class="mini" id="surface-camera-reset">↺ CENTER CAMERA</button>
+                    </div>
+                    <p class="help" id="surface-camera-status" aria-live="polite">Choose a camera path and preview. SCRUB freezes any frame. GRAB CAMERA lets you pan and pinch the framing without editing mineral births; PICK TARGET grabs an actual point in the composition.</p>
+                  </div>
+                </details>
                 <div class="small-actions ecology-actions">
                   <button type="button" class="choice active" id="surface-loop-guides" aria-pressed="true">▣ SOCIAL SAFE AREA: ON</button>
                   <button type="button" class="choice" id="surface-loop-preview" aria-pressed="false">▷ PREVIEW LOOP</button>
