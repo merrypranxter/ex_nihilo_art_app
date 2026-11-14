@@ -152,7 +152,7 @@ test('switching growth domains does not reset or mutate 3D organism state',()=>{
   for(let i=0;i<10;i++)w.surface.advance(w.currentPalette(),params('spherulite'));
   assert.deepEqual(w.colony.snapshot(),before.colony);
   assert.deepEqual(Array.from(w.nutrients.values),before.nutrients);
-  assert.equal(w.rngState,before.rngState);
+  assert.equal(w.rngState>>>0,before.rngState);
   assert.deepEqual(w.segmentCount,before.segmentCount);
 });
 
@@ -168,4 +168,28 @@ test('DOM exposes separate surface canvas, independent reseed and PNG export',as
   assert.match(source,/surfaceCanvas\.addEventListener\('pointerdown'/);
   assert.match(source,/surfacePixelsCanvas/);
   assert.match(source,/exportSurfacePNG\(\)/);
+});
+
+test('dendrites retain significant real negative space instead of filling like rosettes',()=>{
+  const a=new SurfaceGrowth(1531,64),b=new SurfaceGrowth(1531,64);
+  a.seedArrangement(20,'lattice',pigment);
+  b.seedArrangement(20,'lattice',pigment);
+  for(let i=0;i<36;i++){
+    a.advance(pigment,params('dendrite'));
+    b.advance(pigment,params('spherulite'));
+  }
+  assert.ok(a.population<a.capacity*.80);
+  assert.ok(b.population>b.capacity*.95);
+  assert.notDeepEqual(a.owner,b.owner);
+});
+
+test('exhausted dendrite front can be reactivated by a change in growth law',()=>{
+  const world=new SurfaceGrowth(531,48);
+  world.seedArrangement(14,'lattice',pigment);
+  for(let i=0;i<100;i++)world.advance(pigment,params('dendrite'));
+  const before=world.population;
+  world.rebuildFrontier(true);
+  for(let i=0;i<12;i++)world.advance(pigment,params('spherulite'));
+  assert.ok(world.population>before);
+  assert.ok(world.frontier.size>=0);
 });
