@@ -12,6 +12,7 @@ import { INTERIOR_STYLES } from './mineral-inclusions.js';
 import { METAMORPHOSIS_PRESETS } from './mineral-metamorphosis.js';
 import { HERITAGE_MODES } from './crystal-bloodlines.js';
 import { FAMILY_FOCUS_MODES } from './crystal-family-inspector.js';
+import { SurfaceGrowth,SURFACE_MORPHOLOGIES,SURFACE_NUCLEATION } from './surface-growth.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -45,7 +46,11 @@ export class GrowthEngine {
       crystalEvolution:'off',crystalMaturity:28,crystalStressOptics:.45,
       crystalHeritage:'off',crystalHeritageStrength:.65,
       crystalFocusBirthId:0,crystalFocusFamilyId:0,
-      crystalFocusMode:'family'
+      crystalFocusMode:'family',
+      compositionDomain:'object',
+      surfaceMorphology:'spherulite',surfaceNucleation:'lattice',
+      surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
+      surfaceSpeed:3,surfaceContrast:.80,surfaceWrap:false
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -83,6 +88,8 @@ export class GrowthEngine {
     if(!this.morphogenesis)this.morphogenesis=new MorphogenesisVolume();
     else this.morphogenesis.reset();
     this.morphElapsed=0;
+    if(!this.surface)this.surface=new SurfaceGrowth(this.seed^0x63a2bca7);
+    else this.surface.reset(this.seed^0x63a2bca7);
     this.colony.onBirth=(p)=>{
       if(this.morphogenesis.settings.enabled){
         this.morphogenesis.consumeAt(p,.08*this.morphogenesis.settings.crystalSink);
@@ -177,6 +184,18 @@ export class GrowthEngine {
     if(!Object.hasOwn(FAMILY_FOCUS_MODES,candidate.crystalFocusMode))
       candidate.crystalFocusMode='family';
     if(!candidate.crystalFocusBirthId)candidate.crystalFocusFamilyId=0;
+    if(!['object','surface'].includes(candidate.compositionDomain))
+      candidate.compositionDomain='object';
+    if(!Object.hasOwn(SURFACE_MORPHOLOGIES,candidate.surfaceMorphology))
+      candidate.surfaceMorphology='spherulite';
+    if(!Object.hasOwn(SURFACE_NUCLEATION,candidate.surfaceNucleation))
+      candidate.surfaceNucleation='lattice';
+    candidate.surfaceSeedCount=Math.round(clamp(safe(+candidate.surfaceSeedCount),1,96));
+    candidate.surfaceGrowth=clamp(safe(+candidate.surfaceGrowth),.15,1.5);
+    candidate.surfaceCoverage=clamp(safe(+candidate.surfaceCoverage),.3,1);
+    candidate.surfaceSpeed=Math.round(clamp(safe(+candidate.surfaceSpeed),1,6));
+    candidate.surfaceContrast=clamp(safe(+candidate.surfaceContrast),0,1.5);
+    candidate.surfaceWrap=!!candidate.surfaceWrap;
     candidate.crystalMaturity=Math.round(clamp(safe(+candidate.crystalMaturity),8,96));
     candidate.crystalStressOptics=clamp(safe(+candidate.crystalStressOptics),.1,1.2);
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
@@ -241,7 +260,13 @@ export class GrowthEngine {
     const historicalInspector=historicalHeritage.crystalFocusBirthId===undefined?
       {...historicalHeritage,crystalFocusBirthId:0,crystalFocusFamilyId:0,
         crystalFocusMode:'family'}:historicalHeritage;
-    this.setConfig(historicalInspector);
+    const historicalSurface=historicalInspector.compositionDomain===undefined?
+      {...historicalInspector,compositionDomain:'object',
+        surfaceMorphology:'spherulite',surfaceNucleation:'lattice',
+        surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
+        surfaceSpeed:3,surfaceContrast:.8,surfaceWrap:false}
+      :historicalInspector;
+    this.setConfig(historicalSurface);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings({
@@ -694,6 +719,7 @@ export class GrowthEngine {
       nutrients:Array.from(this.nutrients.values),
       colony:this.colony.snapshot(),
       morphogenesis:this.morphogenesis.snapshot(),
+      surface:this.surface.snapshot(),
       nodes:this.snapshotNodes(),
       strokes:this.snapshotStrokes(),
       pressures:this.snapshotPressures(),
@@ -750,6 +776,9 @@ export class GrowthEngine {
     }
     if(hasColony)this.colony.validateSnapshot(data.colony);
     if(isV3)this.morphogenesis.validateSnapshot(data.morphogenesis);
+    // New 2D history is independent; pre-surface checkpoints keep a blank
+    // surface and the original 3D world. Reject bad surface data BEFORE reset.
+    if(data.surface!==undefined)this.surface.validateSnapshot(data.surface);
     // All checks happen before mutating the existing live artwork.
     // Older checkpoints predate sculptural vector laws. Use their original
     // unconstrained behavior instead of changing the historical physics.
@@ -781,7 +810,13 @@ export class GrowthEngine {
     const historicalInspector=historicalHeritage.crystalFocusBirthId===undefined?
       {...historicalHeritage,crystalFocusBirthId:0,crystalFocusFamilyId:0,
         crystalFocusMode:'family'}:historicalHeritage;
-    this.setConfig(historicalInspector);
+    const historicalSurface=historicalInspector.compositionDomain===undefined?
+      {...historicalInspector,compositionDomain:'object',
+        surfaceMorphology:'spherulite',surfaceNucleation:'lattice',
+        surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
+        surfaceSpeed:3,surfaceContrast:.8,surfaceWrap:false}
+      :historicalInspector;
+    this.setConfig(historicalSurface);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
@@ -805,6 +840,8 @@ export class GrowthEngine {
     else this.colony.setSettings({enabled:false});
     if(isV3)this.morphogenesis.restore(data.morphogenesis);
     else this.morphogenesis.setSettings({enabled:false});
+    if(data.surface!==undefined)this.surface.restore(data.surface);
+    else this.surface.reset(this.seed^0x63a2bca7);
     this.restoreNodes(data.nodes);
     this.restoreStrokes(data.strokes??[]);
     this.restorePressures(data.pressures??[]);
