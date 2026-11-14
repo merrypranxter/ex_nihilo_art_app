@@ -847,7 +847,11 @@ function pressureStartFromEvent(e){
   pointer.set(((e.clientX-rect.left)/rect.width)*2-1,
     -((e.clientY-rect.top)/rect.height)*2+1);
   raycaster.setFromCamera(pointer,camera);
-  const hit=crystals.count>0?raycaster.intersectObject(crystals,false)[0]:null;
+  const sculptable=isMineralMetamorphosisActive({
+    preset:engine.config.crystalEvolution
+  })?METAMORPHOSIS_STAGES.map(t=>crystalAgeMeshes[t]):[crystals];
+  const hit=engine.colony.population>0?
+    raycaster.intersectObjects(sculptable,false)[0]:null;
   return hit?hit.point.clone().clampLength(0,3.35):positionFromEvent(e);
 }
 function pressureProjectFromClient(x,y){
@@ -1327,6 +1331,11 @@ function updateCrystalControls(){
   $('crystal-skin-value').textContent=Math.round(visual.crystalSkin*100)+'%';
   $('crystal-inclusions').value=Math.round(visual.crystalInclusions*100);
   $('crystal-inclusions-value').textContent=Math.round(visual.crystalInclusions*100)+'%';
+  $('crystal-evolution').value=visual.crystalEvolution;
+  $('crystal-maturity').value=visual.crystalMaturity;
+  $('crystal-maturity-value').textContent=visual.crystalMaturity+' generations';
+  $('crystal-stress-optics').value=Math.round(visual.crystalStressOptics*100);
+  $('crystal-stress-optics-value').textContent=Math.round(visual.crystalStressOptics*100)+'%';
   updatePressureControls();
 }
 function readCrystalControls(){
@@ -1364,6 +1373,7 @@ $('crystal-clear').addEventListener('click',()=>{
 function readCrystalOptics(){
   const previousLens=engine.config.crystalLens;
   const previousInterior=engine.config.crystalInterior;
+  const previousEvolution=engine.config.crystalEvolution;
   engine.setConfig({
     crystalShape:$('colony-geometry').value,
     crystalLens:$('crystal-lens').value,
@@ -1371,24 +1381,34 @@ function readCrystalOptics(){
     crystalGlints:Number($('crystal-glints').value)/100,
     crystalInterior:$('crystal-interior').value,
     crystalSkin:Number($('crystal-skin').value)/100,
-    crystalInclusions:Number($('crystal-inclusions').value)/100
+    crystalInclusions:Number($('crystal-inclusions').value)/100,
+    crystalEvolution:$('crystal-evolution').value,
+    crystalMaturity:Number($('crystal-maturity').value),
+    crystalStressOptics:Number($('crystal-stress-optics').value)/100
   });
   const shape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==shape)crystals.geometry=shape;
   if(mineralSkins.geometry!==shape)mineralSkins.geometry=shape;
+  for(const tier of METAMORPHOSIS_STAGES){
+    if(crystalAgeMeshes[tier].geometry!==shape)
+      crystalAgeMeshes[tier].geometry=shape;
+  }
   // Coalesce repeated iPhone slider events into a single normal animation-
   // frame rebuild. This touches ONLY view buffers, never the living state.
   engine.colony.changed=true;
   // A shader/material refresh is needed for lens choices only, not each
   // relief or glint density adjustment.
   if(previousLens!==engine.config.crystalLens||
-    previousInterior!==engine.config.crystalInterior)applyArtistFinish();
+    previousInterior!==engine.config.crystalInterior||
+    previousEvolution!==engine.config.crystalEvolution)applyArtistFinish();
   updateCrystalControls();
 }
 ['colony-geometry','crystal-lens','crystal-relief','crystal-glints',
-  'crystal-interior','crystal-skin','crystal-inclusions'].forEach(
+  'crystal-interior','crystal-skin','crystal-inclusions',
+  'crystal-evolution','crystal-maturity','crystal-stress-optics'].forEach(
   id=>$(id).addEventListener(
-    ['colony-geometry','crystal-lens','crystal-interior'].includes(id)?
+    ['colony-geometry','crystal-lens','crystal-interior',
+     'crystal-evolution'].includes(id)?
       'change':'input',readCrystalOptics));
 
 const morphologyControls={
@@ -1498,6 +1518,7 @@ function applyArtistFinish(){
   facetMaterial.iridescence=Math.max(.30,crystalMaterial.iridescence);
   crystalMaterial.needsUpdate=true;
   facetMaterial.needsUpdate=true;
+  syncCrystalAgeMaterials();
   const style=INTERIOR_STYLES[engine.config.crystalInterior]||
     INTERIOR_STYLES.off;
   mineralSkinMaterial.roughness=style.roughness;
@@ -1774,6 +1795,9 @@ function updateControlsFromDNA(){
   const selectedShape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==selectedShape)crystals.geometry=selectedShape;
   if(mineralSkins.geometry!==selectedShape)mineralSkins.geometry=selectedShape;
+  for(const tier of METAMORPHOSIS_STAGES){
+    crystalAgeMeshes[tier].geometry=selectedShape;
+  }
   engine.colony.changed=true;
   syncCrystals();
   updateMorphControls();
@@ -1989,6 +2013,9 @@ function samplePerformance(now){
     'Fibers: '+engine.segmentCount.toLocaleString(),
     'Crystal cells: '+engine.colony.population.toLocaleString(),
     'Visible facets: '+facetGems.count.toLocaleString(),
+    'Young glass: '+crystalAgeCounts.young.toLocaleString(),
+    'Mature opal: '+crystalAgeCounts.mature.toLocaleString(),
+    'Faulted mineral: '+crystalAgeCounts.fault.toLocaleString(),
     'Mineral skins: '+mineralSkins.count.toLocaleString(),
     'Trapped inclusions: '+mineralSeeds.count.toLocaleString(),
     'Fracture scars: '+engine.colony.damage.reduce((n,v)=>n+(v===2),0),
