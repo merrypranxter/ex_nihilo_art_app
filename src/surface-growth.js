@@ -43,6 +43,7 @@ export class SurfaceGrowth {
     this.birthColor=new Uint8Array(this.capacity*3);
     this.seeds=[]; this.frontier=new Set();
     this.generation=0;this.population=0;
+    this.stallTicks=0;
     this.changed=true;
   }
   random(){
@@ -72,6 +73,7 @@ export class SurfaceGrowth {
     this.owner[i]=id;this.depth[i]=0;this.age[i]=0;
     this.writeBirthColor(i,id,0,palette,'spherulite',0);
     this.frontier.add(i);
+    this.stallTicks=0;
     this.population++;
     this.changed=true;
     return true;
@@ -106,6 +108,18 @@ export class SurfaceGrowth {
       }
     }
     return placed>0;
+  }
+  // Re-open active fronts if the user changes physics or boundary topology.
+  // The existing deposits remain immutable.
+  rebuildFrontier(wrap=false){
+    const next=new Set();
+    for(let i=0;i<this.capacity;i++){
+      if(!this.owner[i])continue;
+      let open=false;
+      this.neighbors(i,wrap,ni=>{if(!this.owner[ni])open=true;});
+      if(open)next.add(i);
+    }
+    this.frontier=next;this.stallTicks=0;
   }
   writeBirthColor(i,family,depth,palette,morphology,contrast=0){
     const nucleus=this.seeds[family-1];
@@ -209,6 +223,8 @@ export class SurfaceGrowth {
       this.neighbors(i,wrap,ni=>{if(!this.owner[ni])hasVacancy=true;});
       if(hasVacancy)fresh.add(i);
     }
+    this.stallTicks=births?0:this.stallTicks+1;
+    if(this.stallTicks>=8)fresh.clear();
     this.frontier=fresh;
     this.population+=births;
     // Age is real retained mineral history, not the animation clock.
@@ -222,6 +238,7 @@ export class SurfaceGrowth {
   snapshot(){
     return {format:'ex-nihilo/surface-v1',size:this.size,seed:this.seed,
       rngState:this.rngState,generation:this.generation,population:this.population,
+      stallTicks:this.stallTicks,
       owner:Array.from(this.owner),depth:Array.from(this.depth),age:Array.from(this.age),
       birthColor:Array.from(this.birthColor),seeds:this.seeds.map(s=>({...s})),
       frontier:Array.from(this.frontier)};
@@ -233,6 +250,8 @@ export class SurfaceGrowth {
        !Number.isInteger(s.rngState)||s.rngState<0||s.rngState>0xffffffff||
        !Number.isSafeInteger(s.generation)||s.generation<0||s.generation>100000000||
        !Number.isInteger(s.population)||s.population<0||s.population>n||
+       (s.stallTicks!==undefined&&
+        (!Number.isInteger(s.stallTicks)||s.stallTicks<0||s.stallTicks>8))||
        !validArray(s.owner,n,MAX_SEEDS)||!validArray(s.depth,n,65535)||
        !validArray(s.age,n,255)||!validArray(s.birthColor,n*3,255)||
        !Array.isArray(s.seeds)||s.seeds.length>MAX_SEEDS||
@@ -255,6 +274,7 @@ export class SurfaceGrowth {
     this.rngState=s.rngState;
     this.generation=s.generation;
     this.population=s.population;
+    this.stallTicks=s.stallTicks??0;
     this.owner.set(s.owner);this.depth.set(s.depth);this.age.set(s.age);
     this.birthColor.set(s.birthColor);
     this.seeds=s.seeds.map(v=>({...v}));
