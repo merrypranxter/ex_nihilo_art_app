@@ -229,11 +229,19 @@ function syncCrystals(){
     }else crystalRotation.identity();
     // The local Y axis is the mineral's crystallographic growth axis.
     // Actual mesh anisotropy, not a pixel filter or image transformation.
-    crystalScale.set(
-      scale*display.lateral,
-      scale*display.axial*(damage===1?.86:1),
-      scale*display.lateral
-    );
+    const classicView=engine.config.crystalShape==='octa'&&
+      engine.config.crystalLens==='inherit'&&
+      engine.config.crystalRelief===0&&engine.config.crystalGlints===0;
+    if(classicView&&damage===1){
+      // Legacy visual restoration uses its original cracked-cell ratios.
+      crystalScale.set(scale*.88,scale*.75,scale*.84);
+    }else{
+      crystalScale.set(
+        scale*display.lateral,
+        scale*display.axial*(damage===1?.86:1),
+        scale*display.lateral
+      );
+    }
     crystalTransform.compose(crystalPosition,crystalRotation,crystalScale);
     crystals.setMatrixAt(visible,crystalTransform);
     const k=i*3;
