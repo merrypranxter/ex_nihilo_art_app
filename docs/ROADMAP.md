@@ -79,6 +79,16 @@
 - [ ] Production Vite build and iPhone Safari runtime verification.
 - [ ] More detailed growth-density and optical presentation tuning based on actual previews.
 
+## Phase 03D — Filigree Anatomy
+
+- [x] Replace unrelated global branch sequence with per-parent daughter spacing in new worlds, preserving historical order for existing saves.
+- [x] Maintain a decaying birth-direction memory so daughter geometry has time to develop independently from its parent.
+- [x] Inherit chromatic family phase along the genealogy tree; daughter-level pigment remains deposited in the saved world.
+- [x] Persist generation per deposited fiber segment, family phase, and parent-local branch count in checkpoints.
+- [x] Add a reversible visual-relief control to distinguish structural trunks and finer descendants without modifying underlying material state.
+- [x] Headless replay checks and legacy checkpoint restore checks.
+- [ ] Browser-based artistic assessment, render FPS/heap measurement and production Vite build; no hosting credits used.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
