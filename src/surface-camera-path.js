@@ -194,7 +194,15 @@ export class CameraPathEditor {
     const pts=draft.points,last=pts.at(-1);
     const span=Math.max(0,time-draft.lastTime);
     if(distance([x,y],last)<.006)return false;
-    if(pts.length>=MAX_CAMERA_PATH_POINTS)return false;
+    if(pts.length>=MAX_CAMERA_PATH_POINTS){
+      // Adaptive simplification: preserve the first and latest anchors and
+      // every other interior anchor, so a long iPhone stroke can keep growing
+      // without truncating its final destination or exceeding 72 anchors.
+      const original=pts.slice();
+      pts.length=0;
+      for(let i=0;i<original.length;i++)
+        if(i===0||i===original.length-1||i%2===0)pts.push(original[i]);
+    }
     // Input time is milliseconds elapsed since pointerdown, and is never
     // persisted as real wall time. Normalize only when committing.
     draft.lastTime=Math.max(draft.lastTime,time);
