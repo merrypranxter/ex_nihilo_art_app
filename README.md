@@ -2,6 +2,8 @@
 
 **From nothing, mathematics grows matter.**
 
+**Gesture Witch / Touch-First Field Sculpting:** select **🌀 SCULPT** to create and drag an actual vortex eye in the evolving field; pinch to change its support radius, twist to reverse or strengthen its rotation, or move both fingers together to relocate it. Persistent field-source identity, visible radius ring, atomic one-gesture Undo/Redo, robust cancel rollback, and keyboard/slider alternatives are integrated. This changes future mathematical growth, not previously deposited sculpture. See [Gesture Witch interaction contract](docs/GESTURE_WITCH.md).
+
 An interactive, mobile-first 3D mathematical art laboratory. Its first experiment, **Nerve Cathedral**, grows persistent luminous fibers from particle trajectories moving through actual vector fields. A second engine, **Crystal Colony**, grows a genuinely three-dimensional cellular automaton with local birth, maturation and erosion rules. The third engine, **Morphogenesis Chamber**, solves a coupled 3D Gray–Scott reaction–diffusion system and extracts its evolving chemical isosurface. The artwork is *constructed over time*, not loaded as a prebuilt 3D model. **FORM & FINISH** offers real-time mathematical growth grammars and physically based material choices: sculptural intention without prebuilt sculptures.
 
 ## Phase 03C: mathematical branching and growth rhythms
@@ -69,6 +71,7 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 - `src/branching.js` — exact phyllotactic branch geometry and bounded, deterministic temporal growth rhythms.
 - `src/filigree.js` — decaying birth-direction memory and display-only, generation-aware material emphasis.
 - `src/mineral-optics.js` — deterministic optical maturity curves and actual tapered prism/facet geometry profile definitions.
+- `src/gesture-witch.js` — browser-independent atomic field-source transaction and bounded two-pointer metric/twist map.
 - `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js`, `tests/art-direction.test.js`, `tests/branching.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, smooth surface normals, branching law, temporal rhythm and checkpoint regression tests (`npm test`).
 - `src/main.js` — Three.js renderer, inputs, camera, views and exporting.
 - `src/styles.css` — mobile-first control layout.

@@ -12,6 +12,7 @@
     <header class="masthead">
       <div class="brand"><span class="star">✳</span><div><h1>EX NIHILO</h1><p>MATHEMATICAL GENESIS LAB <span class="edition">/ 001 NERVE CATHEDRAL</span></p></div></div>
       <div class="top-actions">
+        <button class="mini" id="sculpt-quick" aria-pressed="false" title="Grab the mathematical field with your fingers">🌀 SCULPT</button>
         <button class="mini" id="frame-art" title="Frame the living artwork in the camera">◎ FRAME</button>
         <button class="mini" id="pause" title="Pause growth" aria-pressed="false">Ⅱ PAUSE</button>
         <button class="mini danger" id="new" title="Start from nothing with confirmation">↻ NEW</button>
@@ -19,7 +20,7 @@
     </header>
     <main>
       <section class="stage" aria-label="Interactive 3D growth canvas">
-        <canvas id="world" aria-label="Living 3D mathematical organism"></canvas>
+        <canvas id="world" tabindex="0" aria-label="Living 3D mathematical organism. Use Sculpt to place and move vortices; or Orbit to navigate."></canvas>
         <div class="stage-top">
           <div class="tag"><span class="pulse"></span><span id="live">GERMINATING</span></div>
           <div class="tag coordinates" id="stats">0 STRANDS</div>
@@ -212,16 +213,25 @@
             <p class="help"><span id="morph-stats">0 STEPS · EMPTY FIELD</span>. Chemistry pauses independently. CLEAR CHEMICALS requires confirmation and does not erase the fibers or crystals. Surface detail changes mesh extraction only.</p>
           </div>
           <div class="panel" data-panel="touch" hidden>
-            <p class="help first">Finger or mouse actions modify the physics. Place and drag nodes. Select Orbit to turn the world and pinch to zoom.</p>
+            <p class="help first">Your fingers can grab the actual mathematical field. In VORTEX SCULPT, drag its eye to redirect future growth; pinch two fingers to expand its influence and twist to change chirality. ORBIT moves the camera only.</p>
             <div class="choice-grid" id="tools">
+              <button data-tool="sculpt" class="choice">🌀 VORTEX SCULPT</button>
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
               <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button><button data-tool="chemical" class="choice">◉ PAINT CHEMICAL</button>
               <button data-tool="orbit" class="choice">◎ ORBIT</button>
               <button data-tool="erase" class="choice">✕ ERASE NODE</button>
             </div>
-            <div class="small-actions"><button id="undo" class="mini">↶ UNDO EDIT</button><button id="redo" class="mini">↷ REDO EDIT</button><button id="clear-nodes" class="mini">CLEAR NODES</button></div>
-            <p class="help">Undo/redo applies to field-node edits only. For the entire evolving organism, use SAVE WORLD and LOAD WORLD. Neither changes your work without confirmation.</p>
+            <div class="small-actions"><button id="undo" class="mini">↶ UNDO FIELD EDIT</button><button id="redo" class="mini">↷ REDO FIELD EDIT</button><button id="clear-nodes" class="mini">CLEAR NODES</button></div>
+            <div class="touch-editor">
+              <p id="gesture-selection" role="status" aria-live="polite">NO FIELD SOURCE SELECTED</p>
+              <div class="control-grid">
+                <label class="control"><span>Influence radius <output id="gesture-radius-value">1.10</output></span><input id="gesture-radius" type="range" min=".25" max="2.8" step=".05" value="1.1" disabled/></label>
+                <label class="control"><span>Vortex twist <output id="gesture-spin-value">1.20</output></span><input id="gesture-spin" type="range" min="-2.5" max="2.5" step=".05" value="1.2" disabled/></label>
+                <label class="control"><span>Attract/repel force <output id="gesture-strength-value">3.50</output></span><input id="gesture-strength" type="range" min=".25" max="12" step=".25" value="3.5" disabled/></label>
+              </div>
+            </div>
+            <p class="help">A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
           </div>
           <div class="panel" data-panel="light" hidden>
             <div class="control-grid">

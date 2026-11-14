@@ -100,6 +100,19 @@
 - [x] Headless exact checkpoint/replay verification, syntax and DOM wiring validation.
 - [ ] Real WebGL2 Safari and browser quality/performance inspection, visual calibration and production Vite build.
 
+## Phase 03F — Gesture Witch / Direct Manipulation
+
+- [x] Persistent vortex eyes as actual sources of local rotational force in the 3D growth vector field.
+- [x] One-finger drag core, two-finger radius/rotation/center edit, and tool fallback to the existing attractor and repulsor modes.
+- [x] Semantic transactions: a whole field gesture commits once; canceled touches restore field sources and random state.
+- [x] Disambiguated SCULPT versus camera ORBIT, visible vortex radius/handle markers and accessible manual sliders.
+- [x] Source IDs, radius and signed chirality persist through checkpoints; legacy field nodes load without changing their old dynamics.
+- [x] Cancellation hooks for pointercancel, lost capture, app blur, resize and backgrounding, with simulator temporarily suspended.
+- [x] Headless exact replay and source syntax/DOM wiring checks.
+- [ ] Real iPhone pointer/pinch/gesture and WebGL2 performance tests.
+- [ ] Bounded persistent stroke fields, reversible crystal stress/chemical scars and full checkpoint-aware undo beyond field-node documents.
+- [ ] True topological surgery only if explicit connectivity constraints become supported.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
