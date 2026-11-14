@@ -128,6 +128,7 @@ function refreshSurfaceStats(){
   const value=coverage+'% COVERED · '+p.seeds.length+' NUCLEI · '+
     p.generation+' REAL GROWTH GENERATIONS · '+p.frontier.size+
     ' ACTIVE FRONT CELLS'+
+    (p.frontier.size===0?' · MATERIAL FRONT STABILIZED':'')+
     (engine.config.surfaceWrap?' · PERIODIC EDGES':'');
   $('surface-stats').textContent=value;
   if(engine.config.compositionDomain==='surface'){
