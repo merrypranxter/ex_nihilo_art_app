@@ -26,6 +26,15 @@
           <div class="tag"><span class="pulse"></span><span id="live">GERMINATING</span></div>
           <div class="tag coordinates" id="stats">0 STRANDS</div>
         </div>
+        <div id="runtime-diagnostic" class="runtime-diagnostic" hidden role="alert">
+          <strong>⚠ EX NIHILO RENDER DIAGNOSTIC</strong>
+          <p id="runtime-error-text">Rendering encountered a problem.</p>
+          <div class="diagnostic-actions">
+            <button type="button" class="mini" id="copy-runtime-error">COPY DIAGNOSTIC</button>
+            <button type="button" class="mini" id="dismiss-runtime-error">DISMISS</button>
+          </div>
+          <p class="diagnostic-help">If the artwork is blank, copy this message and paste it into our chat. Your saved world is not automatically reset.</p>
+        </div>
         <div class="stage-bottom">
           <span id="hint">DRAG TO ATTRACT GROWTH · ORBIT MODE TO ROTATE</span>
           <span class="experimental">REAL-TIME EMERGENCE / NOT PREBUILT</span>
@@ -343,6 +352,55 @@
       </section>
     </main>
   </div>
+  <script>
+  // Runs before the module graph: even an import error can leave a useful
+  // visible diagnosis instead of an unexplained white/black art canvas.
+  (() => {
+    const panel=document.getElementById('runtime-diagnostic');
+    const text=document.getElementById('runtime-error-text');
+    let latest='',lastReported='';
+    const redact=input=>String(input||'Unknown graphics error')
+      .replace(/sk-[a-zA-Z0-9_-]{12,}/g,'[REDACTED TOKEN]')
+      .slice(0,550);
+    function report(detail){
+      const message=redact(detail);
+      if(message===lastReported)return;
+      lastReported=message;
+      latest='EX NIHILO runtime diagnostic: '+message;
+      text.textContent=message;
+      panel.hidden=false;
+      const live=document.getElementById('live');
+      if(live)live.textContent='RENDER ISSUE';
+    }
+    window.__genesisDiagnostics={report};
+    window.addEventListener('error',event=>{
+      const target=event.target;
+      if(target&&target.tagName==='SCRIPT'){
+        report('The application script failed to load. Check connection or module imports.');
+      }else if(event.message){
+        report(event.message);
+      }
+    },true);
+    window.addEventListener('unhandledrejection',event=>{
+      const error=event.reason;
+      report(error?.message||error||'Unhandled application error.');
+    });
+    document.getElementById('dismiss-runtime-error').addEventListener('click',()=>{
+      panel.hidden=true;
+    });
+    document.getElementById('copy-runtime-error').addEventListener('click',async()=>{
+      const button=document.getElementById('copy-runtime-error');
+      try{
+        await navigator.clipboard.writeText(latest);
+        button.textContent='COPIED';
+      }catch{
+        button.textContent='COPY NOT AVAILABLE — SELECT TEXT';
+        text.setAttribute('tabindex','0');
+        text.focus();
+      }
+    });
+  })();
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
