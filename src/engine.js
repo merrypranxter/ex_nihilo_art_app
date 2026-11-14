@@ -18,6 +18,7 @@ import { SURFACE_OPTICS,SURFACE_OPTICS_LOOPS } from './surface-optics.js';
 import {SURFACE_MICROSTRUCTURES} from './surface-microstructure.js';
 import {LOOP_SECONDS,LOOP_FPS,LOOP_SIZES,LOOP_MOTIONS,LOOP_PLAYBACK} from './surface-loop-plan.js';
 import {LOOP_ASPECTS,LOOP_FRAMINGS,LOOP_BITRATES} from './surface-cinematic.js';
+import {SURFACE_CAMERA_MOVES,SURFACE_CAMERA_CYCLES} from './surface-camera-choreography.js';
 import { SURFACE_TOUCH_MODES } from './surface-gesture-field.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
@@ -72,7 +73,11 @@ export class GrowthEngine {
       surfaceLoopAspect:'1:1',surfaceLoopFraming:'cover',
       surfaceLoopFocusX:.5,surfaceLoopFocusY:.5,
       surfaceLoopZoom:1,surfaceLoopBitrate:'high',
-      surfaceLoopGuides:true
+      surfaceLoopGuides:true,
+      surfaceCameraMotion:'still',surfaceCameraTravel:.6,
+      surfaceCameraDive:.55,surfaceCameraOffset:0,
+      surfaceCameraCycles:1,surfaceCameraTargetX:.5,
+      surfaceCameraTargetY:.5
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -254,6 +259,16 @@ export class GrowthEngine {
     if(!Object.hasOwn(LOOP_BITRATES,candidate.surfaceLoopBitrate))
       candidate.surfaceLoopBitrate='high';
     candidate.surfaceLoopGuides=!!candidate.surfaceLoopGuides;
+    if(!Object.hasOwn(SURFACE_CAMERA_MOVES,candidate.surfaceCameraMotion))
+      candidate.surfaceCameraMotion='still';
+    candidate.surfaceCameraTravel=clamp(safe(+candidate.surfaceCameraTravel),0,1);
+    candidate.surfaceCameraDive=clamp(safe(+candidate.surfaceCameraDive),0,1);
+    candidate.surfaceCameraOffset=clamp(safe(+candidate.surfaceCameraOffset),0,1);
+    if(!SURFACE_CAMERA_CYCLES.includes(+candidate.surfaceCameraCycles))
+      candidate.surfaceCameraCycles=1;
+    else candidate.surfaceCameraCycles=+candidate.surfaceCameraCycles;
+    candidate.surfaceCameraTargetX=clamp(safe(+candidate.surfaceCameraTargetX),0,1);
+    candidate.surfaceCameraTargetY=clamp(safe(+candidate.surfaceCameraTargetY),0,1);
     candidate.surfaceOpticsMotion=!!candidate.surfaceOpticsMotion;
     if(!Object.hasOwn(SURFACE_TOUCH_MODES,candidate.surfaceTouchMode))
       candidate.surfaceTouchMode='seed';
@@ -350,6 +365,10 @@ export class GrowthEngine {
       surfaceLoopFocusX:.5,surfaceLoopFocusY:.5,
       surfaceLoopZoom:1,surfaceLoopBitrate:'high',
       surfaceLoopGuides:true,
+      surfaceCameraMotion:'still',surfaceCameraTravel:.6,
+      surfaceCameraDive:.55,surfaceCameraOffset:0,
+      surfaceCameraCycles:1,surfaceCameraTargetX:.5,
+      surfaceCameraTargetY:.5,
       ...historicalSurface});
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
@@ -917,6 +936,10 @@ export class GrowthEngine {
       surfaceLoopFocusX:.5,surfaceLoopFocusY:.5,
       surfaceLoopZoom:1,surfaceLoopBitrate:'high',
       surfaceLoopGuides:true,
+      surfaceCameraMotion:'still',surfaceCameraTravel:.6,
+      surfaceCameraDive:.55,surfaceCameraOffset:0,
+      surfaceCameraCycles:1,surfaceCameraTargetX:.5,
+      surfaceCameraTargetY:.5,
       ...historicalSurface});
     this.reset(data.dna.seed);
     this.time=data.time;
