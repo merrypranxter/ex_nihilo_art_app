@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03N — CRYSTAL BLOODLINES:** The crystal colony now stores immutable birth-event IDs, real parent IDs, founder-family identities and three inherited genetic traits. Future children can inherit and mutate mineral proportions, physical strata and optical axes. An optional gene-direction law can influence *actual new crystal cellular births*, not only color. In CRYSTALS → **CRYSTAL BLOODLINES**, use Brocade / Genealogical Strata / Hereditary Abnormalities, plus visual strength, growth influence and mutation controls. OFF keeps the original rendering and birth probabilities; historical save files don't gain invented ancestors. All 199 source-authored palette choices remain intact. See [Phase 03N design/QA](docs/PHASE-03N-CRYSTAL-BLOODLINES.md).
+
+
 **Phase 03M — MINERAL METAMORPHOSIS:** Real crystal age, accumulated strain and permanent fracture neighbors now determine three *different physically shaded materials*: Young Glass, Mature Opal and Fault Mineral. Pick QUIET, OPALINE or FERAL in CRYSTALS → **MINERAL METAMORPHOSIS**; set maturity age and stress sensitivity independently. OFF is the default and keeps the original one-draw renderer and source pigments exactly as before. All 199 palettes and historic world saves remain intact. See [optical life cycle physics/QA](docs/PHASE-03M-MINERAL-METAMORPHOSIS.md).
 
 
