@@ -22,12 +22,13 @@ export class GifLoopWriter {
     for(const c of 'NETSCAPE2.0')put(c.charCodeAt(0));
     put(3,1,0,0,0);
   }
-  addFrame(rgba){
+  addFrame(rgba,delayHundredths=null){
     if(!(rgba instanceof Uint8ClampedArray)||
       rgba.length!==this.width*this.height*4)
       throw Error('GIF frame dimensions differ');
     const bytes=this.bytes,word=n=>bytes.push(n&255,(n>>8)&255);
-    const delay=Math.max(2,Math.round(100/this.fps));
+    const delay=delayHundredths===null?Math.max(2,Math.round(100/this.fps)):
+      Math.max(2,Math.min(65535,Math.round(delayHundredths)));
     bytes.push(0x21,0xf9,0x04,0x04);
     word(delay);bytes.push(0,0);
     bytes.push(0x2c);
