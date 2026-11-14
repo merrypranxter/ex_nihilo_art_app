@@ -138,6 +138,18 @@
 - [ ] Production Vite build, actual iPhone Safari multitouch QA and FPS profiling.
 - [ ] Non-destructive accumulated strain and persistent fracture graph, optional future pressure-depth controls.
 
+## Phase 03I — Fracture Memory / Living Mineral Fatigue
+
+- [x] Real 3D cellular strain field with synchronous face-connected diffusion, local stress sources, slow decay and persistent microcrack damage.
+- [x] Dedicated STRAIN gesture, active CLEAVE stress coupling, real later-tick crystal fractures and permanent void scars preventing accidental regrowth.
+- [x] Rate-limit catastrophic fracture and preserve a minimum viable eight-cell growth nucleus.
+- [x] Visualize stored lattice crack positions and missing-cell scars, maintaining existing material/color systems.
+- [x] Group pressure conduction, break threshold and explicit fracture toggle in CRYSTALS; keep TOUCH/quick action accessible.
+- [x] Complete lived-world checkpoint of strain, damage and settings; retain v1/v2/v3 pre-fatigue historical behavior unless explicitly opted in.
+- [x] Headless physics, contact-only transport, save/replay, corrupt-save rejection and viable-colony checks.
+- [ ] Actual Vite production build and real iPhone Safari touch, shader quality, and FPS/memory characterization.
+- [ ] Investigate anisotropic cracks based on fiber lineage, reversible artist-directed healing, and more elaborate but GPU-safe optical fracture rendering.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
