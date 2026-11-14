@@ -120,7 +120,8 @@ export class SurfaceGestureEditor{
       if(!mark){this.tx=null;return false;}
       tx.markId=mark.id;tx.initialPoints=mark.points.map(p=>[...p]);
     }else if(['attract','block','guide'].includes(kind)){
-      if(this.surface.marks.length>=MAX_SURFACE_MARKS){this.tx=null;return false;}
+      if(this.surface.marks.length>=MAX_SURFACE_MARKS||
+         this.surface.nextMarkId>1000000){this.tx=null;return false;}
       const id=this.surface.nextMarkId++;
       const mark=newSurfaceMark(id,kind,u,v,radius,strength);
       this.surface.marks.push(mark);
@@ -134,7 +135,7 @@ export class SurfaceGestureEditor{
   move(u,v){
     const tx=this.tx;if(!tx||tx.lens||tx.hadMulti||!point([u,v]))return false;
     const from=tx.last;
-    if(Math.hypot(u-from[0],v-from[1])<.006)return false;
+    if(Math.hypot(u-from[0],v-from[1])<(tx.kind==='seed'?.025:.006))return false;
     tx.last=[u,v];
     if(tx.kind==='seed'){
       if(this.surface.seedSymmetricAt(u,v,tx.palette,tx.seedOptions)){
@@ -190,8 +191,9 @@ export class SurfaceGestureEditor{
     this.undoStack.push(tx.before);
     if(this.undoStack.length>6)this.undoStack.shift();
     this.redoStack=[];
+    this.changed();
     this.surface.rebuildFrontier(tx.seedOptions?.wrap??false,tx.seedOptions||{});
-    this.changed();return true;
+    return true;
   }
   cancel(){
     if(!this.tx)return false;
