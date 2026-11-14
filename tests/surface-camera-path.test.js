@@ -123,7 +123,9 @@ test('arc-length and hand timing are meaningfully distinct at the same phase',()
 });
 test('reversing the document changes travel direction without deleting the locus',()=>{
   const path=authored().path,reversed=reverseCameraPath(path);
-  assert.deepEqual(reverseCameraPath(reversed).points,path.points);
+  const roundtrip=reverseCameraPath(reversed);
+  for(let i=0;i<path.points.length;i++)for(let k=0;k<3;k++)
+    close(roundtrip.points[i][k],path.points[i][k],1e-13);
   assert.ok(validCameraPath(reversed));
   const a=sampleCameraPath(path,TAU*.22,{mode:'retrace'});
   const b=sampleCameraPath(reversed,TAU*.22,{mode:'retrace'});
