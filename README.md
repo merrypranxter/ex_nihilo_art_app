@@ -9,6 +9,7 @@ An interactive, mobile-first 3D mathematical art laboratory. Its first experimen
 - Wolfram Language-verified golden-angle phyllotaxis (137.507764°), alternate bilateral, sixfold whorl, or original scatter branching.
 - **Filigree Anatomy**: optional parent-local daughter spacing and decaying birth-direction memory. Distinct related branches remain spatially legible instead of immediately merging back into the environmental flow.
 - **Hierarchical material relief**: each deposited segment remembers the generation of its growing tip. A reversible render-only control emphasizes trunks and fine luminous descendants while preserving stored historical RGB pigments.
+- **Mineral Veins optics**: five low-cost physical filament cross-sections (tapered crystal needles, vitreous prisms, fine wire, triangular shards, original tubes), selectable without rebuilding the sculpture. Each deposited segment records its simulated birth time; a reversible optical maturation law softens older pigment toward a subtle mineral glaze and reduces old glow. The renderer processes visual re-tinting in 2,200-segment chunks instead of blocking iPhone Safari with a full-buffer recolor.
 - True daughter branch divergence, generational taper, and coherent/staggered/quasiperiodic growth rhythms. They influence future trajectories and branching, not an ornamental shader.
 - Cohesive lineage-derived fiber color, adjustable without recoloring existing deposited matter.
 - New growth laws persist in DNA and living-world checkpoints. Older saves retain original random branches and steady motion. Old saves from before Filigree Anatomy continue using their global branch order and zero directional memory.
@@ -67,6 +68,7 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 - `src/art-direction.js` — procedural vector laws for visual silhouette and artist-facing material configurations.
 - `src/branching.js` — exact phyllotactic branch geometry and bounded, deterministic temporal growth rhythms.
 - `src/filigree.js` — decaying birth-direction memory and display-only, generation-aware material emphasis.
+- `src/mineral-optics.js` — deterministic optical maturity curves and actual tapered prism/facet geometry profile definitions.
 - `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js`, `tests/art-direction.test.js`, `tests/branching.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, smooth surface normals, branching law, temporal rhythm and checkpoint regression tests (`npm test`).
 - `src/main.js` — Three.js renderer, inputs, camera, views and exporting.
 - `src/styles.css` — mobile-first control layout.
@@ -79,4 +81,4 @@ Current limitations: CPU-side growth and chemistry updates, a fixed 28³ morphog
 
 ## What not to assume
 
-No live browser/device benchmark or production Vite build has been run yet. Artistic finish choices are first-pass light-response settings and must be judged on actual devices; no claim of polished final visuals is made. The environment could not reach GitHub to clone the repo for a local npm install, so code/DOM parsing and standalone headless mathematical-state tests were performed instead. These commits include source-level validation and a headless mathematical-state replay check, but need a normal `npm install && npm test && npm run build` followed by a real iPhone Safari smoke test before release.
+No live browser/device benchmark or production Vite build has been run yet. The fiber shape and material adjustments are an implementation candidate; appearance and frames-per-second must be judged in a real WebGL2 browser, not inferred from headless math tests. Artistic finish choices are first-pass light-response settings and must be judged on actual devices; no claim of polished final visuals is made. The environment could not reach GitHub to clone the repo for a local npm install, so code/DOM parsing and standalone headless mathematical-state tests were performed instead. These commits include source-level validation and a headless mathematical-state replay check, but need a normal `npm install && npm test && npm run build` followed by a real iPhone Safari smoke test before release.
