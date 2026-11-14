@@ -226,6 +226,21 @@
 - [ ] Real iPhone Safari WebGL2 touch/visual and FPS profiling; official npm production build remains unverified.
 - [ ] After real-device feedback, explore controlled cross-family mineral inheritance at future contact births.
 
+## Phase 04A — SURFACE ART / Growing Full-Canvas Compositions
+
+- [x] Independent 192×192 *living 2D* material CA alongside the existing 34³ 3D OBJECT domain, not a flat render filter.
+- [x] Spherulitic dense radial domains, anisotropic dendritic mineral veins with persistent negative space, and oriented precipitate strata; genuine parent-owned growth fronts and competitive territory boundaries.
+- [x] Independent nuclei from scatter/radial/hex/ribbon arrangements, with touch-plantable centers, confirmed reseed and seed/rate/coverage/speed controls.
+- [x] Real periodic left/right and top/bottom neighbor connectivity for seamless repeating texture physics; adjustable historical color-band relief/contrast.
+- [x] Full-screen Canvas2D stage with aspect-preserving cover crop, light-catching surface pixel relief and thin 3D-family-history-derived 2D contact seams.
+- [x] 2048×2048 PNG upscale with export-resolution real family-boundary line work; native simulation remains 192² (not falsely marketed as native 2048²).
+- [x] 3D world pauses rather than resets when entering 2D surface. Original 199 palettes and immutable previously deposited colors preserved.
+- [x] DNA laws and full-world checkpoint persist 2D surface RNG, seeds, active frontier, immutable pigment, territory, graph distance and cellular age.
+- [x] Legacy saved worlds default OBJECT; corrupt surface history rejected before mutating the artist's world.
+- [x] Headless surface growth, periodic topology, exact continued replay and DOM/source audit.
+- [ ] Real iPhone Safari rendering, tap/drag, orientation and 2048px PNG inspection + FPS benchmark.
+- [ ] Higher-density geometry, mature pattern composition, advanced caustic/structural shader layers and proper GIF/MP4 loop export.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
