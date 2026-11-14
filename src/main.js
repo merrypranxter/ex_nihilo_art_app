@@ -196,7 +196,7 @@ function drawSurface(force=false){
     if(surfaceLoopPreviewCanvas.width!==size||surfaceLoopPreviewCanvas.height!==size){
       surfaceLoopPreviewCanvas.width=size;surfaceLoopPreviewCanvas.height=size;
     }
-    const plan=readSurfaceLoopPlan('gif');
+    const plan=readSurfaceLoopPlan();
     renderSurfaceLoopFrame(
       surfaceLoopPreviewCanvas.getContext('2d',{alpha:false}),surfaceLoopTileContext,
       engine.surface,engine.config,{
@@ -350,6 +350,7 @@ function beginSurfaceTouch(e){
   const uv=surfaceNormalizedPoint(e);
   if(!uv)return;
   e.preventDefault();
+  if(surfaceLoopPreview)stopSurfaceLoopPreview();
   if(surfacePointerPositions.has(e.pointerId))return;
   if(surfacePointerPositions.size>=2)return;
   if(!surfaceGestureEditor.active){
@@ -2560,6 +2561,10 @@ const surfaceOpticsControls=[
 ];
 function updateSurfaceControls(){
   const c=engine.config;
+  for(const [id,key] of [['surface-loop-seconds','surfaceLoopSeconds'],
+    ['surface-loop-fps','surfaceLoopFps'],['surface-loop-size','surfaceLoopSize'],
+    ['surface-loop-motion','surfaceLoopMotion'],
+    ['surface-loop-playback','surfaceLoopPlayback']])$(id).value=String(c[key]);
   $('surface-morphology').value=c.surfaceMorphology;
   $('surface-nucleation').value=c.surfaceNucleation;
   $('surface-boundary').value=c.surfaceBoundary;
@@ -2831,6 +2836,11 @@ for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
   $(id).addEventListener('change',()=>{
     try{
       const plan=readSurfaceLoopPlan();
+      engine.setConfig({
+        surfaceLoopSeconds:plan.seconds,surfaceLoopFps:plan.fps,
+        surfaceLoopSize:plan.size,surfaceLoopMotion:plan.motion,
+        surfaceLoopPlayback:plan.playback
+      });
       $('surface-loop-export').textContent='↓ EXPORT '+plan.format.toUpperCase();
       loopStatusText(plan.frames+' sampled frames · '+plan.seconds+' seconds · '+
         plan.size+'px square · '+(plan.playback==='cycle'?'cyclic':'boomerang')+
