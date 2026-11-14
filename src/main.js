@@ -1163,6 +1163,7 @@ $('crystal-clear').addEventListener('click',()=>{
   syncCrystals();
 });
 function readCrystalOptics(){
+  const previousLens=engine.config.crystalLens;
   engine.setConfig({
     crystalShape:$('colony-geometry').value,
     crystalLens:$('crystal-lens').value,
@@ -1171,11 +1172,12 @@ function readCrystalOptics(){
   });
   const shape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==shape)crystals.geometry=shape;
-  // Rebuild VIEW matrices from immutable colony occupancy and crack history;
-  // sliders never touch biology, saved source pigments, or lattice state.
+  // Coalesce repeated iPhone slider events into a single normal animation-
+  // frame rebuild. This touches ONLY view buffers, never the living state.
   engine.colony.changed=true;
-  syncCrystals();
-  applyArtistFinish();
+  // A shader/material refresh is needed for lens choices only, not each
+  // relief or glint density adjustment.
+  if(previousLens!==engine.config.crystalLens)applyArtistFinish();
   updateCrystalControls();
 }
 ['colony-geometry','crystal-lens','crystal-relief','crystal-glints'].forEach(
