@@ -196,12 +196,17 @@ function drawSurface(force=false){
     if(surfaceLoopPreviewCanvas.width!==size||surfaceLoopPreviewCanvas.height!==size){
       surfaceLoopPreviewCanvas.width=size;surfaceLoopPreviewCanvas.height=size;
     }
-    const plan=readSurfaceLoopPlan();
+    // A preview never allocates the chosen GIF's full frame budget.
+    // Read only the lightweight motion controls, even if the current
+    // size/duration combination is too large for an exported GIF.
+    const seconds=Number($('surface-loop-seconds').value);
+    const playback=$('surface-loop-playback').value;
+    const motion=$('surface-loop-motion').value;
     renderSurfaceLoopFrame(
       surfaceLoopPreviewCanvas.getContext('2d',{alpha:false}),surfaceLoopTileContext,
       engine.surface,engine.config,{
-        size,phase:phaseAtSeconds(surfaceLoopElapsed,plan.seconds,plan.playback),
-        motion:plan.motion,
+        size,phase:phaseAtSeconds(surfaceLoopElapsed,seconds,playback),
+        motion,
         background:BACKGROUNDS[$('background').value]||BACKGROUNDS.void,
         quality:'preview'
       });
