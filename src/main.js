@@ -343,9 +343,11 @@ function updatePressureControls(){
   const mark=selectedPressure();
   const radius=mark?.radius??engine.config.pressureRadius;
   const strength=mark?.strength??engine.config.pressureStrength;
-  $('pressure-selection').textContent=mark
+  const dormant=!engine.colony.settings.enabled||engine.colony.population===0;
+  $('pressure-selection').textContent=(mark
     ?mark.mode.toUpperCase()+' #'+mark.id+' · DRAG TO MOVE · PINCH REACH · TWIST AXIS'
-    :'NO PRESSURE MARK SELECTED — CONTROLS SET NEXT STAMP';
+    :'NO PRESSURE MARK SELECTED — CONTROLS SET NEXT STAMP')+
+    (dormant?' · START / SEED CRYSTALS TO ACTIVATE':'');
   if(!pressureSliderEdit){
     $('pressure-radius').value=String(radius);
     $('pressure-strength').value=String(strength);
@@ -974,6 +976,7 @@ function updateCrystalControls(){
   $('colony-crystallization-value').textContent=c.crystallization+' steps';
   $('colony-toggle').textContent=c.enabled?'Ⅱ PAUSE CRYSTAL GROWTH':'◇ START CRYSTAL COLONY';
   $('colony-toggle').setAttribute('aria-pressed',String(c.enabled));
+  updatePressureControls();
 }
 function readCrystalControls(){
   engine.colony.setSettings({
@@ -1175,6 +1178,12 @@ function frameArtwork(){
   }
   if(morphTriangles>0 && morphMesh.geometry.attributes.position){
     bounds.union(new THREE.Box3().setFromBufferAttribute(morphMesh.geometry.attributes.position));
+  }
+  // Frame persistent crystal-pressure handles as well as grown matter.
+  for(const mark of engine.pressures){
+    const c=new THREE.Vector3(...mark.center);
+    bounds.expandByPoint(c.clone().addScalar(mark.radius));
+    bounds.expandByPoint(c.addScalar(-mark.radius));
   }
   if(bounds.isEmpty()){
     orbit.target.set(0,0,0);
