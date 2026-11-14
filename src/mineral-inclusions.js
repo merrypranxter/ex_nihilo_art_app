@@ -38,9 +38,10 @@ export function mineralInclusionRecipe(cell,options={}){
   const inclusionChance=density*clamp(
     .12+ageFraction*.55+exposure*.18+(fractured?.22:0),0,.99);
   const inclusion=(stable%65536)/65536<inclusionChance;
-  const shellChance=clamp(skin*(.62+.24*ageFraction+.14*exposure),0,1);
+  const shellChance=clamp(
+    skin*(.58+.18*ageFraction+.14*exposure+(fractured?.26:0)),0,1);
   const shellHash=iHash(cell.index^0x2970e4f);
-  const shell=skin>0&&((shellHash%65536)/65536<shellChance||fractured&&skin>.2);
+  const shell=skin>0&&(shellHash%65536)/65536<shellChance;
   // Shell always sits around existing real geometry, not its empty neighbors.
   const skinScale=1+.065*skin+.042*ageFraction*skin;
   // Surface-facing inclusion is *inside the outer shell*, where a tiny
