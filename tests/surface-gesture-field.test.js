@@ -106,6 +106,20 @@ test('redo is invalidated by a divergent new touch and clear is reversible',()=>
   assert.equal(ed.undo(),true);
   assert.deepEqual(s.snapshot(),previous);
 });
+test('an existing mark has stable identity, can be selected and deleted individually',()=>{
+  const s=setup(),editor=performStroke(s,'guide',[[.3,.3],[.7,.5]],.1);
+  assert.equal(s.marks.length,1);
+  const id=s.marks[0].id,baseline=s.snapshot();
+  assert.equal(editor.begin('edit',.5,.4,options),true);
+  assert.equal(editor.selectedId,id);
+  // Selecting without displacement does not create a bogus history record.
+  assert.equal(editor.commit(),false);
+  assert.equal(editor.deleteSelected(false,options.seedOptions),true);
+  assert.equal(s.marks.length,0);
+  assert.equal(editor.selectedId,null);
+  assert.equal(editor.undo(),true);
+  assert.deepEqual(s.snapshot(),baseline);
+});
 test('NEW SURFACE SEED is an atomic undoable replacement including pre-reset RNG',()=>{
   const s=setup(),editor=new SurfaceGestureEditor(s);
   const before=s.snapshot();
@@ -182,7 +196,7 @@ test('touch app exposes tangible modes, cancel, pinch, visible fields, undo and 
   const js=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
   for(const id of ['surface-touch-mode','surface-touch-radius',
     'surface-touch-strength','surface-touch-undo','surface-touch-redo',
-    'surface-touch-overlay','surface-touch-clear','surface-touch-status'])
+    'surface-touch-overlay','surface-touch-delete','surface-touch-clear','surface-touch-status'])
     assert.match(html,new RegExp('id="'+id+'"'));
   assert.match(js,/surfaceCanvas\.addEventListener\('pointercancel',cancelSurfaceTouch\)/);
   assert.match(js,/surfaceGestureEditor\.beginLens/);
