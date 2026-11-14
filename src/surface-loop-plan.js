@@ -59,7 +59,7 @@ export function loopMaterialOptions(phase,motion='hybrid'){
   return {
     lightPhase:motion==='orbit'||motion==='hybrid'?phase:0,
     coatingPhase:phase,
-    coatingWave:motion==='film'||motion==='hybrid'?.42:0,
+    coatingWave:(motion==='film'||motion==='hybrid')?.42:0,
     texturePhase:motion==='hybrid'?phase:0,
     textureWave:motion==='hybrid'?.70:0
   };
