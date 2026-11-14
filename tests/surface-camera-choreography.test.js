@@ -15,9 +15,9 @@ function samePose(a,b){
   approx(a.focusX,b.focusX);approx(a.focusY,b.focusY);
   approx(a.zoom,b.zoom);
 }
-test('six real camera modes plus 1/2/3 integer closed-orbit choices',()=>{
+test('seven real camera modes including drawn path plus 1/2/3 integer closed-orbit choices',()=>{
   assert.deepEqual(Object.keys(SURFACE_CAMERA_MOVES),
-    ['still','orbit','figure8','microscope','pendulum','target']);
+    ['still','orbit','figure8','microscope','pendulum','target','drawn']);
   assert.deepEqual(SURFACE_CAMERA_CYCLES,[1,2,3]);
 });
 test('FROZEN mode preserves precise prior 04G focus and zoom for any phase',()=>{
