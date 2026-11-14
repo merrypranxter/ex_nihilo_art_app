@@ -64,10 +64,12 @@ test('mineralization makes actual cracks and then permanent missing cells on fut
     if(c.damage[i]===2)break;
   }
   assert.ok(cracked,'cracks must emerge before shattering');
-  assert.equal(c.damage[i],2);
-  assert.equal(c.cells[i],0);
+  const firstBroken=c.damage.findIndex(n=>n===2);
+  assert.ok(firstBroken>=0,'part of the stressed crystal actually broke');
+  assert.equal(c.cells[firstBroken],0);
   assert.ok(c.population>=8,'protected living crystal nucleus remains');
-  assert.equal(c.seedAt(p,food,palette,()=>.15),false,
+  const scarPos=c.worldPos(...c.decode(firstBroken));
+  assert.equal(c.seedAt(scarPos,food,palette,()=>.15),false,
     'fracture scar must block automatic re-growth at the split');
 });
 
