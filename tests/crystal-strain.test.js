@@ -195,3 +195,19 @@ test('repeated stress fractures are rate-limited and do not eliminate the viable
   }
   assert.ok(c.damage.some(v=>v===2),'stress still creates genuine voids');
 });
+
+test('maximum stress saturation roundtrips through Float32 checkpoints',()=>{
+  const c=new CrystalColony(34,8);
+  c.setSettings({enabled:true,growth:0,erosion:0,strainEnabled:true,
+    breakThreshold:.6});
+  const [cx,cy,cz]=c.coords(V());
+  for(let z=0;z<3;z++)for(let y=0;y<3;y++)for(let x=0;x<3;x++)
+    c.seedAt(c.worldPos(cx+x,cy+y,cz+z),food,palette,()=>.2);
+  const m={...stress(2.4,1.2),center:[.25,.25,.25]};
+  for(let k=0;k<24;k++)c.update(food,palette,()=>.99,null,[m]);
+  assert.ok(Array.from(c.strain).some(x=>x>1.35),
+    'Float32 stores the 1.35 clamp with expected quantization');
+  const state=c.snapshot(),restored=new CrystalColony(34,8);
+  restored.restore(state);
+  assert.deepEqual(restored.snapshot(),state);
+});
