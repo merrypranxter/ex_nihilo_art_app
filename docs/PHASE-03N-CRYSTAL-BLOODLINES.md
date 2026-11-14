@@ -31,7 +31,7 @@ The original birth law is multiplied by a bounded factor from `hereditaryBirthBi
 
 The same genes visibly modify 3D per-voxel geometry (distinct axial/lateral growth) and select **real, tiny faceted stratum rings** attached to exterior living mature crystals. The rings are aligned to actual cell-facet axes and the inherited optical roll. They are physically modeled surface growth bands, not actual ray-traced inclusions buried inside a refractive volume. The underlying birth pigment remains untouched. The renderer uses one optional InstancedMesh of at most 1,100 low-poly rings, zero extra draw calls when OFF.
 
-**Bands do not blink from frame-to-frame age cycling.** Placement is derived from stable inherited genes and family IDs, with aging only determining when a crystal is mature enough to exhibit a stratum.
+**Bands do not blink from frame-to-frame age cycling.** Family genes establish a distinctive band density and phase, while each descendant's immutable voxel index selects a stable variation. No entire family is forced to be all-banded or unbanded; aging only determines when a crystal is mature enough to exhibit a stratum.
 
 ## Artist controls (CRYSTALS → CRYSTAL BLOODLINES)
 
