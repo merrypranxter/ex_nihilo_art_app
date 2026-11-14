@@ -3120,10 +3120,14 @@ $('surface-camera-grab').addEventListener('click',()=>setSurfaceCameraTouchTool(
 $('surface-camera-pick').addEventListener('click',()=>setSurfaceCameraTouchTool('pick'));
 $('surface-camera-scrub').addEventListener('input',()=>{
   if(surfaceLoopBusy)return;
+  // Starting preview normally resets its clock; keep the frame the artist
+  // actually scrubbed to instead of silently jumping to zero.
+  const requested=$('surface-camera-scrub').value;
   if(!surfaceLoopPreview){
     $('surface-loop-preview').click();
     if(!surfaceLoopPreview)return;
   }
+  $('surface-camera-scrub').value=requested;
   surfaceLoopScrubbing=true;
   $('surface-camera-scrub-value').textContent=$('surface-camera-scrub').value+'%';
   $('surface-camera-status').textContent=
