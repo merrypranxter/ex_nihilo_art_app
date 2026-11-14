@@ -204,6 +204,28 @@
               <p class="help">The real 3D mineral mesh turns toward exposed cellular growth faces. Existing cracks and missing crystal cells decide where small glasslike facets catch the light. Your original pigments remain unchanged; all optics are reversible.</p>
             </details>
             <details class="morph-advanced">
+              <summary>GHOST MINERAL — GROWN INCLUSIONS &amp; OPAL SKINS</summary>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control select-control"><span>Mineral interior treatment (OFF uses no extra meshes)</span>
+                  <select id="crystal-interior">
+                    <option value="off">OFF — ORIGINAL SOLID MINERAL</option>
+                    <option value="opal">WET OPAL GLAZE</option>
+                    <option value="spectral">SPECTRAL OIL FILM</option>
+                    <option value="smoke">SMOKED MINERAL GLASS</option>
+                    <option value="frost">FROSTED VEIN SKIN</option>
+                  </select>
+                </label>
+                <label class="control"><span>Translucent outer growth skin <output id="crystal-skin-value">35%</output></span>
+                  <input id="crystal-skin" type="range" min="0" max="100" step="5" value="35"/>
+                </label>
+                <label class="control"><span>Age-grown inclusions <output id="crystal-inclusions-value">60%</output></span>
+                  <input id="crystal-inclusions" type="range" min="0" max="100" step="5" value="60"/>
+                </label>
+              </div>
+              <p class="help" id="inclusions-stats" aria-live="polite">0 OUTER SKINS · 0 AGE-GROWN INCLUSIONS</p>
+              <p class="help">Both layers are optional. Mature, exposed crystal cells may acquire delicate shells and pigment-derived inner nodules. Stress and nearby permanent fractures affect where they appear; the saved crystal ages and colors determine the result. This is lightweight layered 3D shading, not ray-traced refraction. Switching styles never alters growth physics or old pigments.</p>
+            </details>
+            <details class="morph-advanced">
               <summary>STRUCTURAL FEEDBACK — PHYSICAL CONTACT &amp; POROSITY</summary>
               <div class="control-grid morph-advanced-grid">
                 <label class="control select-control"><span>When fibers meet crystals</span>
