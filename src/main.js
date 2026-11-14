@@ -260,7 +260,14 @@ scene.add(mineralSeeds);
 // Historical birth pigment is never rewritten by the decorative banding.
 const MAX_BLOODLINE_BANDS=1100;
 const bloodlineBandGeometry=new THREE.TorusGeometry(
-  crystalCellSize*.26,crystalCellSize*.014,3,8);
+  crystalCellSize*.34,crystalCellSize*.014,3,8);
+// Compensate for genuine differences in the seven cell silhouettes,
+// keeping mineral bands at the outer facet rather than buried in opaque
+// geometry where a physically correct depth test would hide them.
+const bloodlineBandRadius={
+  octa:1.72,cube:1.01,sphere:1.56,quartz:1.13,
+  prism:1.27,shard:1.62,jewel:1.49
+};
 const bloodlineBandMaterial=new THREE.MeshPhysicalMaterial({
   color:'#ffffff',roughness:.18,metalness:.30,clearcoat:1,
   iridescence:.94,iridescenceThicknessRange:[100,440],
@@ -421,9 +428,14 @@ function syncCrystals(){
       // growth ring aligned with its actual crystal/family facet axis.
       bandAxis.copy(crystalUp).applyQuaternion(crystalRotation);
       bandPosition.copy(crystalPosition).addScaledVector(
-        bandAxis,heritage.position*crystalCellSize*scale);
+        bandAxis,heritage.position*crystalCellSize*scale*.65);
       bandRotation.copy(crystalRotation).multiply(bandAlongAxis);
-      bandScale.setScalar(scale*Math.max(.55,heritage.lateral));
+      const ringRadius=bloodlineBandRadius[engine.config.crystalShape]||1;
+      bandScale.set(
+        scale*ringRadius*heritage.lateral,
+        scale*ringRadius*heritage.lateral,
+        scale*heritage.axial
+      );
       bandTransform.compose(bandPosition,bandRotation,bandScale);
       bloodlineBands.setMatrixAt(bandCount,bandTransform);
       const q=i*3;
