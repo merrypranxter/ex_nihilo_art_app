@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03L — GHOST MINERAL:** Optional transparent opal-growth skins and small, physically positioned mineral inclusions. Their placement responds to *actual crystal age, exposed voxel faces, accumulated strain, fracture neighbors and original frozen pigment*. Pick WET OPAL, SPECTRAL OIL, SMOKED MINERAL, or FROSTED VEIN in CRYSTALS → **GHOST MINERAL**, with independent density/skin sliders; OFF remains the default and adds zero draw calls. All 199 MATHEMAGICAL + EX NIHILO palettes, existing physics, and saved worlds are preserved. See [phase details and iPhone limitations](docs/PHASE-03L-GHOST-MINERAL.md).
+
+
 **Phase 03K — REAL iPHONE RELIABILITY:** Fixed the narrow-screen two-row toolbar overlap and short landscape clipping; added a pre-module crash diagnostic panel that can report WebGL startup/context/render failures without resetting artwork. GROWTH → **DEVICE HEALTH** now gives opt-in, copyable real-device FPS, GPU draw calls, memory counters and living-world counts, rather than guessing performance. The 199-color MATHEMAGICAL + EX NIHILO vault and all existing growth/fracture state are untouched. Read the [exact iPhone smoke-test checklist](docs/PHASE-03K-IPHONE-RELIABILITY.md). Browser/WebGL2 rendering still requires manual validation.
 
 
