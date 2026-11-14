@@ -17,7 +17,34 @@ const BACKGROUNDS = {void:'#05060c',ink:'#070f22',plum:'#1a0b24',milk:'#d6d0df'}
 scene.background = new THREE.Color(BACKGROUNDS.void);
 const camera = new THREE.PerspectiveCamera(44,1,.05,90);
 camera.position.set(6.5,4.7,10.5);
-const renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});
+let renderer;
+try{
+  renderer=new THREE.WebGLRenderer({
+    canvas,antialias:true,alpha:false,preserveDrawingBuffer:true,
+    powerPreference:'high-performance'
+  });
+}catch(error){
+  window.__genesisDiagnostics?.report('WebGL2 startup failed: '+
+    (error?.message||String(error)));
+  throw error;
+}
+let graphicsLost=false;
+canvas.addEventListener('webglcontextlost',event=>{
+  event.preventDefault();
+  graphicsLost=true;
+  setPaused(true);
+  window.__genesisDiagnostics?.report(
+    'WebGL graphics context lost (often memory pressure). Your world is not erased. '+
+    'When graphics return, dismiss this warning and tap RESUME.');
+});
+canvas.addEventListener('webglcontextrestored',()=>{
+  graphicsLost=false;
+  engine.colony.changed=true;
+  geometryDirty=true;
+  requestFiligreeRefresh();
+  window.__genesisDiagnostics?.report(
+    'WebGL graphics context restored. Inspect the canvas, then dismiss this message and tap RESUME.');
+});
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1,1.75));
 const orbit = new OrbitControls(camera,canvas);
@@ -1578,6 +1605,7 @@ $('camera-reset').addEventListener('click',()=>{
   camera.position.set(6.5,4.7,10.5);orbit.target.set(0,0,0);orbit.update();
 });
 function setPaused(next){
+  if(graphicsLost&&!next)return;
   paused=next;
   $('pause').textContent=paused?'▶ RESUME':'Ⅱ PAUSE';
   $('pause').setAttribute('aria-pressed',String(paused));
@@ -1717,8 +1745,64 @@ document.addEventListener('visibilitychange',()=>{
   }
 });
 let last=performance.now(),accumulator=0,lastStatus=0;
+const performanceMeter={
+  enabled:false,lastSample:last,frames:0,
+  latest:'Performance monitor is off.'
+};
+$('performance-toggle').addEventListener('click',()=>{
+  performanceMeter.enabled=!performanceMeter.enabled;
+  performanceMeter.frames=0;
+  performanceMeter.lastSample=performance.now();
+  $('performance-toggle').setAttribute('aria-pressed',String(performanceMeter.enabled));
+  $('performance-toggle').textContent=performanceMeter.enabled?
+    'HIDE PERFORMANCE':'SHOW PERFORMANCE';
+  $('performance-copy').disabled=true;
+  $('performance-copy').textContent='COPY REPORT';
+  $('performance-report').textContent=performanceMeter.enabled?
+    'Sampling real device frames…':'Performance monitor is off. Artwork remains fully interactive.';
+});
+$('performance-copy').addEventListener('click',async()=>{
+  try{
+    await navigator.clipboard.writeText(performanceMeter.latest);
+    $('performance-copy').textContent='COPIED ✓';
+  }catch{
+    $('performance-copy').textContent='SELECT REPORT TO COPY';
+    $('performance-report').setAttribute('tabindex','0');
+    $('performance-report').focus();
+  }
+});
+function samplePerformance(now){
+  if(!performanceMeter.enabled)return;
+  performanceMeter.frames++;
+  const duration=now-performanceMeter.lastSample;
+  if(duration<1250)return;
+  const fps=performanceMeter.frames*1000/Math.max(1,duration);
+  performanceMeter.lastSample=now;
+  performanceMeter.frames=0;
+  const info=renderer.info;
+  const box=renderer.domElement;
+  performanceMeter.latest=[
+    'EX NIHILO · LOCAL DEVICE PERFORMANCE',
+    'FPS: '+fps.toFixed(1)+' (last '+(duration/1000).toFixed(2)+' s)',
+    'Canvas: '+box.width+' × '+box.height+' px',
+    'Pixel ratio: '+renderer.getPixelRatio().toFixed(2),
+    'Draw calls: '+info.render.calls,
+    'Triangles: '+info.render.triangles.toLocaleString(),
+    'GPU geometries: '+info.memory.geometries,
+    'GPU textures: '+info.memory.textures,
+    'Fibers: '+engine.segmentCount.toLocaleString(),
+    'Crystal cells: '+engine.colony.population.toLocaleString(),
+    'Visible facets: '+facetGems.count.toLocaleString(),
+    'Fracture scars: '+engine.colony.damage.reduce((n,v)=>n+(v===2),0),
+    'World state: '+(paused?'PAUSED':'GROWING'),
+    'Version: 03K · iPhone Stage Reliability'
+  ].join('\n');
+  $('performance-report').textContent=performanceMeter.latest;
+  $('performance-copy').disabled=false;
+}
 function frame(now){
   requestAnimationFrame(frame);
+  if(graphicsLost)return;
   let elapsed=Math.min((now-last)/1000,.1);last=now;
   if(!paused&&!gestureSuspended&&!sliderEdit&&!pressureSliderEdit){
     accumulator+=elapsed;
@@ -1756,7 +1840,16 @@ function frame(now){
   for(const item of pressureViews.values()){
     item.ring.quaternion.copy(camera.quaternion);
   }
-  renderer.render(scene,camera);
+  try{
+    renderer.render(scene,camera);
+    samplePerformance(now);
+  }catch(error){
+    graphicsLost=true;
+    setPaused(true);
+    window.__genesisDiagnostics?.report('WebGL render error: '+
+      (error?.message||String(error)));
+    return;
+  }
   if(now-lastStatus>600){
     $('stats').textContent=engine.segmentCount.toLocaleString()+' STRANDS / '+engine.agents.length+' TIPS / '+engine.colony.population.toLocaleString()+' CELLS';
     $('crystal-stats').textContent=engine.colony.population.toLocaleString()+' CRYSTALS · '+engine.colony.generation+' GENERATIONS · '+engine.contactEvents.toLocaleString()+' FIBER CONTACTS';
