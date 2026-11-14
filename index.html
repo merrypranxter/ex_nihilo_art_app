@@ -249,6 +249,18 @@
               <p class="help" id="heritage-stats" role="status" aria-live="polite">NO RECORDED CRYSTAL FAMILIES</p>
               <p class="help">The core pigment of each crystal stays frozen. Physical facet elongation and thin prismatic bands express inherited genes without changing old cells. Existing saved worlds with no parent records remain historical; newly grown children begin tracked families. A saved world retains exact birth identities even when a parent fractures.</p>
             </details>
+            <details class="morph-advanced" open>
+              <summary>FAMILY INSPECTOR — TOUCH THE MINERAL FAMILY TREE</summary>
+              <p class="help">Pick a living crystal to inspect its real saved birth-event ancestry. Highlight its entire living family or only the surviving branch descended from that specific crystal. This lens does not alter growth physics or repaint historical pigments.</p>
+              <div class="small-actions ecology-actions">
+                <button type="button" class="mini" id="family-pick">◎ PICK A CRYSTAL</button>
+                <button type="button" class="mini" id="family-mode-family" aria-pressed="true">◈ LIVING FAMILY</button>
+                <button type="button" class="mini" id="family-mode-descendants" aria-pressed="false">⌁ DESCENDANT BRANCH</button>
+                <button type="button" class="mini" id="family-clear">CLEAR FOCUS</button>
+              </div>
+              <p id="family-inspector-status" class="help" role="status" aria-live="polite">NO FAMILY SELECTED · TAP PICK A CRYSTAL, THEN TOUCH THE ARTWORK</p>
+              <p class="help">Bright beacons mark living relatives; thin lines follow only recorded parent–child connections where both cells survive. If an ancestor is dead, the inspector shows the missing link without inventing family-tree history. Old untracked crystals are explicitly marked.</p>
+            </details>
             <details class="morph-advanced">
               <summary>GHOST MINERAL — GROWN INCLUSIONS &amp; OPAL SKINS</summary>
               <div class="control-grid morph-advanced-grid">
@@ -368,7 +380,7 @@
               <button data-tool="pressure-strain" class="choice">⚡ FRACTURE MEMORY</button>
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
-              <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button><button data-tool="chemical" class="choice">◉ PAINT CHEMICAL</button>
+              <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button><button data-tool="family" class="choice">◎ INSPECT CRYSTAL FAMILY</button><button data-tool="chemical" class="choice">◉ PAINT CHEMICAL</button>
               <button data-tool="orbit" class="choice">◎ ORBIT</button>
               <button data-tool="erase" class="choice">✕ ERASE NODE</button>
             </div>
@@ -386,7 +398,7 @@
                 <label class="control"><span>Attract/repel force <output id="gesture-strength-value">3.50</output></span><input id="gesture-strength" type="range" min=".25" max="12" step=".25" value="3.5" disabled/></label>
               </div>
             </div>
-            <p class="help">Use the three CRYSTAL PRESS tools to control real crystal birth, protected regions, and directional stress-cleaving; the controls are grouped in CRYSTALS. Use STITCH to guide future branches along a hand-drawn 3D path, or WARP to sweep their local vector field in the direction of your drag. Paths are persistent and undoable; they do not teleport already deposited fibers. A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
+            <p class="help">Use INSPECT CRYSTAL FAMILY to tap a living voxel without changing its biology and reveal its truthful ancestor/descendant relationships. Use the three CRYSTAL PRESS tools to control real crystal birth, protected regions, and directional stress-cleaving; the controls are grouped in CRYSTALS. Use STITCH to guide future branches along a hand-drawn 3D path, or WARP to sweep their local vector field in the direction of your drag. Paths are persistent and undoable; they do not teleport already deposited fibers. A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
           </div>
           <div class="panel" data-panel="light" hidden>
             <div class="control-grid">
