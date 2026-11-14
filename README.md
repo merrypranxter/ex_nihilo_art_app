@@ -4,6 +4,14 @@
 
 An interactive, mobile-first 3D mathematical art laboratory. Its first experiment, **Nerve Cathedral**, grows persistent luminous fibers from particle trajectories moving through actual vector fields. A second engine, **Crystal Colony**, grows a genuinely three-dimensional cellular automaton with local birth, maturation and erosion rules. The third engine, **Morphogenesis Chamber**, solves a coupled 3D Gray–Scott reaction–diffusion system and extracts its evolving chemical isosurface. The artwork is *constructed over time*, not loaded as a prebuilt 3D model. **FORM & FINISH** offers real-time mathematical growth grammars and physically based material choices: sculptural intention without prebuilt sculptures.
 
+## Phase 03C: mathematical branching and growth rhythms
+
+- Wolfram Language-verified golden-angle phyllotaxis (137.507764°), alternate bilateral, sixfold whorl, or original scatter branching.
+- True daughter branch divergence, generational taper, and coherent/staggered/quasiperiodic growth rhythms. They influence future trajectories and branching, not an ornamental shader.
+- Cohesive lineage-derived fiber color, adjustable without recoloring existing deposited matter.
+- New growth laws persist in DNA and living-world checkpoints. Older saves retain original random branches and steady motion.
+- Full calculations in [docs/BRANCHING_MATH.md](docs/BRANCHING_MATH.md). **No Wolfram API calls during animation.**
+
 ## First playable proof — Nerve Cathedral
 
 - Growing and branching agents deposit persistent 3D fiber geometry.
@@ -55,7 +63,8 @@ Wolfram is consulted only when you press **Analyze field**. It receives a numeri
 - `src/surface.js` — bounded marching-tetrahedra mesh extraction from the B concentration field.
 - `src/structural.js` — solid-cell collision solver and trajectory guidance along the evolving chemical isosurface.
 - `src/art-direction.js` — procedural vector laws for visual silhouette and artist-facing material configurations.
-- `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js`, `tests/art-direction.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, smooth surface normals, composition laws and checkpoint regression tests (`npm test`).
+- `src/branching.js` — exact phyllotactic branch geometry and bounded, deterministic temporal growth rhythms.
+- `tests/biology.test.js`, `tests/colony.test.js`, `tests/morphogenesis.test.js`, `tests/structural.test.js`, `tests/art-direction.test.js`, `tests/branching.test.js` — chemistry, cellular dynamics, collisions, porous diffusion, smooth surface normals, branching law, temporal rhythm and checkpoint regression tests (`npm test`).
 - `src/main.js` — Three.js renderer, inputs, camera, views and exporting.
 - `src/styles.css` — mobile-first control layout.
 - `netlify/functions/wolfram.mjs` — credential-protected, allowlisted computational request.
