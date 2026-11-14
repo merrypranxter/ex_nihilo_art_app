@@ -156,8 +156,35 @@
               <label class="control"><span>Birth rate <output id="colony-growth-value">75%</output></span><input id="colony-growth" type="range" min="0" max="200" step="5" value="75"></label>
               <label class="control"><span>Erosion <output id="colony-erosion-value">8%</output></span><input id="colony-erosion" type="range" min="0" max="100" step="1" value="8"></label>
               <label class="control"><span>Mineralization <output id="colony-crystallization-value">4 steps</output></span><input id="colony-crystallization" type="range" min="2" max="12" step="1" value="4"></label>
-              <label class="control select-control"><span>Crystal cell geometry</span><select id="colony-geometry"><option value="octa">SHARP OCTAHEDRA</option><option value="cube">MINERAL CUBES</option><option value="sphere">ROUNDED NODULES</option></select></label>
             </div>
+            <details class="morph-advanced" open>
+              <summary>CRYSTAL OPTICS — FACETS, PRISMS &amp; FRACTURE JEWELS</summary>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control select-control"><span>Physical cell silhouette</span>
+                  <select id="colony-geometry">
+                    <option value="quartz">HEXAGONAL QUARTZ TERMINATIONS</option>
+                    <option value="prism">PENTAGONAL MINERAL PRISMS</option>
+                    <option value="shard">ASYMMETRIC CRYSTAL SHARDS</option>
+                    <option value="jewel">DODECAHEDRAL GEMS</option>
+                    <option value="octa">ORIGINAL OCTAHEDRA</option>
+                    <option value="cube">MINERAL CUBES</option>
+                    <option value="sphere">ROUNDED NODULES</option>
+                  </select>
+                </label>
+                <label class="control select-control"><span>Crystal optical character</span>
+                  <select id="crystal-lens">
+                    <option value="prism">CHROMATIC PRISM</option>
+                    <option value="opal">MILKY OPAL</option>
+                    <option value="alloy">IRIDESCENT ALLOY</option>
+                    <option value="frost">FROSTED MINERAL</option>
+                    <option value="inherit">SHARED ARTWORK FINISH</option>
+                  </select>
+                </label>
+                <label class="control"><span>Crystallographic face relief <output id="crystal-relief-value">62%</output></span><input id="crystal-relief" type="range" min="0" max="100" step="5" value="62"/></label>
+                <label class="control"><span>Fracture-edge prism jewels <output id="crystal-glints-value">63%</output></span><input id="crystal-glints" type="range" min="0" max="100" step="5" value="63"/></label>
+              </div>
+              <p class="help">The real 3D mineral mesh turns toward exposed cellular growth faces. Existing cracks and missing crystal cells decide where small glasslike facets catch the light. Your original pigments remain unchanged; all optics are reversible.</p>
+            </details>
             <details class="morph-advanced">
               <summary>STRUCTURAL FEEDBACK — PHYSICAL CONTACT &amp; POROSITY</summary>
               <div class="control-grid morph-advanced-grid">
