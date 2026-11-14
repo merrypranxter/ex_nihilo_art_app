@@ -26,7 +26,7 @@ export class FieldGestureTransaction{
   begin({type='vortex',pos=null,nodeId=null}={}){
     if(this.active)throw Error('A field gesture is already active.');
     const eng=this.engine;
-    this.before=eng.snapshotNodes();
+    this.before=eng.snapshotField();
     this.beforeRng=eng.rngState;
     this.erasing=type==='erase';
     this.node=nodeId===null?null:eng.nodes.find(n=>n.id===nodeId);
@@ -75,7 +75,7 @@ export class FieldGestureTransaction{
   commit(){
     if(!this.active)return false;
     const eng=this.engine;
-    const changed=JSON.stringify(this.before)!==JSON.stringify(eng.snapshotNodes());
+    const changed=JSON.stringify(this.before)!==JSON.stringify(eng.snapshotField());
     if(changed){
       eng.nodeUndo.push(this.before);
       if(eng.nodeUndo.length>25)eng.nodeUndo.shift();
@@ -86,10 +86,55 @@ export class FieldGestureTransaction{
   }
   cancel(){
     if(!this.active)return false;
-    this.engine.restoreNodes(this.before);
+    this.engine.restoreField(this.before);
     this.engine.rngState=this.beforeRng;
     this.clear();
     return true;
   }
   clear(){this.before=null;this.node=null;this.lens=null;this.erasing=false;}
+}
+
+/**
+ * Draw a causal guide / warp path as one atomic semantic transaction.
+ * Draft points do not become a committed undo record until pointer-up.
+ * Cancellation restores field features and the pre-gesture RNG state.
+ */
+export class GrowthStrokeTransaction{
+  constructor(engine){
+    this.engine=engine;this.before=null;this.beforeRng=0;this.stroke=null;
+  }
+  get active(){return this.before!==null;}
+  begin(kind,pos){
+    if(this.active)throw Error('Stroke transaction already active.');
+    const e=this.engine;
+    this.before=e.snapshotField();
+    this.beforeRng=e.rngState;
+    try{this.stroke=e.addStroke(kind,pos,{record:false});}
+    catch(error){this.before=null;throw error;}
+    return true;
+  }
+  append(pos){
+    if(!this.active)return false;
+    return this.engine.appendStroke(this.stroke,pos);
+  }
+  commit(){
+    if(!this.active)return false;
+    const e=this.engine;
+    if(this.stroke.points.length<2){
+      this.cancel();return false;
+    }
+    e.nodeUndo.push(this.before);
+    if(e.nodeUndo.length>25)e.nodeUndo.shift();
+    e.nodeRedo=[];
+    this.clear();
+    return true;
+  }
+  cancel(){
+    if(!this.active)return false;
+    this.engine.restoreField(this.before);
+    this.engine.rngState=this.beforeRng;
+    this.clear();
+    return true;
+  }
+  clear(){this.before=null;this.stroke=null;}
 }

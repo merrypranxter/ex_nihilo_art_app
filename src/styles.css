@@ -108,3 +108,29 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
 @media (prefers-reduced-motion:reduce){
   .pulse{animation:none!important}
 }
+
+/* Exact MATHEMAGICAL color vault; compact, editable, and safe on narrow iPhones. */
+#palette-search{
+  display:block;width:100%;min-width:0;padding:11px 10px;
+  color:#f6edff;background:#181529;border:1px solid #615175;
+  border-radius:6px;font-size:12px
+}
+.palette-stop-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(50px,1fr));
+  gap:8px;margin:14px 0 18px
+}
+.palette-swatch{
+  min-width:0;display:flex;flex-direction:column;gap:5px;
+  background:#160e23;padding:5px;border:1px solid #ffffff2d;border-radius:8px
+}
+.palette-swatch input[type=color]{
+  display:block;width:100%;height:43px;cursor:pointer;
+  padding:0;border:1px solid #ffffff66;border-radius:5px;background:transparent
+}
+.palette-swatch button{
+  color:#e5d1fa;background:#251637;border:1px solid #ffffff2e;
+  padding:5px 2px;border-radius:5px;font-size:10px;min-height:29px
+}
+.palette-swatch button:focus-visible,#palette-search:focus-visible{
+  outline:2px solid #ff6bc9;outline-offset:2px
+}

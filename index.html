@@ -216,13 +216,20 @@
             <p class="help first">Your fingers can grab the actual mathematical field. In VORTEX SCULPT, drag its eye to redirect future growth; pinch two fingers to expand its influence and twist to change chirality. ORBIT moves the camera only.</p>
             <div class="choice-grid" id="tools">
               <button data-tool="sculpt" class="choice">🌀 VORTEX SCULPT</button>
+              <button data-tool="stitch" class="choice">〰 STITCH GROWTH PATH</button>
+              <button data-tool="warp" class="choice">↝ WARP GROWTH FIELD</button>
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
               <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button><button data-tool="chemical" class="choice">◉ PAINT CHEMICAL</button>
               <button data-tool="orbit" class="choice">◎ ORBIT</button>
               <button data-tool="erase" class="choice">✕ ERASE NODE</button>
             </div>
-            <div class="small-actions"><button id="undo" class="mini">↶ UNDO FIELD EDIT</button><button id="redo" class="mini">↷ REDO FIELD EDIT</button><button id="clear-nodes" class="mini">CLEAR NODES</button></div>
+            <div class="small-actions"><button id="undo" class="mini">↶ UNDO FIELD EDIT</button><button id="redo" class="mini">↷ REDO FIELD EDIT</button><button id="clear-nodes" class="mini">CLEAR NODES</button><button id="clear-strokes" class="mini">CLEAR PATHS</button></div>
+            <div class="control-grid">
+              <label class="control"><span>Brush reach <output id="stroke-radius-value">0.75</output></span><input id="stroke-radius" type="range" min=".2" max="1.8" step=".05" value=".75"/></label>
+              <label class="control"><span>Brush influence <output id="stroke-strength-value">1.15</output></span><input id="stroke-strength" type="range" min=".1" max="3" step=".05" value="1.15"/></label>
+            </div>
+            <p id="stroke-stats" role="status" class="help">0 / 10 GROWTH PATHS</p>
             <div class="touch-editor">
               <p id="gesture-selection" role="status" aria-live="polite">NO FIELD SOURCE SELECTED</p>
               <div class="control-grid">
@@ -231,10 +238,11 @@
                 <label class="control"><span>Attract/repel force <output id="gesture-strength-value">3.50</output></span><input id="gesture-strength" type="range" min=".25" max="12" step=".25" value="3.5" disabled/></label>
               </div>
             </div>
-            <p class="help">A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
+            <p class="help">Use STITCH to guide future branches along a hand-drawn 3D path, or WARP to sweep their local vector field in the direction of your drag. Paths are persistent and undoable; they do not teleport already deposited fibers. A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
           </div>
           <div class="panel" data-panel="light" hidden>
             <div class="control-grid">
+              <label class="control select-control"><span>Search all MATHEMAGICAL palettes (199 total)</span><input id="palette-search" type="search" placeholder="Search name or source…" autocomplete="off"/></label>
               <label class="control select-control"><span>Growth palette</span><select id="palette">
                 <option value="acid">ULTRAVIOLET ACID</option>
                 <option value="molten">MOLTEN PRISM</option>
@@ -249,8 +257,16 @@
                 <option value="milk">PALE MIST</option>
               </select></label>
             </div>
-            <div class="small-actions"><button id="palette-roll" class="mini">⚄ SHUFFLE PALETTE</button><button id="camera-reset" class="mini">◎ RESET CAMERA</button></div>
-            <p class="help">New fibers inherit the current palette; old growth keeps its colors. Lighting changes never reset the physics.</p>
+            <p id="palette-count" class="help" aria-live="polite">194 MATHEMAGICAL VAULT PALETTES + 5 ORIGINALS</p>
+            <div class="palette-stop-grid" id="palette-stops" aria-label="Individually editable palette stops"></div>
+            <div class="small-actions">
+              <button id="palette-roll" class="mini">⚄ RANDOM PALETTE</button>
+              <button id="palette-shuffle" class="mini">⤨ SHUFFLE STOPS</button>
+              <button id="palette-rgb" class="mini">🌈 RANDOM RGB</button>
+              <button id="palette-restore" class="mini">↶ RESTORE STOPS</button>
+              <button id="camera-reset" class="mini">◎ RESET CAMERA</button>
+            </div>
+            <p class="help">Every original swatch is retained (2–12 colors). Edit a stop directly, shuffle their order, restore the source palette, or generate wild RGB. Only NEW growth uses changed colors; already deposited pigments are preserved. Background remains independent.</p>
           </div>
           <div class="panel" data-panel="wolfram" hidden>
             <p class="help first">Ask Wolfram|Alpha for the eigenvalues of the actual local vector-field Jacobian. One manual request, never a per-frame API call.</p>
