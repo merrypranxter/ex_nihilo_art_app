@@ -79,9 +79,11 @@ test('maturity refresh runs at a bounded cadence only if evolution is ON',()=>{
     w.setConfig({crystalEvolution:mode});
     w.colony.setSettings({enabled:true,growth:0,erosion:0,strainEnabled:false});
     w.seedCrystal(new Vector3());
-    for(let i=0;w.colony.generation<3&&i<200;i++)w.step(1/60);
+    // Generation 4 is itself the original mineralization transition.
+    // Check generation 8, when normal CA geometry is already stable.
+    for(let i=0;w.colony.generation<7&&i<400;i++)w.step(1/60);
     w.colony.changed=false;
-    for(let i=0;w.colony.generation<4&&i<200;i++)w.step(1/60);
+    for(let i=0;w.colony.generation<8&&i<200;i++)w.step(1/60);
     assert.equal(w.colony.changed,mode!=='off',mode+' display refresh');
   }
 });
