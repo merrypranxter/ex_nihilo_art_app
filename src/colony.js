@@ -198,7 +198,8 @@ export class CrystalColony {
        !valid(data.colors,this.capacity*3,255)||
        (data.strain!==undefined&&(!Array.isArray(data.strain)||
          data.strain.length!==this.capacity||!data.strain.every(n=>
-           typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1.35)))||
+           // Float32 roundoff of the exact 1.35 clamp is 1.3500000238.
+           typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1.351)))||
        (data.damage!==undefined&&!valid(data.damage,this.capacity,2))||
        ((data.strain===undefined)!==(data.damage===undefined))||
        (data.damage!==undefined&&data.damage.some((v,i)=>v===2&&data.cells[i]!==0))||
