@@ -14,6 +14,7 @@ import { HERITAGE_MODES } from './crystal-bloodlines.js';
 import { FAMILY_FOCUS_MODES } from './crystal-family-inspector.js';
 import { SurfaceGrowth,SURFACE_MORPHOLOGIES,SURFACE_NUCLEATION } from './surface-growth.js';
 import { SURFACE_BOUNDARIES,SURFACE_REGIONS,SURFACE_SEED_SYMMETRY } from './surface-composition.js';
+import { SURFACE_OPTICS,SURFACE_OPTICS_LOOPS } from './surface-optics.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -53,7 +54,10 @@ export class GrowthEngine {
       surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
       surfaceSpeed:3,surfaceContrast:.80,surfaceWrap:false,
       surfaceBoundary:'open',surfaceVoids:.55,
-      surfaceRegions:'single',surfaceSeedSymmetry:'none'
+      surfaceRegions:'single',surfaceSeedSymmetry:'none',
+      surfaceOpticsMode:'opal',surfaceOpticsStrength:.8,
+      surfaceOpticsThickness:330,surfaceOpticsRoughness:.3,
+      surfaceOpticsAngle:40,surfaceOpticsMotion:false,surfaceOpticsLoop:8
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -203,6 +207,16 @@ export class GrowthEngine {
     if(!Object.hasOwn(SURFACE_REGIONS,candidate.surfaceRegions))candidate.surfaceRegions='single';
     if(!Object.hasOwn(SURFACE_SEED_SYMMETRY,candidate.surfaceSeedSymmetry))candidate.surfaceSeedSymmetry='none';
     candidate.surfaceVoids=clamp(safe(+candidate.surfaceVoids),0,.95);
+    if(!Object.hasOwn(SURFACE_OPTICS,candidate.surfaceOpticsMode))
+      candidate.surfaceOpticsMode='off';
+    candidate.surfaceOpticsStrength=clamp(safe(+candidate.surfaceOpticsStrength),0,1.5);
+    candidate.surfaceOpticsThickness=clamp(safe(+candidate.surfaceOpticsThickness),90,800);
+    candidate.surfaceOpticsRoughness=clamp(safe(+candidate.surfaceOpticsRoughness),0,1);
+    candidate.surfaceOpticsAngle=clamp(safe(+candidate.surfaceOpticsAngle),0,360);
+    candidate.surfaceOpticsMotion=!!candidate.surfaceOpticsMotion;
+    if(!SURFACE_OPTICS_LOOPS.includes(+candidate.surfaceOpticsLoop))
+      candidate.surfaceOpticsLoop=8;
+    else candidate.surfaceOpticsLoop=+candidate.surfaceOpticsLoop;
     candidate.crystalMaturity=Math.round(clamp(safe(+candidate.crystalMaturity),8,96));
     candidate.crystalStressOptics=clamp(safe(+candidate.crystalStressOptics),.1,1.2);
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
@@ -273,8 +287,13 @@ export class GrowthEngine {
         surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
         surfaceSpeed:3,surfaceContrast:.8,surfaceWrap:false}
       :historicalInspector;
+    // Pre-04C worlds must retain exactly their old flat mineral appearance.
     this.setConfig({surfaceBoundary:'open',surfaceVoids:.55,
-      surfaceRegions:'single',surfaceSeedSymmetry:'none',...historicalSurface});
+      surfaceRegions:'single',surfaceSeedSymmetry:'none',
+      surfaceOpticsMode:'off',surfaceOpticsStrength:.8,
+      surfaceOpticsThickness:330,surfaceOpticsRoughness:.3,
+      surfaceOpticsAngle:40,surfaceOpticsMotion:false,surfaceOpticsLoop:8,
+      ...historicalSurface});
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings({
@@ -824,8 +843,13 @@ export class GrowthEngine {
         surfaceSeedCount:28,surfaceGrowth:.94,surfaceCoverage:.98,
         surfaceSpeed:3,surfaceContrast:.8,surfaceWrap:false}
       :historicalInspector;
+    // Pre-04C worlds must retain exactly their old flat mineral appearance.
     this.setConfig({surfaceBoundary:'open',surfaceVoids:.55,
-      surfaceRegions:'single',surfaceSeedSymmetry:'none',...historicalSurface});
+      surfaceRegions:'single',surfaceSeedSymmetry:'none',
+      surfaceOpticsMode:'off',surfaceOpticsStrength:.8,
+      surfaceOpticsThickness:330,surfaceOpticsRoughness:.3,
+      surfaceOpticsAngle:40,surfaceOpticsMotion:false,surfaceOpticsLoop:8,
+      ...historicalSurface});
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
