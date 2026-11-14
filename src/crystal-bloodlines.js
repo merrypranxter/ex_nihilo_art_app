@@ -54,7 +54,9 @@ export function inheritedFacet(genes,family,age,{mode='off',strength=.65}={}){
   const lateral=clamp(1-grow*.21*intensity*k,.72,1.32);
   const familyPhase=hash32(family)>>>19;
   const bandPeriod=mode==='strata'?7:mode==='mutant'?11:9;
-  const bandIndex=Math.floor((age+phase*0.19+familyPhase)%bandPeriod);
+  // The mineral's inherited band position is fixed at birth; age does
+  // not make it blink in and out as the renderer refreshes.
+  const bandIndex=Math.floor((phase*.19+familyPhase)%bandPeriod);
   const probability=mode==='strata'?.68:mode==='mutant'?.43:.5;
   const band=(bandIndex/(bandPeriod-1)<probability)&&
     (((hash32(family^Math.imul(phase+1,0x6a09e667))&1023)/1023)<.86);
