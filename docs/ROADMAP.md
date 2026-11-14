@@ -89,6 +89,17 @@
 - [x] Headless replay checks and legacy checkpoint restore checks.
 - [ ] Browser-based artistic assessment, render FPS/heap measurement and production Vite build; no hosting credits used.
 
+## Phase 03E — Mineral Veins / Structure-first optics
+
+- [x] Swappable actual instanced 3D filament cross-sections: mineral needle, vitreous prism, fine wire, triangular shards, and historical five-sided tube.
+- [x] Birth time recorded per deposited segment; full-world checkpoints retain the history.
+- [x] Subtle non-destructive age-dependent mineralization of displayed pigment and emission, while historical colors and material states remain unchanged.
+- [x] Timed optics refreshed in capped groups of 2,200 segments per frame, without introducing a heavyweight postprocessing stack.
+- [x] Per-material physically based shading, retaining iridescence, clearcoat and artist-selectable optical finishes.
+- [x] Restore of older checkpoints without mineral history using historical non-aging and original-fiber defaults.
+- [x] Headless exact checkpoint/replay verification, syntax and DOM wiring validation.
+- [ ] Real WebGL2 Safari and browser quality/performance inspection, visual calibration and production Vite build.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.

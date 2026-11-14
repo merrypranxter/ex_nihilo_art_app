@@ -6,6 +6,7 @@ import { resolveCrystalMovement, traceChemicalMembrane } from './structural.js';
 import { formField, FORM_NAMES, FINISHES } from './art-direction.js';
 import { branchVector, growthRhythm, BRANCH_MODES, RHYTHM_MODES } from './branching.js';
 import { lineageSteering } from './filigree.js';
+import { FIBER_PROFILES } from './mineral-optics.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -33,7 +34,8 @@ export class GrowthEngine {
       form:'coral',formStrength:.85,formTwist:.6,finish:'opal',glow:.6,
       branchMode:'golden',branchAngle:56,branchTaper:.84,lineageColor:.65,
       rhythmMode:'beats',rhythmDepth:.62,rhythmRate:.55,
-      branchOrdering:'family',branchPersistence:.78,filigreeContrast:.70
+      branchOrdering:'family',branchPersistence:.78,filigreeContrast:.70,
+      fiberProfile:'needle',mineralStrength:.65,mineralHalfLife:18
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -60,6 +62,7 @@ export class GrowthEngine {
     this.segmentColors = new Uint8Array(this.maxSegments * 3);
     this.segmentRadii = new Float32Array(this.maxSegments);
     this.segmentGenerations = new Uint8Array(this.maxSegments);
+    this.segmentBornAt = new Float32Array(this.maxSegments);
     this.nutrients = new NutrientField(GRID,WORLD);
     this.nutrientElapsed = 0;
     if(!this.colony)this.colony=new CrystalColony(GRID,WORLD);
@@ -140,6 +143,9 @@ export class GrowthEngine {
     candidate.rhythmRate=clamp(safe(+candidate.rhythmRate),.05,2);
     candidate.branchPersistence=clamp(safe(+candidate.branchPersistence),0,1);
     candidate.filigreeContrast=clamp(safe(+candidate.filigreeContrast),0,1);
+    candidate.mineralStrength=clamp(safe(+candidate.mineralStrength),0,1);
+    candidate.mineralHalfLife=clamp(safe(+candidate.mineralHalfLife),3,120);
+    if(!FIBER_PROFILES[candidate.fiberProfile])candidate.fiberProfile='legacy';
     if(!['global','family'].includes(candidate.branchOrdering))candidate.branchOrdering='global';
     if(!BRANCH_MODES[candidate.branchMode])candidate.branchMode='random';
     if(!RHYTHM_MODES[candidate.rhythmMode])candidate.rhythmMode='steady';
@@ -171,7 +177,10 @@ export class GrowthEngine {
     const historicalAnatomy=historicalBranches.branchOrdering===undefined
       ?{...historicalBranches,branchOrdering:'global',branchPersistence:0,filigreeContrast:0}
       :historicalBranches;
-    this.setConfig(historicalAnatomy);
+    const historicalOptics=historicalAnatomy.fiberProfile===undefined
+      ?{...historicalAnatomy,fiberProfile:'legacy',mineralStrength:0,mineralHalfLife:18}
+      :historicalAnatomy;
+    this.setConfig(historicalOptics);
     if(dna.colony)this.colony.setSettings(dna.colony);
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
@@ -295,7 +304,8 @@ export class GrowthEngine {
     this.segmentRadii[slot]=radius;
     const generation=Math.min(12,agent.generation||0);
     this.segmentGenerations[slot]=generation;
-    this.onDeposit(slot,a,b,color,radius,generation);
+    this.segmentBornAt[slot]=this.time;
+    this.onDeposit(slot,a,b,color,radius,generation,this.segmentBornAt[slot]);
     this.cursor=(this.cursor+1)%this.maxSegments;
     this.segmentCount=Math.min(this.segmentCount+1,this.maxSegments);
     this.totalDeposits++;
@@ -498,6 +508,7 @@ export class GrowthEngine {
       colors:Array.from(this.segmentColors.subarray(0,n*3)),
       radii:Array.from(this.segmentRadii.subarray(0,n)),
       segmentGenerations:Array.from(this.segmentGenerations.subarray(0,n)),
+      segmentBornAt:Array.from(this.segmentBornAt.subarray(0,n)),
       density:Array.from(this.density),
       nutrients:Array.from(this.nutrients.values),
       colony:this.colony.snapshot(),
@@ -538,6 +549,8 @@ export class GrowthEngine {
       !validArray(data.radii,data.segmentCount,n=>finite(n)&&n>=0&&n<=1)||
       (data.segmentGenerations!==undefined&&!validArray(data.segmentGenerations,data.segmentCount,
         n=>Number.isInteger(n)&&n>=0&&n<=12))||
+      (data.segmentBornAt!==undefined&&!validArray(data.segmentBornAt,data.segmentCount,
+        n=>finite(n)&&n>=0&&n<=data.time+.001))||
       !validArray(data.density,GRID**3,n=>Number.isInteger(n)&&n>=0&&n<=MAX_DENSITY)||
       !validArray(data.nutrients,GRID**3,n=>finite(n)&&n>=0&&n<=1)||
       !Array.isArray(data.nodes)||data.nodes.length>15||!data.nodes.every(node)||
@@ -558,7 +571,10 @@ export class GrowthEngine {
     const legacyAnatomy=legacyGrowth.branchOrdering===undefined
       ?{...legacyGrowth,branchOrdering:'global',branchPersistence:0,filigreeContrast:0}
       :legacyGrowth;
-    this.setConfig(legacyAnatomy);
+    const legacyOptics=legacyAnatomy.fiberProfile===undefined
+      ?{...legacyAnatomy,fiberProfile:'legacy',mineralStrength:0,mineralHalfLife:18}
+      :legacyAnatomy;
+    this.setConfig(legacyOptics);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
@@ -574,6 +590,8 @@ export class GrowthEngine {
     this.segmentColors.set(data.colors);
     this.segmentRadii.set(data.radii);
     if(data.segmentGenerations)this.segmentGenerations.set(data.segmentGenerations);
+    if(data.segmentBornAt)this.segmentBornAt.set(data.segmentBornAt);
+    else this.segmentBornAt.fill(data.time,0,data.segmentCount);
     this.density.set(data.density);
     this.nutrients.setValues(data.nutrients);
     if(hasColony)this.colony.restore(data.colony);
@@ -595,7 +613,7 @@ export class GrowthEngine {
       a.set(this.segments[k],this.segments[k+1],this.segments[k+2]);
       b.set(this.segments[k+3],this.segments[k+4],this.segments[k+5]);
       color.setRGB(this.segmentColors[j]/255,this.segmentColors[j+1]/255,this.segmentColors[j+2]/255);
-      this.onDeposit(i,a,b,color,this.segmentRadii[i],this.segmentGenerations[i]);
+      this.onDeposit(i,a,b,color,this.segmentRadii[i],this.segmentGenerations[i],this.segmentBornAt[i]);
     }
     this.nodeUndo=[];
     this.nodeRedo=[];
