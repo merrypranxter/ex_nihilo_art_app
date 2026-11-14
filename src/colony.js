@@ -3,6 +3,7 @@
 // consumed nutrient concentration govern births, maturation and erosion.
 // No Three.js import: can be tested separately from its renderer.
 
+import {pressureAt} from './crystal-pressure.js';
 const lim=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const DIRS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 
@@ -78,17 +79,19 @@ export class CrystalColony {
     if(!this.inside(x,y,z))return false;
     return this.birth(this.index(x,y,z),nutrient,palette,rng);
   }
-  update(nutrient,palette,rng,chemical=null){
+  update(nutrient,palette,rng,chemical=null,pressureMarks=null){
     if(!this.settings.enabled||this.population===0)return;
     const candidates=new Map();
     const mature=[];
+    const hasMarks=!!pressureMarks?.length;
+    const hasCleave=hasMarks&&pressureMarks.some(p=>p.mode==='cleave');
     for(let i=0;i<this.cells.length;i++){
       if(!this.cells[i])continue;
       const [x,y,z]=this.decode(i);
       // Cells age independently; stable mineral walls persist after maturation.
       if(this.ages[i]<255)this.ages[i]++;
       if(this.cells[i]===1&&this.ages[i]>=this.settings.crystallization){this.cells[i]=2;this.changed=true;}
-      else if(this.cells[i]===2&&this.settings.erosion>0)mature.push(i);
+      else if(this.cells[i]===2&&(this.settings.erosion>0||hasCleave))mature.push(i);
       for(const [dx,dy,dz] of DIRS){
         const nx=x+dx,ny=y+dy,nz=z+dz;
         if(!this.inside(nx,ny,nz))continue;
@@ -120,7 +123,11 @@ export class CrystalColony {
         // This biases *local birth probabilities*; it does not insert shapes.
         chemicalBias=(.72+Math.min(1,b)*1.35)*(1+1.7*nearBoundary*steepness);
       }
-      const probability=lim(.19*this.settings.growth*contact*food*spatial*chemicalBias,0,.86);
+      // Touch-written crystal stress affects REAL cellular birth probabilities.
+      // No mark means exact historical birth law and RNG sequence.
+      const pressureBias=hasMarks?pressureAt(p,pressureMarks).birth:1;
+      const probability=lim(.19*this.settings.growth*contact*food*spatial*
+        chemicalBias*pressureBias,0,.86);
       if(rng()<probability)births.push(i);
     }
     for(const i of births)this.birth(i,nutrient,palette,rng);
@@ -128,7 +135,10 @@ export class CrystalColony {
     for(const i of mature){
       const [x,y,z]=this.decode(i);
       const food=nutrient.sample(this.worldPos(x,y,z));
-      if(food<.21&&rng()<this.settings.erosion*.016){
+      const usual=food<.21&&rng()<this.settings.erosion*.016;
+      const pressureErode=hasCleave?
+        pressureAt(this.worldPos(x,y,z),pressureMarks).erosion:0;
+      if(usual||(pressureErode>0&&rng()<pressureErode)){
         this.cells[i]=0;this.ages[i]=0;this.population--;this.changed=true;
       }
     }
