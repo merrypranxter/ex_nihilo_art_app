@@ -370,7 +370,8 @@ export class GrowthEngine {
         const start=this.randomPointOnFibers();
         a.p.copy(start); a.prev.copy(start);
         a.dir.copy(this.randomVector());
-        a.traveled=0;a.age=0;a.life=8+this.random()*22;
+        // Regeneration is a new root, not a continuation of the old lineage.
+        a.traveled=0;a.age=0;a.generation=0;a.life=8+this.random()*22;
       }
     }
   }
