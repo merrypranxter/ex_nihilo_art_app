@@ -115,6 +115,63 @@
               <button type="button" class="choice" id="surface-reseed">↻ NEW SURFACE SEED</button>
               <button type="button" class="choice" id="surface-png">↓ 2048px ART PNG</button>
             </div>
+            <details id="surface-loop-forge" class="morph-advanced">
+              <summary>🎞 LOOP FORGE · ANIMATED MINERAL EXPORT</summary>
+              <div class="morph-advanced-grid">
+                <p class="help first">Capture a frozen mineral specimen as a mathematically looping animation. The growth simulation, Gesture Witch marks, pigments and 3D organism do not change. GIF frames are rendered OFFLINE and loop perfectly; MP4 uses realtime browser recording and may drop frames on slow phones.</p>
+                <div class="control-grid">
+                  <label class="control select-control"><span>Export format</span>
+                    <select id="surface-loop-format">
+                      <option value="gif">GIF · EXACT FRAME PHASES / 256 COLORS</option>
+                      <option value="mp4">MP4 · ONLY WHERE SAFARI SUPPORTS IT</option>
+                    </select>
+                  </label>
+                  <label class="control select-control"><span>Duration</span>
+                    <select id="surface-loop-seconds">
+                      <option value="2">2 SECONDS</option>
+                      <option value="3" selected>3 SECONDS</option>
+                      <option value="5">5 SECONDS</option>
+                      <option value="10">10 SECONDS</option>
+                    </select>
+                  </label>
+                  <label class="control select-control"><span>Frames per second</span>
+                    <select id="surface-loop-fps">
+                      <option value="12" selected>12 FPS · LIGHT GIF</option>
+                      <option value="18">18 FPS · SMOOTHER</option>
+                      <option value="24">24 FPS · MORE FRAMES</option>
+                    </select>
+                  </label>
+                  <label class="control select-control"><span>Output dimensions</span>
+                    <select id="surface-loop-size">
+                      <option value="512" selected>512 × 512 · IPHONE FRIENDLY</option>
+                      <option value="768">768 × 768 · MORE DETAIL</option>
+                      <option value="1024">1024 × 1024 · HEAVY</option>
+                    </select>
+                  </label>
+                  <label class="control select-control"><span>What moves?</span>
+                    <select id="surface-loop-motion">
+                      <option value="orbit">LIGHT ORBIT · FROZEN MATERIAL</option>
+                      <option value="film">FILM TIDE · OSCILLATING COATING</option>
+                      <option value="hybrid" selected>LIVING MATERIAL · LIGHT + MICROSTRUCTURE</option>
+                    </select>
+                  </label>
+                  <label class="control select-control"><span>Loop behavior</span>
+                    <select id="surface-loop-playback">
+                      <option value="cycle" selected>PERFECT PERIODIC CYCLE</option>
+                      <option value="boomerang">BOOMERANG · FORWARD AND BACK</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="small-actions ecology-actions">
+                  <button type="button" class="choice" id="surface-loop-preview" aria-pressed="false">▷ PREVIEW LOOP</button>
+                  <button type="button" class="primary" id="surface-loop-export">↓ EXPORT GIF</button>
+                  <button type="button" class="mini danger" id="surface-loop-cancel" disabled>CANCEL EXPORT</button>
+                </div>
+                <p class="help" id="surface-loop-status" role="status" aria-live="polite">Choose a loop, then preview or export. Start with 512px / 12fps for your iPhone.</p>
+                <p class="help" id="surface-loop-mp4-note">MP4 detection is checked locally in your browser. Unsupported browsers can still export GIF.</p>
+                <p class="help">GIF frames use exact integer phase positions and centisecond timing; 10 seconds at high resolution can consume serious memory. Film Tide is meaningful for OPAL or SPECTRAL OPAL coatings. MP4 is *native* MP4 only, never disguised WebM; realtime encoding cannot promise frame-perfect timing. PNG remains the 2048px full-color still format.</p>
+              </div>
+            </details>
             <details id="surface-gesture-lab" class="morph-advanced" open>
               <summary>✋ GESTURE WITCH · TOUCH THE GROWTH LAWS</summary>
               <div class="morph-advanced-grid">
