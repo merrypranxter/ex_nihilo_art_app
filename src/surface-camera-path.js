@@ -20,7 +20,7 @@ const point=p=>Array.isArray(p)&&p.length===3&&
   p[2]>=0&&p[2]<=1;
 const distance=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 export function validCameraPath(path){
-  return path===null||(path&&path.version===1&&
+  return path===null||Boolean(path&&path.version===1&&
     Number.isInteger(path.id)&&path.id>=1&&path.id<=1000000&&
     Array.isArray(path.points)&&path.points.length>=2&&
     path.points.length<=MAX_CAMERA_PATH_POINTS&&
@@ -28,7 +28,7 @@ export function validCameraPath(path){
     path.points.every((p,i)=>i===0||p[2]>=path.points[i-1][2])&&
     path.points[0][2]===0&&
     path.points.at(-1)[2]===1&&
-    path.points.some((p,i)=>i>0&&distance(p,path.points[0])>.005));
+    path.points.some((p,i)=>i>0&&distance(p,path.points[0])>.005)));
 }
 export function cloneCameraPath(path){
   return path?{version:1,id:path.id,points:path.points.map(p=>[...p])}:null;
