@@ -132,27 +132,82 @@ const crystalRotation=new THREE.Quaternion();
 const crystalScale=new THREE.Vector3(1,1,1);
 const crystalColor=new THREE.Color();
 const crystalWhite=new THREE.Color('#ffffff');
+const crystalCrackedTint=new THREE.Color('#ddd8ef');
+// A real cell only shows a crack after stored lattice damage exceeds the
+// material threshold. Missing cells leave persistent hairline scar marks.
+const maxScarLines=8000;
+const scarCoords=new Float32Array(maxScarLines*6);
+const scarColors=new Float32Array(maxScarLines*6);
+const scarGeometry=new THREE.BufferGeometry();
+const scarPosition=new THREE.BufferAttribute(scarCoords,3).setUsage(THREE.DynamicDrawUsage);
+const scarPigment=new THREE.BufferAttribute(scarColors,3).setUsage(THREE.DynamicDrawUsage);
+scarGeometry.setAttribute('position',scarPosition);
+scarGeometry.setAttribute('color',scarPigment);
+scarGeometry.setDrawRange(0,0);
+const scarLines=new THREE.LineSegments(scarGeometry,new THREE.LineBasicMaterial({
+  vertexColors:true,transparent:true,opacity:.68,depthTest:false,depthWrite:false
+}));
+scarLines.frustumCulled=false;
+scarLines.renderOrder=4;
+scene.add(scarLines);
 function syncCrystals(){
   if(!engine.colony.changed)return;
-  let visible=0;
+  let visible=0,scarLinesDrawn=0,cracked=0,shattered=0;
   const colony=engine.colony;
   for(let i=0;i<colony.capacity;i++){
+    const damage=colony.damage[i];
+    if(damage){
+      if(damage===1)cracked++;else shattered++;
+      if(scarLinesDrawn<maxScarLines){
+        const [sx,sy,sz]=colony.decode(i);
+        const p=colony.worldPos(sx,sy,sz);
+        const spread=crystalCellSize*(damage===2?.43:.31);
+        const direction=i%3;
+        const dx=direction===0?spread:spread*.28;
+        const dy=direction===1?spread:spread*.24;
+        const dz=direction===2?spread:spread*.35;
+        const k=scarLinesDrawn++*6;
+        scarCoords.set([p.x-dx,p.y-dy,p.z-dz,
+                        p.x+dx,p.y+dy,p.z+dz],k);
+        // Pigment remains frozen at crystal birth, including after death.
+        // Fractures carry that precise user-selected palette history.
+        const j=i*3;
+        const pigment=[
+          .20+colony.colors[j]/255*.86,
+          .20+colony.colors[j+1]/255*.86,
+          .20+colony.colors[j+2]/255*.86
+        ];
+        scarColors.set([...pigment,...pigment],k);
+      }
+    }
     if(!colony.cells[i])continue;
     const [x,y,z]=colony.decode(i);
     const point=colony.worldPos(x,y,z);
     crystalPosition.set(point.x,point.y,point.z);
     const mature=colony.cells[i]===2;
     const scale=mature?1:Math.max(.36,Math.min(1,(colony.ages[i]+1)/colony.settings.crystallization));
-    crystalScale.setScalar(scale);
+    const stress=colony.strain[i];
+    crystalScale.set(scale*(damage===1?.88:1),
+      scale*(damage===1?.75:1),
+      scale*(damage===1?.84:1));
     crystalTransform.compose(crystalPosition,crystalRotation,crystalScale);
     crystals.setMatrixAt(visible,crystalTransform);
     const k=i*3;
     crystalColor.setRGB(colony.colors[k]/255,colony.colors[k+1]/255,colony.colors[k+2]/255);
     if(!mature)crystalColor.lerp(crystalWhite,.17);
+    if(damage===1)crystalColor.lerp(crystalCrackedTint,.26);
+    else if(stress>.15)crystalColor.lerp(crystalCrackedTint,
+      Math.min(.16,stress*.12));
     crystals.setColorAt(visible,crystalColor);
     visible++;
     if(visible>=colony.maxCells)break;
   }
+  scarGeometry.setDrawRange(0,scarLinesDrawn*2);
+  scarPosition.needsUpdate=true;
+  scarPigment.needsUpdate=true;
+  $('strain-stats').textContent=cracked.toLocaleString()+
+    ' CRACKED CELLS · '+shattered.toLocaleString()+' FRACTURE SCARS'+
+    (scarLinesDrawn>=maxScarLines?' · SCAR DISPLAY CAPPED':'');
   crystals.count=visible;
   crystals.instanceMatrix.needsUpdate=true;
   if(crystals.instanceColor)crystals.instanceColor.needsUpdate=true;
@@ -332,7 +387,8 @@ const pressureCoreGeometry=new THREE.SphereGeometry(.095,10,8);
 const pressurePalette={
   grow:new THREE.MeshBasicMaterial({color:'#81ffba',transparent:true,opacity:.77,side:THREE.DoubleSide,depthWrite:false}),
   shield:new THREE.MeshBasicMaterial({color:'#ffd66f',transparent:true,opacity:.79,side:THREE.DoubleSide,depthWrite:false}),
-  cleave:new THREE.MeshBasicMaterial({color:'#fc69dc',transparent:true,opacity:.83,side:THREE.DoubleSide,depthWrite:false})
+  cleave:new THREE.MeshBasicMaterial({color:'#fc69dc',transparent:true,opacity:.83,side:THREE.DoubleSide,depthWrite:false}),
+  strain:new THREE.MeshBasicMaterial({color:'#54e9ff',transparent:true,opacity:.87,side:THREE.DoubleSide,depthWrite:false})
 };
 const pressureLineMaterials={
   cleave:new THREE.LineBasicMaterial({color:'#ffa4ef',transparent:true,opacity:.81,depthWrite:false})
@@ -343,11 +399,12 @@ function updatePressureControls(){
   const mark=selectedPressure();
   const radius=mark?.radius??engine.config.pressureRadius;
   const strength=mark?.strength??engine.config.pressureStrength;
-  const dormant=!engine.colony.settings.enabled||engine.colony.population===0;
+  const dormant=!engine.colony.settings.enabled||engine.colony.population===0||
+    (mark?.mode==='strain'&&!engine.colony.settings.strainEnabled);
   $('pressure-selection').textContent=(mark
     ?mark.mode.toUpperCase()+' #'+mark.id+' · DRAG TO MOVE · PINCH REACH · TWIST AXIS'
     :'NO PRESSURE MARK SELECTED — CONTROLS SET NEXT STAMP')+
-    (dormant?' · START / SEED CRYSTALS TO ACTIVATE':'');
+    (dormant?' · START CRYSTALS / ENABLE FRACTURE MEMORY TO ACTIVATE':'');
   if(!pressureSliderEdit){
     $('pressure-radius').value=String(radius);
     $('pressure-strength').value=String(strength);
@@ -544,6 +601,7 @@ const hints={
   'pressure-grow':'TOUCH THE COLONY TO ENCOURAGE NEW CRYSTAL BIRTHS',
   'pressure-shield':'TOUCH TO PROTECT A REGION FROM NEW CRYSTAL BIRTHS',
   'pressure-cleave':'DRAG A SPLIT AXIS · PRESS INTO THE CRYSTAL FRONT',
+  'pressure-strain':'DRAG A STRESS SOURCE · CRACKS BUILD UP IN LIVING CRYSTALS',
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
@@ -644,7 +702,7 @@ function setTool(next){
 document.querySelectorAll('[data-tool]').forEach(btn=>
   btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
 $('sculpt-quick').addEventListener('click',()=>setTool('sculpt'));
-$('pressure-quick').addEventListener('click',()=>setTool('pressure-grow'));
+$('pressure-quick').addEventListener('click',()=>setTool('pressure-strain'));
 $('food-tool').addEventListener('click',()=>setTool('feed'));
 $('food-view').addEventListener('click',()=>{
   showFood=!showFood;
@@ -976,19 +1034,32 @@ function updateCrystalControls(){
   $('colony-crystallization-value').textContent=c.crystallization+' steps';
   $('colony-toggle').textContent=c.enabled?'Ⅱ PAUSE CRYSTAL GROWTH':'◇ START CRYSTAL COLONY';
   $('colony-toggle').setAttribute('aria-pressed',String(c.enabled));
+  $('strain-transfer').value=Math.round(c.strainTransfer*100);
+  $('strain-transfer-value').textContent=Math.round(c.strainTransfer*100)+'%';
+  $('strain-break').value=Math.round(c.breakThreshold*100);
+  $('strain-break-value').textContent=Math.round(c.breakThreshold*100)+'%';
+  $('strain-enable').textContent=c.strainEnabled?'⚡ FRACTURE MEMORY ON':'◇ FRACTURE MEMORY OFF';
+  $('strain-enable').setAttribute('aria-pressed',String(c.strainEnabled));
   updatePressureControls();
 }
 function readCrystalControls(){
   engine.colony.setSettings({
     growth:Number($('colony-growth').value)/100,
     erosion:Number($('colony-erosion').value)/100,
-    crystallization:Number($('colony-crystallization').value)
+    crystallization:Number($('colony-crystallization').value),
+    strainTransfer:Number($('strain-transfer').value)/100,
+    breakThreshold:Number($('strain-break').value)/100
   });
   updateCrystalControls();
   updateMorphControls();
 }
-['colony-growth','colony-erosion','colony-crystallization'].forEach(id=>
+['colony-growth','colony-erosion','colony-crystallization',
+  'strain-transfer','strain-break'].forEach(id=>
   $(id).addEventListener('input',readCrystalControls));
+$('strain-enable').addEventListener('click',()=>{
+  engine.colony.setSettings({strainEnabled:!engine.colony.settings.strainEnabled});
+  updateCrystalControls();
+});
 $('colony-toggle').addEventListener('click',()=>{
   const enabled=!engine.colony.settings.enabled;
   engine.colony.setSettings({enabled});

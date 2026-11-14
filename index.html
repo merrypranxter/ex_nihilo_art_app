@@ -179,8 +179,10 @@
                 <button data-tool="pressure-grow" type="button" class="choice">✳ GROWTH PRESS</button>
                 <button data-tool="pressure-shield" type="button" class="choice">◉ SHIELD GROWTH</button>
                 <button data-tool="pressure-cleave" type="button" class="choice">◇ CLEAVE / SPLIT</button>
+                <button data-tool="pressure-strain" type="button" class="choice">⚡ ACCUMULATE STRAIN</button>
               </div>
               <p id="pressure-selection" class="help" role="status" aria-live="polite">NO PRESSURE MARK SELECTED</p>
+              <p class="help">STRAIN accumulates along connected crystals and persists after release. Cracks appear before cells break into permanent missing-mineral scars. Existing CLEAVE marks also seed lattice strain. No force-sensitive screen is required.</p>
               <div class="control-grid">
                 <label class="control"><span>Pressure reach <output id="pressure-radius-value">0.85</output></span><input id="pressure-radius" type="range" min=".25" max="2.1" step=".05" value=".85"/></label>
                 <label class="control"><span>Pressure strength <output id="pressure-strength-value">1.20</output></span><input id="pressure-strength" type="range" min=".1" max="2.4" step=".05" value="1.2"/></label>
@@ -190,11 +192,21 @@
                 <span id="pressure-stats" class="help">0 / 12 PRESSURE MARKS</span>
               </div>
             </details>
+            <details class="morph-advanced">
+              <summary>FRACTURE MEMORY — MINERAL STIFFNESS</summary>
+              <button type="button" class="mini" id="strain-enable" aria-pressed="true">⚡ FRACTURE MEMORY ON</button>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control"><span>Stress conduction <output id="strain-transfer-value">24%</output></span><input id="strain-transfer" type="range" min="0" max="48" step="2" value="24"/></label>
+                <label class="control"><span>Breaking threshold <output id="strain-break-value">96%</output></span><input id="strain-break" type="range" min="60" max="120" step="3" value="96"/></label>
+              </div>
+              <p class="help">Low conduction keeps damage near your touch. High conduction carries it through connected crystal branches. Higher breaking threshold creates tougher mineral; cracks appear first at 57% of that threshold. These changes affect future growth only.</p>
+              <p id="strain-stats" role="status" class="help">0 CRACKED CELLS · 0 FRACTURE SCARS</p>
+            </details>
             <div class="small-actions ecology-actions">
               <button id="crystal-seed" class="choice" type="button">✳ TOUCH TO SEED CELLS</button>
               <button id="crystal-clear" class="mini danger" type="button">ERASE CRYSTAL COLONY</button>
             </div>
-            <p class="help"><span id="crystal-stats">0 CRYSTALS · 0 GENERATIONS</span>. Stress marks only work while crystal growth is enabled and at least one seed exists. Pressing never fabricates a finished crystal: the automaton must grow it. Contact redirects growing strands; porous walls alter real nutrient and chemical transport. Crystals only change through explicit growth or erosion. Pausing the crystal engine keeps its structure visible. Resetting only crystals requires confirmation and won't erase your fiber artwork.</p>
+            <p class="help"><span id="crystal-stats">0 CRYSTALS · 0 GENERATIONS</span>. Stress and pressure marks only work while crystal growth is enabled and at least one seed exists. Existing matter may develop cracks and fracture scars only through successive CA ticks. Pressing never fabricates a finished crystal: the automaton must grow it. Contact redirects growing strands; porous walls alter real nutrient and chemical transport. Crystals only change through explicit growth or erosion. Pausing the crystal engine keeps its structure visible. Resetting only crystals requires confirmation and won't erase your fiber artwork.</p>
           </div>
           <div class="panel" data-panel="morph" hidden>
             <p class="help first">Two chemicals react and diffuse through a real 3D volume. The evolving B concentration generates its own surface; chemistry—not a canned object—decides where matter appears.</p>
@@ -240,6 +252,7 @@
               <button data-tool="pressure-grow" class="choice">✳ PRESS CRYSTALS</button>
               <button data-tool="pressure-shield" class="choice">◉ SHIELD CRYSTALS</button>
               <button data-tool="pressure-cleave" class="choice">◇ CLEAVE CRYSTALS</button>
+              <button data-tool="pressure-strain" class="choice">⚡ FRACTURE MEMORY</button>
               <button data-tool="attract" class="choice active">⊕ ATTRACT</button>
               <button data-tool="repel" class="choice">⊖ REPEL</button>
               <button data-tool="seed" class="choice">✳ SEED GROWTH</button><button data-tool="feed" class="choice">☼ FEED FIELD</button><button data-tool="crystal" class="choice">◆ SEED CRYSTALS</button><button data-tool="chemical" class="choice">◉ PAINT CHEMICAL</button>

@@ -195,7 +195,9 @@ export class GrowthEngine {
     this.setConfig(historicalOptics);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
-    if(dna.colony)this.colony.setSettings(dna.colony);
+    if(dna.colony)this.colony.setSettings(
+      dna.colony.strainEnabled===undefined?
+        {...dna.colony,strainEnabled:false}:dna.colony);
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
   }

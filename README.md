@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03I — Crystal Fracture Memory:** true accumulated stress through connected 3D mineral voxels; touch-authored STRAIN and CLEAVE marks transmit fatigue over time, create visible microcracks and permanent missing-cell scars. Fracture is rate-limited to protect a living nucleus; existing saved worlds stay non-fatiguing until the artist enables it. Physics and damage persist in world checkpoints, with the entire exact 199-choice MATHEMAGICAL + EX NIHILO palette library unchanged. See [material equations and test notes](docs/PHASE-03I-FRACTURE-MEMORY.md).
+
+
 **Phase 03H — Crystal Pressure Witch:** Directly touch the *cellular growth physics* of crystals. Three distinct persistent pressure modes boost births, shield areas, or create a directional seam that can erode mature crystals and favor two surrounding growth fronts. Drag, pinch reach and twist the cleavage axis; all marks share the semantic field Undo/Redo and are saved in whole-world checkpoints and DNA. The exact 194+5 MATHEMAGICAL palettes remain intact and **live edited color stops now also reach new crystal cell births**. See [Crystal Pressure math and UX](docs/PHASE-03H-CRYSTAL-PRESSURE.md).
 
 

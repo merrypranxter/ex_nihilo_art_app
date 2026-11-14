@@ -4,7 +4,8 @@
 // destructive cell carving during a gesture or runtime physics API needed.
 export const MAX_PRESSURES=12;
 export const PRESSURE_MODES=Object.freeze({
-  grow:'GROWTH PRESS',shield:'SHIELD',cleave:'CLEAVE / TWO-SIDED GROWTH'
+  grow:'GROWTH PRESS',shield:'SHIELD',cleave:'CLEAVE / TWO-SIDED GROWTH',
+  strain:'CRYSTAL STRAIN / FRACTURE'
 });
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const finite=Number.isFinite;
@@ -47,7 +48,7 @@ export function pressureAt(point,pressures){
       birth*=1+1.75*p.strength*near;
     }else if(p.mode==='shield'){
       birth*=Math.exp(-2.2*p.strength*near);
-    }else {
+    }else if(p.mode==='cleave'){
       const along=Math.abs(dx*p.axis[0]+dy*p.axis[1]+dz*p.axis[2]);
       const across2=Math.max(0,dist2-along*along);
       const seam=Math.exp(-Math.pow(along/(.19*r),2))*Math.exp(-across2/(1.5*r*r));
