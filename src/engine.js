@@ -4,6 +4,7 @@ import { CrystalColony } from './colony.js';
 import { MorphogenesisVolume } from './morphogenesis.js';
 import { resolveCrystalMovement, traceChemicalMembrane } from './structural.js';
 import { formField, FORM_NAMES, FINISHES } from './art-direction.js';
+import { branchVector, growthRhythm, BRANCH_MODES, RHYTHM_MODES } from './branching.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -28,7 +29,9 @@ export class GrowthEngine {
       topology: 'cathedral', force: 1, frequency: 1.2, evolution: .4, palette: 'acid',
       nutrientDrive: 1.2, diffusion: .6, supply: .5,
       contactMode: 'slide', contactBranching: .32, wallPermeability: .08, membraneTrace: .55,
-      form:'coral',formStrength:.85,formTwist:.6,finish:'opal',glow:.6
+      form:'coral',formStrength:.85,formTwist:.6,finish:'opal',glow:.6,
+      branchMode:'golden',branchAngle:56,branchTaper:.84,lineageColor:.65,
+      rhythmMode:'beats',rhythmDepth:.62,rhythmRate:.55
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -43,6 +46,7 @@ export class GrowthEngine {
     this.time = 0;
     this.totalDeposits = 0;
     this.contactEvents = 0;
+    this.branchEvents = 0;
     this.segmentCount = 0;
     this.cursor = 0;
     this.agents = [];
@@ -90,13 +94,13 @@ export class GrowthEngine {
     return v(this.segments[k+3],this.segments[k+4],this.segments[k+5]);
   }
 
-  addAgent(position, direction = this.randomVector()) {
+  addAgent(position, direction = this.randomVector(), generation=0) {
     if (this.agents.length >= this.config.agents) return;
     const p = position.clone();
     this.agents.push({
       p, prev: p.clone(), dir: direction.clone().normalize(),
       traveled: 0, age: 0, life: 8 + this.random() * 22,
-      identity: this.random()
+      identity: this.random(),generation:Math.min(12,Math.max(0,Math.floor(generation)))
     });
   }
 
@@ -123,6 +127,13 @@ export class GrowthEngine {
     candidate.formStrength=clamp(safe(+candidate.formStrength),0,2);
     candidate.formTwist=clamp(safe(+candidate.formTwist),0,2);
     candidate.glow=clamp(safe(+candidate.glow),0,1);
+    candidate.branchAngle=clamp(safe(+candidate.branchAngle),0,85);
+    candidate.branchTaper=clamp(safe(+candidate.branchTaper),.45,1);
+    candidate.lineageColor=clamp(safe(+candidate.lineageColor),0,1);
+    candidate.rhythmDepth=clamp(safe(+candidate.rhythmDepth),0,1);
+    candidate.rhythmRate=clamp(safe(+candidate.rhythmRate),.05,2);
+    if(!BRANCH_MODES[candidate.branchMode])candidate.branchMode='random';
+    if(!RHYTHM_MODES[candidate.rhythmMode])candidate.rhythmMode='steady';
     if(!FINISHES[candidate.finish])candidate.finish='opal';
     if(!FORM_NAMES[candidate.form])candidate.form='wild';
     if(!['off','slide','deflect'].includes(candidate.contactMode)) candidate.contactMode='slide';
@@ -141,9 +152,14 @@ export class GrowthEngine {
       throw new Error('This is not Nerve Cathedral DNA.');
     }
     // Historical DNA from before visual composition should remain unconstrained.
-    this.setConfig(dna.config.form===undefined
+    const historicalForm=dna.config.form===undefined
       ?{...dna.config,form:'wild',formStrength:0,finish:'opal',glow:.6}
-      :dna.config);
+      :dna.config;
+    const historicalBranches=historicalForm.branchMode===undefined
+      ?{...historicalForm,branchMode:'random',branchTaper:1,branchAngle:56,
+        rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55,lineageColor:0}
+      :historicalForm;
+    this.setConfig(historicalBranches);
     if(dna.colony)this.colony.setSettings(dna.colony);
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
@@ -234,7 +250,13 @@ export class GrowthEngine {
 
   pickColor(agent) {
     const colors=PALETTES[this.config.palette];
-    const ageHue=(.16*this.time+agent.identity*.6+agent.p.y*.04) % 1;
+    const oldHue=(.16*this.time+agent.identity*.6+agent.p.y*.04) % 1;
+    const ancestralHue=((agent.generation||0)*.1375 + agent.identity*.09
+      +this.time*.019) % 1;
+    // Lineage coloring makes daughters recognizable as related structures.
+    // Older checkpoints set lineageColor=0 and retain original colors.
+    const ageHue=(1-this.config.lineageColor)*oldHue
+      +this.config.lineageColor*ancestralHue;
     const scaled=Math.abs(ageHue)*colors.length, left=Math.floor(scaled)%colors.length;
     return new THREE.Color(colors[left]).lerp(new THREE.Color(colors[(left+1)%colors.length]),scaled-Math.floor(scaled));
   }
@@ -250,7 +272,8 @@ export class GrowthEngine {
       this.morphogenesis.catalyze(b,.033*this.morphogenesis.settings.fiberCatalysis);
     }
     const color=this.pickColor(agent);
-    const radius=this.config.thickness*(.65+agent.identity*.75);
+    const hierarchy=Math.max(.20,Math.pow(this.config.branchTaper,agent.generation||0));
+    const radius=this.config.thickness*(.65+agent.identity*.75)*hierarchy;
     this.segmentColors[slot*3]=Math.round(clamp(color.r,0,1)*255);
     this.segmentColors[slot*3+1]=Math.round(clamp(color.g,0,1)*255);
     this.segmentColors[slot*3+2]=Math.round(clamp(color.b,0,1)*255);
@@ -259,6 +282,23 @@ export class GrowthEngine {
     this.cursor=(this.cursor+1)%this.maxSegments;
     this.segmentCount=Math.min(this.segmentCount+1,this.maxSegments);
     this.totalDeposits++;
+  }
+
+  spawnBranch(agent){
+    if(this.agents.length>=this.config.agents)return false;
+    const c=this.config;
+    let direction;
+    if(c.branchMode==='random'){
+      // Historical algorithm retained for old checkpoint reproduction.
+      direction=agent.dir.clone().addScaledVector(this.randomVector(),.7);
+    }else{
+      const out=branchVector(agent.dir,this.branchEvents,c.branchAngle,
+        c.branchMode,agent.identity*Math.PI*2);
+      direction=v(out.x,out.y,out.z);
+    }
+    this.addAgent(agent.p,direction,Math.min(12,(agent.generation||0)+1));
+    this.branchEvents++;
+    return true;
   }
 
   step(dt) {
@@ -297,7 +337,8 @@ export class GrowthEngine {
       field.normalize();
       a.dir.lerp(field,.09).addScaledVector(this.randomVector(),.017).normalize();
       const food=this.nutrients.sample(a.p);
-      const growthRate=dt*c.speed*.95*(.35+.85*food);
+      const rhythm=growthRhythm(this.time,a.identity,c);
+      const growthRate=dt*c.speed*.95*(.35+.85*food)*rhythm;
       const oldPosition=a.p.clone();
       const direct=a.dir.clone().multiplyScalar(growthRate);
       const guided=traceChemicalMembrane(this.morphogenesis,a.p,direct,c.membraneTrace);
@@ -320,23 +361,24 @@ export class GrowthEngine {
           }
           a.dir.normalize();
         }
-        if(this.agents.length<c.agents && this.random()<.012*c.contactBranching){
-          this.addAgent(a.p,a.dir.clone().addScaledVector(this.randomVector(),.7));
+        if(this.agents.length<c.agents && this.random()<.012*c.contactBranching*rhythm){
+          this.spawnBranch(a);
         }
       }
       if(a.traveled >= .105){
         this.deposit(a.prev,a.p,a);
         a.prev.copy(a.p);
         a.traveled=0;
-        if(this.random() < c.branching*.016*(.35+food) && this.agents.length<c.agents){
-          this.addAgent(a.p,a.dir.clone().addScaledVector(this.randomVector(),.7));
+        if(this.random() < c.branching*.016*(.35+food)*rhythm && this.agents.length<c.agents){
+          this.spawnBranch(a);
         }
       }
       if(a.p.length()>WORLD*.49 || a.age>a.life){
         const start=this.randomPointOnFibers();
         a.p.copy(start); a.prev.copy(start);
         a.dir.copy(this.randomVector());
-        a.traveled=0;a.age=0;a.life=8+this.random()*22;
+        // Regeneration is a new root, not a continuation of the old lineage.
+        a.traveled=0;a.age=0;a.generation=0;a.life=8+this.random()*22;
       }
     }
   }
@@ -411,12 +453,13 @@ export class GrowthEngine {
     const n=this.segmentCount;
     const agentRecord=a=>({
       p:a.p.toArray(),prev:a.prev.toArray(),dir:a.dir.toArray(),
-      traveled:a.traveled,age:a.age,life:a.life,identity:a.identity
+      traveled:a.traveled,age:a.age,life:a.life,identity:a.identity,
+      generation:a.generation||0
     });
     return {
       format:'ex-nihilo/checkpoint-v3',
       dna:this.getDNA(),time:this.time,rngState:this.rngState>>>0,
-      nutrientElapsed:this.nutrientElapsed,colonyElapsed:this.colonyElapsed,morphElapsed:this.morphElapsed,totalDeposits:this.totalDeposits,contactEvents:this.contactEvents,
+      nutrientElapsed:this.nutrientElapsed,colonyElapsed:this.colonyElapsed,morphElapsed:this.morphElapsed,totalDeposits:this.totalDeposits,contactEvents:this.contactEvents,branchEvents:this.branchEvents,
       segmentCount:n,cursor:this.cursor,
       segments:Array.from(this.segments.subarray(0,n*6)),
       colors:Array.from(this.segmentColors.subarray(0,n*3)),
@@ -435,7 +478,8 @@ export class GrowthEngine {
     const validArray=(a,n,check=finite)=>Array.isArray(a)&&a.length===n&&a.every(check);
     const point=p=>validArray(p,3,n=>finite(n)&&Math.abs(n)<=100);
     const agent=a=>a&&point(a.p)&&point(a.prev)&&point(a.dir)&&
-      ['traveled','age','life','identity'].every(k=>finite(a[k]));
+      ['traveled','age','life','identity'].every(k=>finite(a[k]))&&
+      (a.generation===undefined||(Number.isInteger(a.generation)&&a.generation>=0&&a.generation<=12));
     const node=n=>n&&Number.isInteger(n.id)&&
       (n.type==='attract'||n.type==='repel')&&point(n.pos)&&finite(n.strength);
     const isV2=data?.format==='ex-nihilo/checkpoint-v2';
@@ -452,6 +496,7 @@ export class GrowthEngine {
       (isV3&&(!finite(data.morphElapsed)||data.morphElapsed<0||data.morphElapsed>.2))||
       !Number.isInteger(data.totalDeposits)||data.totalDeposits<0||
       (data.contactEvents!==undefined&&(!Number.isInteger(data.contactEvents)||data.contactEvents<0))||
+      (data.branchEvents!==undefined&&(!Number.isInteger(data.branchEvents)||data.branchEvents<0))||
       !validArray(data.segments,data.segmentCount*6,n=>finite(n)&&Math.abs(n)<=100)||
       !validArray(data.colors,data.segmentCount*3,n=>Number.isInteger(n)&&n>=0&&n<=255)||
       !validArray(data.radii,data.segmentCount,n=>finite(n)&&n>=0&&n<=1)||
@@ -468,7 +513,11 @@ export class GrowthEngine {
     // unconstrained behavior instead of changing the historical physics.
     const legacyForm=data.dna.config.form===undefined
       ?{...data.dna.config,form:'wild',formStrength:0,glow:.6,finish:'opal'}:data.dna.config;
-    this.setConfig(legacyForm);
+    const legacyGrowth=legacyForm.branchMode===undefined
+      ?{...legacyForm,branchMode:'random',branchTaper:1,branchAngle:56,
+        rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55,lineageColor:0}
+      :legacyForm;
+    this.setConfig(legacyGrowth);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
@@ -477,6 +526,7 @@ export class GrowthEngine {
     this.morphElapsed=isV3?data.morphElapsed:0;
     this.totalDeposits=data.totalDeposits;
     this.contactEvents=data.contactEvents??0;
+    this.branchEvents=data.branchEvents??0;
     this.segmentCount=data.segmentCount;
     this.cursor=data.cursor;
     this.segments.set(data.segments);
@@ -491,7 +541,8 @@ export class GrowthEngine {
     this.restoreNodes(data.nodes);
     this.agents=data.agents.map(a=>({
       p:v(...a.p),prev:v(...a.prev),dir:v(...a.dir),
-      traveled:a.traveled,age:a.age,life:a.life,identity:a.identity
+      traveled:a.traveled,age:a.age,life:a.life,identity:a.identity,
+      generation:a.generation??0
     }));
     // Restore the *actual historical* colors and widths, not today's palette.
     const a=v(),b=v(),color=new THREE.Color();
