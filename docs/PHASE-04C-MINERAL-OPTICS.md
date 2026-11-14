@@ -34,7 +34,7 @@ The finishing controls are grouped inside one collapsible light lab, with 3D OBJ
 - It only shades genuinely occupied surface cells; unoccupied background pixels remain exactly unchanged.
 - Shape-specific illumination derives from saved owner IDs, depth, crystallographic nuclei, and age; wrap-aware cell adjacency is used for lighting and refraction.
 - The underlying base image uses the existing `surfacePixels`; using OFF skips the new shader entirely.
-- Preview refresh occurs on real growth, settings changes, or a capped ~12Hz optical-motion redraw. Optics motion is independent of the PAUSE growth switch.
+- Preview refresh occurs on real growth, settings changes, or an **adaptive** optical-motion redraw, maximum ~12Hz and slower for heavier CPU finishes based on measured shader cost. The real mineral geometry normals are cached until the living material revision changes; the RGB optical appearance updates as needed. Optics motion is independent of the PAUSE growth switch.
 - No new dependencies and no runtime external services or Netlify calls. The 3D scene is not touched when Surface Art is active.
 
 ## PNG and persistence
