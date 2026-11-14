@@ -15,6 +15,9 @@ import {
   mineralStageMaterials,isMineralMetamorphosisActive
 } from './mineral-metamorphosis.js';
 import { inheritedFacet } from './crystal-bloodlines.js';
+import {
+  inspectCrystalFamily,crystalVoxelForHit,sampleFamilyMembers
+} from './crystal-family-inspector.js';
 import { FieldGestureTransaction, GrowthStrokeTransaction, CrystalPressureTransaction } from './gesture-witch.js';
 import { PALETTE_CATALOG, PALETTE_NAMES, filteredPalettes } from './palettes.js';
 import './styles.css';
@@ -190,6 +193,11 @@ const crystalAgeMeshes=Object.fromEntries(METAMORPHOSIS_STAGES.map(stage=>{
   return [stage,mesh];
 }));
 const crystalAgeCounts={young:0,mature:0,fault:0};
+// InstancedMesh.hit.instanceId is a changing *draw slot*. Never treat that
+// as a voxel or immutable birth ID, particularly with metamorphosis enabled.
+const crystalSlotToVoxel=new Int32Array(engine.colony.maxCells);
+const ageSlotToVoxel=Object.fromEntries(METAMORPHOSIS_STAGES.map(stage=>
+  [stage,new Int32Array(engine.colony.maxCells)]));
 function syncCrystalAgeMaterials(){
   const enabled=isMineralMetamorphosisActive({
     preset:engine.config.crystalEvolution
@@ -321,6 +329,146 @@ const scarLines=new THREE.LineSegments(scarGeometry,new THREE.LineBasicMaterial(
 scarLines.frustumCulled=false;
 scarLines.renderOrder=4;
 scene.add(scarLines);
+// Family-visibility is a temporary inspection lens, not a recolor of the
+// physical crystal or a mutation of its DNA. One capped marker mesh and one
+// small direct-parent link draw; OFF contributes zero extra draw calls.
+const MAX_FAMILY_BEACONS=900,MAX_FAMILY_LINKS=600;
+const familyBeaconGeometry=new THREE.OctahedronGeometry(crystalCellSize*.33,0);
+const familyBeaconMaterial=new THREE.MeshBasicMaterial({
+  color:'#ffffff',transparent:true,opacity:.86,
+  depthTest:false,depthWrite:false
+});
+const familyBeacons=new THREE.InstancedMesh(
+  familyBeaconGeometry,familyBeaconMaterial,MAX_FAMILY_BEACONS);
+familyBeacons.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+familyBeacons.frustumCulled=false;
+familyBeacons.renderOrder=8;
+familyBeacons.count=0;
+familyBeacons.visible=false;
+scene.add(familyBeacons);
+const familyLinesGeometry=new THREE.BufferGeometry();
+const familyLineCoords=new Float32Array(MAX_FAMILY_LINKS*6);
+const familyLineColors=new Float32Array(MAX_FAMILY_LINKS*6);
+familyLinesGeometry.setAttribute('position',new THREE.BufferAttribute(
+  familyLineCoords,3).setUsage(THREE.DynamicDrawUsage));
+familyLinesGeometry.setAttribute('color',new THREE.BufferAttribute(
+  familyLineColors,3).setUsage(THREE.DynamicDrawUsage));
+familyLinesGeometry.setDrawRange(0,0);
+const familyLinksView=new THREE.LineSegments(
+  familyLinesGeometry,new THREE.LineBasicMaterial({
+    vertexColors:true,transparent:true,opacity:.66,
+    depthTest:false,depthWrite:false
+  }));
+familyLinksView.frustumCulled=false;
+familyLinksView.renderOrder=7;
+familyLinksView.visible=false;
+scene.add(familyLinksView);
+const selectedFamilyHalo=new THREE.Mesh(
+  new THREE.TorusGeometry(crystalCellSize*.83,crystalCellSize*.053,5,26),
+  new THREE.MeshBasicMaterial({
+    color:'#fff09a',transparent:true,opacity:.99,
+    depthTest:false,depthWrite:false
+  }));
+selectedFamilyHalo.visible=false;
+selectedFamilyHalo.renderOrder=10;
+scene.add(selectedFamilyHalo);
+const familyMarkerMatrix=new THREE.Matrix4();
+const familyMarkerPosition=new THREE.Vector3();
+const familyMarkerRotation=new THREE.Quaternion();
+const familyMarkerSize=new THREE.Vector3();
+const familyMarkerColor=new THREE.Color();
+let familyInspectorNote='';
+function refreshFamilyInspector(){
+  const colony=engine.colony,config=engine.config;
+  const focused=inspectCrystalFamily(colony,config.crystalFocusBirthId,
+    config.crystalFocusFamilyId,config.crystalFocusMode);
+  familyBeacons.visible=false;familyBeacons.count=0;
+  familyLinksView.visible=false;
+  familyLinesGeometry.setDrawRange(0,0);
+  selectedFamilyHalo.visible=false;
+  $('family-mode-family').setAttribute('aria-pressed',
+    String(config.crystalFocusMode==='family'));
+  $('family-mode-descendants').setAttribute('aria-pressed',
+    String(config.crystalFocusMode==='descendants'));
+  $('family-mode-family').classList.toggle('active',
+    config.crystalFocusMode==='family');
+  $('family-mode-descendants').classList.toggle('active',
+    config.crystalFocusMode==='descendants');
+  if(!focused.tracked){
+    $('family-inspector-status').textContent=familyInspectorNote||
+      'NO FAMILY SELECTED · TAP PICK A CRYSTAL, THEN TOUCH THE ARTWORK';
+    return;
+  }
+  const cells=sampleFamilyMembers(focused.members,MAX_FAMILY_BEACONS);
+  let count=0;
+  for(const i of cells){
+    const p=colony.worldPos(...colony.decode(i)),k=i*3;
+    familyMarkerPosition.set(p.x,p.y,p.z);
+    familyMarkerRotation.identity();
+    familyMarkerSize.setScalar(i===focused.selectedIndex?1.25:1);
+    familyMarkerMatrix.compose(familyMarkerPosition,familyMarkerRotation,
+      familyMarkerSize);
+    familyBeacons.setMatrixAt(count,familyMarkerMatrix);
+    // Accents are derived from original birth RGB; actual pigments unchanged.
+    familyMarkerColor.setRGB(
+      .45+.55*colony.colors[k]/255,
+      .40+.60*colony.colors[k+1]/255,
+      .45+.55*colony.colors[k+2]/255);
+    familyBeacons.setColorAt(count,familyMarkerColor);
+    count++;
+  }
+  familyBeacons.count=count;
+  familyBeacons.visible=count>0;
+  if(count){
+    familyBeacons.instanceMatrix.needsUpdate=true;
+    if(familyBeacons.instanceColor)familyBeacons.instanceColor.needsUpdate=true;
+  }
+  let lineCount=0;
+  const links=focused.links;
+  const steps=Math.min(links.length,MAX_FAMILY_LINKS);
+  for(let j=0;j<steps;j++){
+    const edge=links[Math.floor((j+.5)*links.length/steps)];
+    const from=colony.worldPos(...colony.decode(edge.parentIndex));
+    const to=colony.worldPos(...colony.decode(edge.childIndex));
+    const k=lineCount*6,pi=edge.parentIndex*3,ci=edge.childIndex*3;
+    familyLineCoords.set([from.x,from.y,from.z,to.x,to.y,to.z],k);
+    familyLineColors.set([
+      .35+.65*colony.colors[pi]/255,
+      .35+.65*colony.colors[pi+1]/255,
+      .35+.65*colony.colors[pi+2]/255,
+      .35+.65*colony.colors[ci]/255,
+      .35+.65*colony.colors[ci+1]/255,
+      .35+.65*colony.colors[ci+2]/255
+    ],k);
+    lineCount++;
+  }
+  familyLinesGeometry.setDrawRange(0,lineCount*2);
+  familyLinksView.visible=lineCount>0;
+  if(lineCount){
+    familyLinesGeometry.attributes.position.needsUpdate=true;
+    familyLinesGeometry.attributes.color.needsUpdate=true;
+  }
+  if(focused.selectedAlive){
+    const p=colony.worldPos(...colony.decode(focused.selectedIndex));
+    selectedFamilyHalo.position.set(p.x,p.y,p.z);
+    selectedFamilyHalo.visible=true;
+  }
+  const selected=focused.selectedAlive?'LIVING':'EXTINCT / ERODED';
+  const parent=focused.parentId?
+    ('PARENT #'+focused.parentId+
+      (focused.parentIndex<0?' (NOT LIVING)':'')):
+    (focused.selectedAlive?'FOUNDER':'PARENT UNKNOWN / NOT LIVING');
+  $('family-inspector-status').textContent=
+    'BIRTH #'+focused.birthId+' · '+selected+
+    ' · FOUNDER FAMILY #'+focused.familyId+
+    ' · '+parent+
+    ' · '+focused.directChildren+' DIRECT LIVING CHILDREN'+
+    ' · '+focused.visibleDescendants+' TRACEABLE LIVING DESCENDANTS'+
+    ' · '+focused.members.length+' MEMBERS IN VIEW'+
+    (focused.interruptedLinks?' · '+focused.interruptedLinks+
+      ' MISSING-LINK ANCESTORS (NO INVENTED PATHS)':'')+
+    (focused.members.length>count?' · BEACONS SAMPLED FOR MOBILE':'');
+}
 function syncCrystals(){
   if(!engine.colony.changed)return;
   let visible=0,facetCount=0,skinCount=0,seedCount=0,bandCount=0,
@@ -416,6 +564,7 @@ function syncCrystals(){
     );
     crystalTransform.compose(crystalPosition,crystalRotation,crystalScale);
     crystals.setMatrixAt(visible,crystalTransform);
+    crystalSlotToVoxel[visible]=i;
     const k=i*3;
     crystalColor.setRGB(colony.colors[k]/255,colony.colors[k+1]/255,colony.colors[k+2]/255);
     if(!mature)crystalColor.lerp(crystalWhite,.17);
@@ -458,6 +607,7 @@ function syncCrystals(){
         stress:engine.config.crystalStressOptics
       });
       const index=crystalAgeCounts[tier]++;
+      ageSlotToVoxel[tier][index]=i;
       const mesh=crystalAgeMeshes[tier];
       mesh.setMatrixAt(index,crystalTransform);
       mesh.setColorAt(index,crystalColor);
@@ -582,6 +732,7 @@ function syncCrystals(){
     crystalAgeCounts.fault.toLocaleString()+' FAULTED MINERAL':
     'OPTICAL LIFE CYCLE OFF · ORIGINAL CRYSTALS';
   colony.changed=false;
+  refreshFamilyInspector();
 }
 
 // All profiles share one instanced draw; changing the cross-section changes
