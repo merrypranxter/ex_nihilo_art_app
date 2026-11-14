@@ -15,6 +15,7 @@ import { FAMILY_FOCUS_MODES } from './crystal-family-inspector.js';
 import { SurfaceGrowth,SURFACE_MORPHOLOGIES,SURFACE_NUCLEATION } from './surface-growth.js';
 import { SURFACE_BOUNDARIES,SURFACE_REGIONS,SURFACE_SEED_SYMMETRY } from './surface-composition.js';
 import { SURFACE_OPTICS,SURFACE_OPTICS_LOOPS } from './surface-optics.js';
+import {SURFACE_MICROSTRUCTURES} from './surface-microstructure.js';
 import { SURFACE_TOUCH_MODES } from './surface-gesture-field.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
@@ -60,7 +61,10 @@ export class GrowthEngine {
       surfaceOpticsThickness:330,surfaceOpticsRoughness:.3,
       surfaceOpticsAngle:40,surfaceOpticsMotion:false,surfaceOpticsLoop:8,
       surfaceTouchMode:'seed',surfaceTouchRadius:.08,
-      surfaceTouchStrength:.9,surfaceTouchOverlay:true
+      surfaceTouchStrength:.9,surfaceTouchOverlay:true,
+      surfaceMicroMode:'off',surfaceMicroDensity:.65,
+      surfaceFilmIndex:1.46,surfaceSubstrateIndex:1.62,
+      surfacePolarization:.5
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -216,6 +220,12 @@ export class GrowthEngine {
     candidate.surfaceOpticsThickness=clamp(safe(+candidate.surfaceOpticsThickness),90,800);
     candidate.surfaceOpticsRoughness=clamp(safe(+candidate.surfaceOpticsRoughness),0,1);
     candidate.surfaceOpticsAngle=clamp(safe(+candidate.surfaceOpticsAngle),0,360);
+    if(!Object.hasOwn(SURFACE_MICROSTRUCTURES,candidate.surfaceMicroMode))
+      candidate.surfaceMicroMode='off';
+    candidate.surfaceMicroDensity=clamp(safe(+candidate.surfaceMicroDensity),0,1);
+    candidate.surfaceFilmIndex=clamp(safe(+candidate.surfaceFilmIndex),1.05,2.1);
+    candidate.surfaceSubstrateIndex=clamp(safe(+candidate.surfaceSubstrateIndex),1.05,2.5);
+    candidate.surfacePolarization=clamp(safe(+candidate.surfacePolarization),0,1);
     candidate.surfaceOpticsMotion=!!candidate.surfaceOpticsMotion;
     if(!Object.hasOwn(SURFACE_TOUCH_MODES,candidate.surfaceTouchMode))
       candidate.surfaceTouchMode='seed';
@@ -303,6 +313,9 @@ export class GrowthEngine {
       surfaceOpticsAngle:40,surfaceOpticsMotion:false,surfaceOpticsLoop:8,
       surfaceTouchMode:'seed',surfaceTouchRadius:.08,
       surfaceTouchStrength:.9,surfaceTouchOverlay:true,
+      surfaceMicroMode:'off',surfaceMicroDensity:.65,
+      surfaceFilmIndex:1.46,surfaceSubstrateIndex:1.62,
+      surfacePolarization:.5,
       ...historicalSurface});
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
@@ -861,6 +874,9 @@ export class GrowthEngine {
       surfaceOpticsAngle:40,surfaceOpticsMotion:false,surfaceOpticsLoop:8,
       surfaceTouchMode:'seed',surfaceTouchRadius:.08,
       surfaceTouchStrength:.9,surfaceTouchOverlay:true,
+      surfaceMicroMode:'off',surfaceMicroDensity:.65,
+      surfaceFilmIndex:1.46,surfaceSubstrateIndex:1.62,
+      surfacePolarization:.5,
       ...historicalSurface});
     this.reset(data.dna.seed);
     this.time=data.time;
