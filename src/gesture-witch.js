@@ -176,6 +176,11 @@ export class CrystalPressureTransaction{
     this.mark.center=end;
     return true;
   }
+  translate(pos){
+    if(!this.active||!pos||![pos.x,pos.y,pos.z].every(Number.isFinite))return false;
+    this.mark.center=[pos.x,pos.y,pos.z];
+    return true;
+  }
   beginLens(a,b){
     if(!this.active||!a||!b||Math.hypot(b.x-a.x,b.y-a.y)<8)return false;
     this.lens={
