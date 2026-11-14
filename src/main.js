@@ -472,6 +472,9 @@ function handleCameraPointerDown(e){
     }
     $('surface-camera-target-x').value=Math.round(position.x*100);
     $('surface-camera-target-y').value=Math.round(position.y*100);
+    // A freshly picked target should actually be reached. Artists may dial
+    // the travel slider back afterward for a softer near-miss.
+    $('surface-camera-travel').value=100;
     $('surface-camera-motion').value='target';
     surfaceCameraTouchTool='off';updateCameraTouchToolButtons();
     syncSurfaceLoopRecipe();
