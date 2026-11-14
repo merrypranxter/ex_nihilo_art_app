@@ -25,7 +25,7 @@ export class CrystalColony {
     this.generation=0;
     this.changed=true;
     this.settings={enabled:false,growth:.75,erosion:.08,crystallization:4,
-      strainTransfer:.24,breakThreshold:.96};
+      strainEnabled:true,strainTransfer:.24,breakThreshold:.96};
   }
   index(x,y,z){return x+this.size*(y+this.size*z)}
   inside(x,y,z){
@@ -49,6 +49,7 @@ export class CrystalColony {
       growth:lim(Number.isFinite(+values.growth)?+values.growth:this.settings.growth,0,2),
       erosion:lim(Number.isFinite(+values.erosion)?+values.erosion:this.settings.erosion,0,1),
       crystallization:Math.round(lim(Number.isFinite(+values.crystallization)?+values.crystallization:this.settings.crystallization,2,12)),
+      strainEnabled:values.strainEnabled===undefined?this.settings.strainEnabled:!!values.strainEnabled,
       strainTransfer:lim(Number.isFinite(+values.strainTransfer)?+values.strainTransfer:this.settings.strainTransfer,0,.48),
       breakThreshold:lim(Number.isFinite(+values.breakThreshold)?+values.breakThreshold:this.settings.breakThreshold,.6,1.2)
     };
@@ -144,7 +145,7 @@ export class CrystalColony {
     for(const i of births)this.birth(i,nutrient,palette,rng);
     // Synchronous strain transport happens exclusively through occupied face
     // neighbors. The CA's deterministic history determines fracture timing.
-    if(hasStrain||this.strainActive){
+    if(this.settings.strainEnabled&&(hasStrain||this.strainActive)){
       const result=tickCrystalStrain({
         cells:this.cells,ages:this.ages,strain:this.strain,
         damage:this.damage,next:this.strainScratch,
@@ -208,7 +209,11 @@ export class CrystalColony {
   }
   restore(data){
     this.validateSnapshot(data);
-    this.setSettings(data.settings);
+    // Pre-fracture checkpoints must reproduce their original CA law even if
+    // they already contain CLEAVE pressure marks. Opt in via the UI later.
+    const historical=data.strain===undefined;
+    this.setSettings(historical?
+      {...data.settings,strainEnabled:false}:data.settings);
     this.generation=data.generation;
     this.population=data.population;
     this.cells.set(data.cells);
