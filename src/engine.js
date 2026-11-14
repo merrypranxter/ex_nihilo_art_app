@@ -8,6 +8,7 @@ import { branchVector, growthRhythm, BRANCH_MODES, RHYTHM_MODES } from './branch
 import { lineageSteering } from './filigree.js';
 import { FIBER_PROFILES } from './mineral-optics.js';
 import { CRYSTAL_PROFILES, CRYSTAL_LENSES } from './crystal-optics.js';
+import { INTERIOR_STYLES } from './mineral-inclusions.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
 import { MAX_PRESSURES, PRESSURE_MODES, validPressures } from './crystal-pressure.js';
@@ -36,7 +37,8 @@ export class GrowthEngine {
       paletteStops:null,strokeRadius:.75,strokeStrength:1.15,
       pressureRadius:.85,pressureStrength:1.2,
       crystalShape:'quartz',crystalLens:'prism',
-      crystalRelief:.62,crystalGlints:.63
+      crystalRelief:.62,crystalGlints:.63,
+      crystalInterior:'off',crystalSkin:.35,crystalInclusions:.60
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -154,6 +156,9 @@ export class GrowthEngine {
     candidate.pressureStrength=clamp(safe(+candidate.pressureStrength),.1,2.4);
     candidate.crystalRelief=clamp(safe(+candidate.crystalRelief),0,1);
     candidate.crystalGlints=clamp(safe(+candidate.crystalGlints),0,1);
+    candidate.crystalSkin=clamp(safe(+candidate.crystalSkin),0,1);
+    candidate.crystalInclusions=clamp(safe(+candidate.crystalInclusions),0,1);
+    if(!Object.hasOwn(INTERIOR_STYLES,candidate.crystalInterior))candidate.crystalInterior='off';
     if(!CRYSTAL_PROFILES[candidate.crystalShape])candidate.crystalShape='octa';
     if(!CRYSTAL_LENSES[candidate.crystalLens])candidate.crystalLens='inherit';
     if(!isPaletteStops(candidate.paletteStops))throw new Error('Invalid custom palette stops');
@@ -204,7 +209,10 @@ export class GrowthEngine {
       ?{...historicalOptics,crystalShape:'octa',crystalLens:'inherit',
         crystalRelief:0,crystalGlints:0}
       :historicalOptics;
-    this.setConfig(historicalCrystalOptics);
+    const historicInclusions=historicalCrystalOptics.crystalInterior===undefined?
+      {...historicalCrystalOptics,crystalInterior:'off',crystalSkin:0,crystalInclusions:0}
+      :historicalCrystalOptics;
+    this.setConfig(historicInclusions);
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
     if(dna.colony)this.colony.setSettings(
@@ -404,6 +412,11 @@ export class GrowthEngine {
       while(this.colonyElapsed>=.32){
         this.colony.update(this.nutrients,this.currentPalette(),()=>this.random(),
           this.morphogenesis,this.pressures);
+        // Ages advance even when no new voxels are born. Opt-in skins and
+        // inclusions must visibly mature without changing the CA physics or
+        // rebuilding thousands of buffers on every 60fps screen frame.
+        if(this.config.crystalInterior!=='off'&&this.colony.population>0&&
+          this.colony.generation%6===0)this.colony.changed=true;
         this.colonyElapsed-=.32;
       }
     }
@@ -718,7 +731,10 @@ export class GrowthEngine {
       ?{...legacyOptics,crystalShape:'octa',crystalLens:'inherit',
         crystalRelief:0,crystalGlints:0}
       :legacyOptics;
-    this.setConfig(historicalCrystalOptics);
+    const historicInclusions=historicalCrystalOptics.crystalInterior===undefined?
+      {...historicalCrystalOptics,crystalInterior:'off',crystalSkin:0,crystalInclusions:0}
+      :historicalCrystalOptics;
+    this.setConfig(historicInclusions);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;

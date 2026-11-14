@@ -175,6 +175,18 @@
 - [ ] iPhone Safari portrait/landscape multi-touch QA and FPS report capture.
 - [ ] Optimize visuals based on measurements, then pursue more ambitious crystal optical depth.
 
+## Phase 03L — Ghost Mineral / Causal Age-Grown Optical Layers
+
+- [x] Optional layered physical crystal skins and tiny 3D inclusion nodules derived only from persistent voxel age, exposure, fracture and stored pigments.
+- [x] Four opal/spectral/smoke/frost looks plus OFF, with independent controllable translucent skin and inclusion density.
+- [x] Two separate instanced GPU draw budgets (1,150 skin shells and 1,450 inclusion nodules), both off/zero draws by default.
+- [x] Deterministic placement using voxel-ID hashing; never consume living simulation RNG or alter chemistry, growth, deformation, or fracture.
+- [x] Age maturity refresh every six CA generations only while optics enabled and colony populated.
+- [x] Complete DNA/checkpoint settings plus old-world restoration to OFF; all 199 MATHEMAGICAL and starter palette entries unchanged.
+- [x] Headless numerical and exact continuing simulation regression checks, source syntax and interface ID checks.
+- [ ] Real Vite production build and actual iPhone Safari PBR/transparency appearance / FPS QA.
+- [ ] Calibrate transmittance/overdraw against screenshots before attempting true refractive optics.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.

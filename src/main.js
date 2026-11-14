@@ -6,6 +6,10 @@ import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
 import { FIBER_PROFILES, mineralOptics } from './mineral-optics.js';
 import { CRYSTAL_LENSES, crystalSurface, mineralCellDisplay, gemPigment } from './crystal-optics.js';
+import {
+  INTERIOR_STYLES,mineralInclusionRecipe,
+  historicInclusionPigment,inclusionFaceRotation
+} from './mineral-inclusions.js';
 import { FieldGestureTransaction, GrowthStrokeTransaction, CrystalPressureTransaction } from './gesture-witch.js';
 import { PALETTE_CATALOG, PALETTE_NAMES, filteredPalettes } from './palettes.js';
 import './styles.css';
@@ -181,6 +185,40 @@ facetGems.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 facetGems.frustumCulled=false;
 facetGems.count=0;
 scene.add(facetGems);
+// A second mineral envelope around selected ORIGINAL, occupied voxel cells.
+// No screen-space transmission/refraction pass: two optional instanced draws.
+const maxMineralSkins=1150,maxMineralSeeds=1450;
+const mineralSkinMaterial=new THREE.MeshPhysicalMaterial({
+  color:'#ffffff',roughness:.20,metalness:.10,
+  iridescence:.95,iridescenceIOR:1.32,iridescenceThicknessRange:[90,370],
+  clearcoat:1,clearcoatRoughness:.10,
+  transparent:true,opacity:.24,depthWrite:false,side:THREE.FrontSide
+});
+const mineralSkins=new THREE.InstancedMesh(
+  crystalShapes[engine.config.crystalShape],mineralSkinMaterial,maxMineralSkins);
+mineralSkins.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+mineralSkins.frustumCulled=false;
+mineralSkins.renderOrder=4;
+mineralSkins.count=0;
+mineralSkins.visible=false;
+scene.add(mineralSkins);
+// Actual tinted mineral seed granules are tiny geometry in the skin layer,
+// not a fake screen-space shimmer. Seed positions are tied to voxel IDs.
+const mineralSeedGeometry=new THREE.OctahedronGeometry(crystalCellSize*.10,0);
+const mineralSeedMaterial=new THREE.MeshPhysicalMaterial({
+  color:'#ffffff',roughness:.19,metalness:.16,clearcoat:1,
+  iridescence:.88,iridescenceThicknessRange:[110,370]
+});
+const mineralSeeds=new THREE.InstancedMesh(
+  mineralSeedGeometry,mineralSeedMaterial,maxMineralSeeds);
+mineralSeeds.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+mineralSeeds.frustumCulled=false;
+mineralSeeds.count=0;
+mineralSeeds.visible=false;
+scene.add(mineralSeeds);
+const inclusionRoll=new THREE.Quaternion();
+const mineralOrigin=new THREE.Vector3();
+const mineralTint=new THREE.Color();
 const crystalTransform=new THREE.Matrix4();
 const crystalPosition=new THREE.Vector3();
 const crystalRotation=new THREE.Quaternion();
@@ -209,7 +247,11 @@ scarLines.renderOrder=4;
 scene.add(scarLines);
 function syncCrystals(){
   if(!engine.colony.changed)return;
-  let visible=0,facetCount=0,scarLinesDrawn=0,cracked=0,shattered=0;
+  let visible=0,facetCount=0,skinCount=0,seedCount=0,
+      scarLinesDrawn=0,cracked=0,shattered=0;
+  const inclusionStyle=engine.config.crystalInterior;
+  const useInclusions=inclusionStyle!=='off'&&
+    (engine.config.crystalSkin>0||engine.config.crystalInclusions>0);
   const colony=engine.colony;
   for(let i=0;i<colony.capacity;i++){
     const damage=colony.damage[i];
@@ -279,6 +321,48 @@ function syncCrystals(){
       Math.min(.16,stress*.12));
     crystalColor.lerp(crystalWhite,display.pigmentMix);
     crystals.setColorAt(visible,crystalColor);
+    // Layered, age-grown mineral structure is anchored to REAL surviving
+    // exterior crystal cells. Render-only IDs/geometry never change the CA.
+    if(useInclusions&&mature&&surface.exposed>0){
+      const recipe=mineralInclusionRecipe({
+        occupied:true,mature:true,index:i,age:colony.ages[i],
+        strain:stress,damage,surface
+      },{
+        style:inclusionStyle,skin:engine.config.crystalSkin,
+        density:engine.config.crystalInclusions
+      });
+      if(recipe.shell&&skinCount<maxMineralSkins){
+        crystalScale.multiplyScalar(recipe.skinScale);
+        crystalTransform.compose(crystalPosition,crystalRotation,crystalScale);
+        mineralSkins.setMatrixAt(skinCount,crystalTransform);
+        crystalScale.multiplyScalar(1/recipe.skinScale);
+        // Frozen at birth, regardless of the currently selected palette.
+        const bornColor=historicInclusionPigment([
+          colony.colors[k]/255,colony.colors[k+1]/255,colony.colors[k+2]/255
+        ],recipe);
+        mineralTint.setRGB(...bornColor);
+        mineralSkins.setColorAt(skinCount,mineralTint);
+        skinCount++;
+      }
+      if(recipe.inclusion&&seedCount<maxMineralSeeds){
+        crystalOutward.set(...surface.direction).normalize();
+        const length=crystalCellSize*recipe.radialOffset*scale;
+        mineralOrigin.copy(crystalPosition).addScaledVector(crystalOutward,length);
+        crystalRotation.setFromUnitVectors(crystalUp,crystalOutward);
+        inclusionRoll.setFromAxisAngle(crystalUp,inclusionFaceRotation(i));
+        crystalRotation.multiply(inclusionRoll);
+        const mineralSize=scale*(.40+.20*recipe.ageFraction);
+        crystalScale.set(mineralSize*.65,mineralSize*1.22,mineralSize*.65);
+        crystalTransform.compose(mineralOrigin,crystalRotation,crystalScale);
+        mineralSeeds.setMatrixAt(seedCount,crystalTransform);
+        const seedPigment=historicInclusionPigment([
+          colony.colors[k]/255,colony.colors[k+1]/255,colony.colors[k+2]/255
+        ],recipe);
+        mineralTint.setRGB(...seedPigment);
+        mineralSeeds.setColorAt(seedCount,mineralTint);
+        seedCount++;
+      }
+    }
     // A distinct physically shaded facet is anchored to the actual
     // survivor's exterior; fracture chips face a genuine absent neighbor.
     // Reserve a share of the small accent budget for fracture boundaries,
@@ -313,6 +397,18 @@ function syncCrystals(){
   $('strain-stats').textContent=cracked.toLocaleString()+
     ' CRACKED CELLS · '+shattered.toLocaleString()+' FRACTURE SCARS'+
     (scarLinesDrawn>=maxScarLines?' · SCAR DISPLAY CAPPED':'');
+  mineralSkins.count=skinCount;
+  mineralSkins.visible=skinCount>0;
+  mineralSkins.instanceMatrix.needsUpdate=true;
+  if(mineralSkins.instanceColor)mineralSkins.instanceColor.needsUpdate=true;
+  mineralSeeds.count=seedCount;
+  mineralSeeds.visible=seedCount>0;
+  mineralSeeds.instanceMatrix.needsUpdate=true;
+  if(mineralSeeds.instanceColor)mineralSeeds.instanceColor.needsUpdate=true;
+  $('inclusions-stats').textContent=skinCount.toLocaleString()+
+    ' OUTER SKINS · '+seedCount.toLocaleString()+' AGE-GROWN INCLUSIONS'+
+    (skinCount===maxMineralSkins||seedCount===maxMineralSeeds?
+      ' · MOBILE DISPLAY BUDGET CAPPED':'');
   facetGems.count=facetCount;
   facetGems.instanceMatrix.needsUpdate=true;
   if(facetGems.instanceColor)facetGems.instanceColor.needsUpdate=true;
@@ -1155,6 +1251,11 @@ function updateCrystalControls(){
   $('crystal-relief-value').textContent=Math.round(visual.crystalRelief*100)+'%';
   $('crystal-glints').value=Math.round(visual.crystalGlints*100);
   $('crystal-glints-value').textContent=Math.round(visual.crystalGlints*100)+'%';
+  $('crystal-interior').value=visual.crystalInterior;
+  $('crystal-skin').value=Math.round(visual.crystalSkin*100);
+  $('crystal-skin-value').textContent=Math.round(visual.crystalSkin*100)+'%';
+  $('crystal-inclusions').value=Math.round(visual.crystalInclusions*100);
+  $('crystal-inclusions-value').textContent=Math.round(visual.crystalInclusions*100)+'%';
   updatePressureControls();
 }
 function readCrystalControls(){
@@ -1191,25 +1292,33 @@ $('crystal-clear').addEventListener('click',()=>{
 });
 function readCrystalOptics(){
   const previousLens=engine.config.crystalLens;
+  const previousInterior=engine.config.crystalInterior;
   engine.setConfig({
     crystalShape:$('colony-geometry').value,
     crystalLens:$('crystal-lens').value,
     crystalRelief:Number($('crystal-relief').value)/100,
-    crystalGlints:Number($('crystal-glints').value)/100
+    crystalGlints:Number($('crystal-glints').value)/100,
+    crystalInterior:$('crystal-interior').value,
+    crystalSkin:Number($('crystal-skin').value)/100,
+    crystalInclusions:Number($('crystal-inclusions').value)/100
   });
   const shape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==shape)crystals.geometry=shape;
+  if(mineralSkins.geometry!==shape)mineralSkins.geometry=shape;
   // Coalesce repeated iPhone slider events into a single normal animation-
   // frame rebuild. This touches ONLY view buffers, never the living state.
   engine.colony.changed=true;
   // A shader/material refresh is needed for lens choices only, not each
   // relief or glint density adjustment.
-  if(previousLens!==engine.config.crystalLens)applyArtistFinish();
+  if(previousLens!==engine.config.crystalLens||
+    previousInterior!==engine.config.crystalInterior)applyArtistFinish();
   updateCrystalControls();
 }
-['colony-geometry','crystal-lens','crystal-relief','crystal-glints'].forEach(
-  id=>$(id).addEventListener(id==='colony-geometry'||id==='crystal-lens'?
-    'change':'input',readCrystalOptics));
+['colony-geometry','crystal-lens','crystal-relief','crystal-glints',
+  'crystal-interior','crystal-skin','crystal-inclusions'].forEach(
+  id=>$(id).addEventListener(
+    ['colony-geometry','crystal-lens','crystal-interior'].includes(id)?
+      'change':'input',readCrystalOptics));
 
 const morphologyControls={
   feed:{id:'morph-feed',format:n=>n.toFixed(4),read:n=>n},
@@ -1318,6 +1427,21 @@ function applyArtistFinish(){
   facetMaterial.iridescence=Math.max(.30,crystalMaterial.iridescence);
   crystalMaterial.needsUpdate=true;
   facetMaterial.needsUpdate=true;
+  const style=INTERIOR_STYLES[engine.config.crystalInterior]||
+    INTERIOR_STYLES.off;
+  mineralSkinMaterial.roughness=style.roughness;
+  mineralSkinMaterial.metalness=style.metalness;
+  mineralSkinMaterial.iridescence=style.iridescence;
+  mineralSkinMaterial.clearcoat=style.clearcoat;
+  mineralSkinMaterial.clearcoatRoughness=Math.max(.06,style.roughness*.54);
+  mineralSkinMaterial.opacity=style.skinOpacity*
+    (.40+.60*engine.config.crystalSkin);
+  mineralSeedMaterial.roughness=Math.max(.07,style.roughness*.62);
+  mineralSeedMaterial.metalness=Math.min(.72,.16+style.metalness*.4);
+  mineralSeedMaterial.iridescence=Math.max(.10,style.iridescence);
+  mineralSeedMaterial.clearcoat=style.clearcoat;
+  mineralSkinMaterial.needsUpdate=true;
+  mineralSeedMaterial.needsUpdate=true;
   const profile=FIBER_PROFILES[engine.config.fiberProfile]||FIBER_PROFILES.legacy;
   const geometry=fiberGeometryProfiles[engine.config.fiberProfile]||fiberGeometryProfiles.legacy;
   if(fibers.geometry!==geometry)fibers.geometry=geometry;
@@ -1578,6 +1702,7 @@ function updateControlsFromDNA(){
   // Restore the actual mesh on LOAD WORLD / LOAD DNA, not just the dropdown.
   const selectedShape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==selectedShape)crystals.geometry=selectedShape;
+  if(mineralSkins.geometry!==selectedShape)mineralSkins.geometry=selectedShape;
   engine.colony.changed=true;
   syncCrystals();
   updateMorphControls();
@@ -1793,6 +1918,8 @@ function samplePerformance(now){
     'Fibers: '+engine.segmentCount.toLocaleString(),
     'Crystal cells: '+engine.colony.population.toLocaleString(),
     'Visible facets: '+facetGems.count.toLocaleString(),
+    'Mineral skins: '+mineralSkins.count.toLocaleString(),
+    'Trapped inclusions: '+mineralSeeds.count.toLocaleString(),
     'Fracture scars: '+engine.colony.damage.reduce((n,v)=>n+(v===2),0),
     'World state: '+(paused?'PAUSED':'GROWING'),
     'Version: 03K · iPhone Stage Reliability'
