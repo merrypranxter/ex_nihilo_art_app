@@ -5,7 +5,7 @@ import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
 import { FIBER_PROFILES, mineralOptics } from './mineral-optics.js';
-import { FieldGestureTransaction, GrowthStrokeTransaction } from './gesture-witch.js';
+import { FieldGestureTransaction, GrowthStrokeTransaction, CrystalPressureTransaction } from './gesture-witch.js';
 import { PALETTE_CATALOG, PALETTE_NAMES, filteredPalettes } from './palettes.js';
 import './styles.css';
 
@@ -324,6 +324,78 @@ function showNodeSelection(){
   }
 }
 const nodeViews=new Map();
+// Visible stress-mark instruments reveal WHERE cellular probability laws
+// change, not fabricated crystal geometry. One small ring per named mark.
+const pressureViews=new Map();
+const pressureRingGeometry=new THREE.RingGeometry(.92,1.02,44);
+const pressureCoreGeometry=new THREE.SphereGeometry(.095,10,8);
+const pressurePalette={
+  grow:new THREE.MeshBasicMaterial({color:'#81ffba',transparent:true,opacity:.77,side:THREE.DoubleSide,depthWrite:false}),
+  shield:new THREE.MeshBasicMaterial({color:'#ffd66f',transparent:true,opacity:.79,side:THREE.DoubleSide,depthWrite:false}),
+  cleave:new THREE.MeshBasicMaterial({color:'#fc69dc',transparent:true,opacity:.83,side:THREE.DoubleSide,depthWrite:false})
+};
+const pressureLineMaterials={
+  cleave:new THREE.LineBasicMaterial({color:'#ffa4ef',transparent:true,opacity:.81,depthWrite:false})
+};
+let selectedPressureId=null,pressureSliderEdit=null,pressureAnchor=null;
+function selectedPressure(){return engine.pressures.find(p=>p.id===selectedPressureId)||null;}
+function updatePressureControls(){
+  const mark=selectedPressure();
+  const radius=mark?.radius??engine.config.pressureRadius;
+  const strength=mark?.strength??engine.config.pressureStrength;
+  $('pressure-selection').textContent=mark
+    ?mark.mode.toUpperCase()+' #'+mark.id+' · DRAG TO MOVE · PINCH REACH · TWIST AXIS'
+    :'NO PRESSURE MARK SELECTED — CONTROLS SET NEXT STAMP';
+  if(!pressureSliderEdit){
+    $('pressure-radius').value=String(radius);
+    $('pressure-strength').value=String(strength);
+  }
+  $('pressure-radius-value').textContent=radius.toFixed(2);
+  $('pressure-strength-value').textContent=strength.toFixed(2);
+  $('pressure-stats').textContent=engine.pressures.length+' / 12 PRESSURE MARKS';
+}
+function syncPressures(){
+  const seen=new Set();
+  for(const mark of engine.pressures){
+    seen.add(mark.id);
+    let item=pressureViews.get(mark.id);
+    if(!item){
+      const group=new THREE.Group();
+      const ring=new THREE.Mesh(pressureRingGeometry,pressurePalette[mark.mode]);
+      const core=new THREE.Mesh(pressureCoreGeometry,pressurePalette[mark.mode]);
+      group.add(ring,core);
+      const lineGeometry=new THREE.BufferGeometry();
+      const positions=new Float32Array(6);
+      lineGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));
+      const axisLine=new THREE.Line(lineGeometry,pressureLineMaterials.cleave);
+      axisLine.visible=false;group.add(axisLine);
+      scene.add(group);
+      item={group,ring,core,axisLine,positions};
+      pressureViews.set(mark.id,item);
+    }
+    item.group.position.set(...mark.center);
+    item.ring.material=pressurePalette[mark.mode];
+    item.core.material=pressurePalette[mark.mode];
+    item.ring.scale.setScalar(mark.radius);
+    item.core.scale.setScalar(mark.id===selectedPressureId?1.55:1);
+    item.ring.quaternion.copy(camera.quaternion);
+    item.axisLine.visible=mark.mode==='cleave';
+    if(item.axisLine.visible){
+      const k=mark.radius*.85,a=mark.axis;
+      item.positions.set([-a[0]*k,-a[1]*k,-a[2]*k,a[0]*k,a[1]*k,a[2]*k]);
+      item.axisLine.geometry.attributes.position.needsUpdate=true;
+    }
+  }
+  for(const [id,item] of pressureViews){
+    if(!seen.has(id)){
+      scene.remove(item.group);
+      item.axisLine.geometry.dispose();
+      pressureViews.delete(id);
+    }
+  }
+  if(selectedPressureId!==null&&!seen.has(selectedPressureId))selectedPressureId=null;
+  updatePressureControls();
+}
 // The interactive threads are a faithful editor overlay of persistent 3D
 // stroke sources. The simulation samples these same strokes independently.
 const strokeBuffer=new Float32Array(10*47*6);
