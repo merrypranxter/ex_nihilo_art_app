@@ -35,6 +35,50 @@ function refractedChannel(owner,rgba,size,wrap,family,x,y,c,fallback){
   return value;
 }
 
+// Geometry is derived only when the underlying living material changes.
+// Lamp motion then shades cached normals instead of rescanning four neighbors
+// on every display frame. A transient revision counter prevents stale caches
+// after reset / restore without changing saved checkpoint formats.
+const geometryCache=new WeakMap();
+function opticalGeometry(surface,wrap){
+  const revision=surface.visualRevision??0;
+  const previous=geometryCache.get(surface);
+  if(previous&&previous.wrap===wrap&&previous.revision===revision)
+    return previous;
+  const n=surface.size,capacity=surface.capacity,owners=surface.owner;
+  const normalsX=new Float32Array(capacity),normalsY=new Float32Array(capacity),
+    normalsZ=new Float32Array(capacity),rims=new Float32Array(capacity);
+  const sides=[0,0,0,0];
+  for(let i=0;i<capacity;i++){
+    const family=owners[i];if(!family)continue;
+    const x=i%n,y=(i/n)|0;
+    const left=x>0?i-1:wrap?i+n-1:-1;
+    const right=x+1<n?i+1:wrap?i-n+1:-1;
+    const up=y>0?i-n:wrap?i+n*(n-1):-1;
+    const down=y+1<n?i+n:wrap?i-n*(n-1):-1;
+    sides[0]=left;sides[1]=right;sides[2]=up;sides[3]=down;
+    let exposed=0,contact=0;
+    for(const j of sides){
+      if(j<0||!owners[j])exposed++;
+      else if(owners[j]!==family)contact++;
+    }
+    const same=j=>j>=0&&owners[j]===family?surface.depth[j]:surface.depth[i];
+    const slopeX=clamp((same(right)-same(left))*.12,-1.8,1.8);
+    const slopeY=clamp((same(down)-same(up))*.12,-1.8,1.8);
+    const edgeX=((right<0||!owners[right])?1:0)-
+      ((left<0||!owners[left])?1:0);
+    const edgeY=((down<0||!owners[down])?1:0)-
+      ((up<0||!owners[up])?1:0);
+    let nx=-slopeX-.60*edgeX,ny=-slopeY-.60*edgeY,nz=1;
+    const norm=Math.hypot(nx,ny,nz)||1;
+    normalsX[i]=nx/norm;normalsY[i]=ny/norm;normalsZ[i]=nz/norm;
+    rims[i]=clamp((exposed*.18+contact*.24),0,1);
+  }
+  const cache={revision,wrap,normalsX,normalsY,normalsZ,rims};
+  geometryCache.set(surface,cache);
+  return cache;
+}
+
 // The lamp is a direction, not a screen-space rainbow color wheel.
 // A single angle is combined with a repeatable loop phase (radians).
 export function opticalLight(angle=40,phase=0){
@@ -77,56 +121,38 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
   const back=rgb(background);
   const owner=surface.owner,depth=surface.depth,age=surface.age;
   const seeds=surface.seeds;
+  const geometry=opticalGeometry(surface,wrap);
+  const channels=new Float64Array(3),indices=[1.503,1.518,1.535],
+    raw=new Float64Array(3),waves=[630,540,460];
   for(let i=0;i<capacity;i++){
     const family=owner[i];if(!family)continue;
     const x=i%n,y=(i/n)|0;
-    // Neighbors are from the retained growth lattice. Never invent lineage
-    // across an empty cell or sample off the non-periodic artwork.
-    const left=x>0?i-1:wrap?i+n-1:-1;
-    const right=x+1<n?i+1:wrap?i-n+1:-1;
-    const up=y>0?i-n:wrap?i+n*(n-1):-1;
-    const down=y+1<n?i+n:wrap?i-n*(n-1):-1;
-    const sides=[left,right,up,down];
-    let exposed=0,contact=0;
-    for(const j of sides){
-      if(j<0||!owner[j])exposed++;
-      else if(owner[j]!==family)contact++;
-    }
-    const same=j=>j>=0&&owner[j]===family?depth[j]:depth[i];
-    const slopeX=clamp((same(right)-same(left))*.12,-1.8,1.8);
-    const slopeY=clamp((same(down)-same(up))*.12,-1.8,1.8);
-    // Boundary silhouettes add an actual local edge normal. Internal
-    // crystallographic distance gradients orient the polished microfacet.
-    const edgeX=((right<0||!owner[right])?1:0)-
-      ((left<0||!owner[left])?1:0);
-    const edgeY=((down<0||!owner[down])?1:0)-
-      ((up<0||!owner[up])?1:0);
-    let nx=-slopeX-.60*edgeX,ny=-slopeY-.60*edgeY,nz=1;
-    const norm=Math.hypot(nx,ny,nz)||1;
-    nx/=norm;ny/=norm;nz/=norm;
+    const nx=geometry.normalsX[i],ny=geometry.normalsY[i],
+      nz=geometry.normalsZ[i];
     const incidence=clamp(nx*light[0]+ny*light[1]+nz*light[2],0,1);
     const halfz=1+light[2];
     const halfnorm=Math.hypot(light[0],light[1],halfz)||1;
     const highlight=clamp((nx*light[0]+ny*light[1]+nz*halfz)/halfnorm,0,1);
     const spec=Math.pow(highlight,5+Math.round((1-grain)*28));
-    const rim=clamp((exposed*.18+contact*.24),0,1);
+    const rim=geometry.rims[i];
     const maturity=clamp(age[i]/90,0,1);
     const seedPhase=seeds[family-1]?.phase??0;
     const original=i*4,p=i*3;
     const originalR=baseRGBA[original],originalG=baseRGBA[original+1],
       originalB=baseRGBA[original+2];
-    let channels=[originalR,originalG,originalB];
+    channels[0]=originalR;channels[1]=originalG;channels[2]=originalB;
     if(mode==='opal'){
       // Deposited layer thickness follows actual family phase, graph
       // distance and maturation; none depend on external pixel noise.
       const layers=film*(.76+.27*Math.sin(depth[i]*.24+seedPhase*TAU)
         +.10*maturity);
-      const interference=dielectricInterference(layers,
-        clamp(.26+.70*incidence,.08,1),1.46);
+      const opticalPath=4*Math.PI*1.46*layers*
+        clamp(.26+.70*incidence,.08,1);
       const fresnel=.08+.29*Math.pow(1-incidence,3);
       const reflect=power*(.23+.47*rim+.20*(1-grain));
       for(let c=0;c<3;c++){
-        const spectral=(interference[c]-.38)*190;
+        const interference=.5+.5*Math.cos(opticalPath/waves[c]);
+        const spectral=(interference-.38)*190;
         channels[c]=channels[c]*(1-.12*power)+
           spectral*reflect+255*spec*power*(.15+.45*rim)+
           26*fresnel*power;
@@ -135,9 +161,8 @@ export function surfaceOpticsPixels(surface,baseRGBA,{
       // Cheap lateral spectral refraction. Cauchy-like inverse-lambda²
       // dispersion makes blue bend more than red; the sampled site must
       // belong to this *same* living family to avoid color-family bleeding.
-      const indices=[1.503,1.518,1.535];
       const shift=(1-grain)*power*85;
-      const raw=[originalR,originalG,originalB];
+      raw[0]=originalR;raw[1]=originalG;raw[2]=originalB;
       for(let c=0;c<3;c++){
         const delta=(indices[c]-1.518)*shift;
         const refracted=refractedChannel(owner,baseRGBA,n,wrap,family,
