@@ -7,7 +7,8 @@ export class GifLoopWriter {
       width<1||height<1||width>1024||height>1024)throw Error('Invalid GIF dimensions');
     if(!Number.isInteger(fps)||fps<1||fps>30)throw Error('Invalid GIF frame rate');
     this.width=width;this.height=height;this.fps=fps;this.frames=0;
-    this.bytes=[];const put=(...values)=>this.bytes.push(...values);
+    this.chunks=[];this.totalBytes=0;
+    const header=[];const put=(...values)=>header.push(...values);
     const word=n=>put(n&255,(n>>8)&255);
     for(const c of 'GIF89a')put(c.charCodeAt(0));
     word(width);word(height);put(0xf7,0,0);
@@ -21,12 +22,18 @@ export class GifLoopWriter {
     put(0x21,0xff,0x0b);
     for(const c of 'NETSCAPE2.0')put(c.charCodeAt(0));
     put(3,1,0,0,0);
+    this.append(header);
+  }
+  append(values){
+    const chunk=Uint8Array.from(values);
+    this.chunks.push(chunk);
+    this.totalBytes+=chunk.byteLength;
   }
   addFrame(rgba,delayHundredths=null){
     if(!(rgba instanceof Uint8ClampedArray)||
       rgba.length!==this.width*this.height*4)
       throw Error('GIF frame dimensions differ');
-    const bytes=this.bytes,word=n=>bytes.push(n&255,(n>>8)&255);
+    const bytes=[],word=n=>bytes.push(n&255,(n>>8)&255);
     const delay=delayHundredths===null?Math.max(2,Math.round(100/this.fps)):
       Math.max(2,Math.min(65535,Math.round(delayHundredths)));
     bytes.push(0x21,0xf9,0x04,0x04);
@@ -69,10 +76,15 @@ export class GifLoopWriter {
       for(let j=0;j<len;j++)bytes.push(blocks[i+j]);
     }
     bytes.push(0);
+    this.append(bytes);
     this.frames++;
   }
   finish(){
     if(!this.frames)throw Error('No GIF frames to encode');
-    return new Uint8Array([...this.bytes,0x3b]);
+    const output=new Uint8Array(this.totalBytes+1);
+    let offset=0;
+    for(const chunk of this.chunks){output.set(chunk,offset);offset+=chunk.length;}
+    output[offset]=0x3b;
+    return output;
   }
 }
