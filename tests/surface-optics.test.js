@@ -98,6 +98,19 @@ test('rendering has no effect on checkpoint ownership, age, live fronts or RNG',
   restored.restore(checkpoint);
   assert.deepEqual(render(restored,'opal'),render(s,'opal'));
 });
+test('optical normal cache is invalidated by real growth and restoration',()=>{
+  const surface=setup(),saved=surface.snapshot(),first=render(surface,'quartz');
+  const rev1=surface.visualRevision;
+  surface.seedAt(.01,.01,palette);
+  assert.ok(surface.visualRevision>rev1);
+  const second=render(surface,'quartz');
+  assert.notDeepEqual(first,second);
+  const rev2=surface.visualRevision;
+  surface.restore(saved);
+  assert.ok(surface.visualRevision>rev2);
+  assert.deepEqual(render(surface,'quartz'),first);
+});
+
 test('full world saves keep light preferences while old DNA restores no optics',()=>{
   const world=new GrowthEngine(74);
   world.setConfig({compositionDomain:'surface',surfaceOpticsMode:'ghost',
