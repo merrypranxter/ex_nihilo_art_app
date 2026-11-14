@@ -5,6 +5,7 @@
 
 import {pressureAt} from './crystal-pressure.js';
 import {tickCrystalStrain} from './crystal-strain.js';
+import { founderGenes,inheritGenes,hereditaryBirthBias } from './crystal-bloodlines.js';
 const lim=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const DIRS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 
@@ -19,13 +20,21 @@ export class CrystalColony {
     this.colors=new Uint8Array(this.capacity*3);
     this.strain=new Float32Array(this.capacity); // accumulated lattice stress
     this.damage=new Uint8Array(this.capacity);   // 0 intact, 1 cracked, 2 permanent fracture void
+    // Birth-event IDs are immutable even if the voxel dies or is reused.
+    // Root-family and parent event IDs never point to mutable voxel addresses.
+    this.birthIds=new Uint32Array(this.capacity);
+    this.parentBirthIds=new Uint32Array(this.capacity);
+    this.families=new Uint32Array(this.capacity);
+    this.genes=new Uint8Array(this.capacity*3);
+    this.nextBirthId=1;
     this.strainScratch=new Float32Array(this.capacity); // scratch, recomputable
     this.strainActive=false;
     this.population=0;
     this.generation=0;
     this.changed=true;
     this.settings={enabled:false,growth:.75,erosion:.08,crystallization:4,
-      strainEnabled:true,strainTransfer:.24,breakThreshold:.96};
+      strainEnabled:true,strainTransfer:.24,breakThreshold:.96,
+      ancestryEnabled:false,ancestryInfluence:.45,ancestryMutation:.18};
   }
   index(x,y,z){return x+this.size*(y+this.size*z)}
   inside(x,y,z){
@@ -51,7 +60,10 @@ export class CrystalColony {
       crystallization:Math.round(lim(Number.isFinite(+values.crystallization)?+values.crystallization:this.settings.crystallization,2,12)),
       strainEnabled:values.strainEnabled===undefined?this.settings.strainEnabled:!!values.strainEnabled,
       strainTransfer:lim(Number.isFinite(+values.strainTransfer)?+values.strainTransfer:this.settings.strainTransfer,0,.48),
-      breakThreshold:lim(Number.isFinite(+values.breakThreshold)?+values.breakThreshold:this.settings.breakThreshold,.6,1.2)
+      breakThreshold:lim(Number.isFinite(+values.breakThreshold)?+values.breakThreshold:this.settings.breakThreshold,.6,1.2),
+      ancestryEnabled:values.ancestryEnabled===undefined?this.settings.ancestryEnabled:!!values.ancestryEnabled,
+      ancestryInfluence:lim(Number.isFinite(+values.ancestryInfluence)?+values.ancestryInfluence:this.settings.ancestryInfluence,0,1),
+      ancestryMutation:lim(Number.isFinite(+values.ancestryMutation)?+values.ancestryMutation:this.settings.ancestryMutation,0,1)
     };
   }
   colorAt(i,food,palette,rng){
@@ -68,8 +80,22 @@ export class CrystalColony {
       this.colors[i*3+channel]=Math.round(aa+(bb-aa)*mix);
     }
   }
-  birth(i,nutrient,palette,rng){
+  birth(i,nutrient,palette,rng,parentIndex=-1){
     if(this.cells[i]!==0||this.damage[i]===2||this.population>=this.maxCells)return false;
+    if(this.nextBirthId>0xffffffff)throw new Error('Crystal lineage identity counter exhausted');
+    const id=this.nextBirthId++;
+    const trackedParent=parentIndex>=0&&parentIndex<this.capacity&&
+      this.cells[parentIndex]>0&&this.birthIds[parentIndex]>0;
+    this.birthIds[i]=id;
+    this.parentBirthIds[i]=trackedParent?this.birthIds[parentIndex]:0;
+    this.families[i]=trackedParent?this.families[parentIndex]:id;
+    const inherited=trackedParent?
+      inheritGenes([
+        this.genes[parentIndex*3],this.genes[parentIndex*3+1],
+        this.genes[parentIndex*3+2]
+      ],i,this.generation,this.settings.ancestryMutation):
+      founderGenes(i,id);
+    this.genes.set(inherited,i*3);
     this.cells[i]=1;
     this.ages[i]=0;
     this.strain[i]=0;
@@ -93,6 +119,9 @@ export class CrystalColony {
   update(nutrient,palette,rng,chemical=null,pressureMarks=null){
     if(!this.settings.enabled||this.population===0)return;
     const candidates=new Map();
+    // The first already-occupied face neighbor is a child's factual parent
+    // in the synchronous CA; no newly born cell can parent the same tick.
+    const candidateParents=new Map();
     const mature=[];
     const hasMarks=!!pressureMarks?.length;
     const hasCleave=hasMarks&&pressureMarks.some(p=>p.mode==='cleave');
@@ -110,6 +139,7 @@ export class CrystalColony {
         const ni=this.index(nx,ny,nz);
         if(this.cells[ni]!==0||this.damage[ni]===2)continue;
         candidates.set(ni,(candidates.get(ni)||0)+1);
+        if(!candidateParents.has(ni))candidateParents.set(ni,i);
       }
     }
     // Sparse-frontier update: only lattice cells touching growth can be born.
@@ -138,11 +168,20 @@ export class CrystalColony {
       // Touch-written crystal stress affects REAL cellular birth probabilities.
       // No mark means exact historical birth law and RNG sequence.
       const pressureBias=hasMarks?pressureAt(p,pressureMarks).birth:1;
+      const parent=candidateParents.get(i);
+      let inheritedBias=1;
+      if(this.settings.ancestryEnabled&&parent!==undefined&&
+         this.birthIds[parent]>0){
+        const [px,py,pz]=this.decode(parent);
+        inheritedBias=hereditaryBirthBias([
+          this.genes[parent*3],this.genes[parent*3+1],this.genes[parent*3+2]
+        ],[x-px,y-py,z-pz],this.settings.ancestryInfluence);
+      }
       const probability=lim(.19*this.settings.growth*contact*food*spatial*
-        chemicalBias*pressureBias,0,.86);
-      if(rng()<probability)births.push(i);
+        chemicalBias*pressureBias*inheritedBias,0,.86);
+      if(rng()<probability)births.push([i,parent]);
     }
-    for(const i of births)this.birth(i,nutrient,palette,rng);
+    for(const [i,parent] of births)this.birth(i,nutrient,palette,rng,parent);
     // Synchronous strain transport happens exclusively through occupied face
     // neighbors. The CA's deterministic history determines fracture timing.
     if(this.settings.strainEnabled&&(hasStrain||this.strainActive)){
@@ -177,6 +216,8 @@ export class CrystalColony {
   clear(){
     this.cells.fill(0);this.ages.fill(0);this.colors.fill(0);
     this.strain.fill(0);this.strainScratch.fill(0);this.damage.fill(0);
+    this.birthIds.fill(0);this.parentBirthIds.fill(0);
+    this.families.fill(0);this.genes.fill(0);this.nextBirthId=1;
     this.strainActive=false;
     this.population=0;this.generation=0;this.changed=true;
   }
@@ -185,12 +226,37 @@ export class CrystalColony {
       settings:{...this.settings},
       generation:this.generation,population:this.population,
       cells:Array.from(this.cells),ages:Array.from(this.ages),colors:Array.from(this.colors),
-      strain:Array.from(this.strain),damage:Array.from(this.damage)
+      strain:Array.from(this.strain),damage:Array.from(this.damage),
+      birthIds:Array.from(this.birthIds),
+      parentBirthIds:Array.from(this.parentBirthIds),
+      families:Array.from(this.families),genes:Array.from(this.genes),
+      nextBirthId:this.nextBirthId
     };
   }
   validateSnapshot(data){
     const valid=(a,length,max)=>Array.isArray(a)&&a.length===length&&
       a.every(n=>Number.isInteger(n)&&n>=0&&n<=max);
+    const hasGenealogy=data.birthIds!==undefined;
+    const ancestryFields=['birthIds','parentBirthIds','families','genes','nextBirthId'];
+    if(ancestryFields.some(key=>(data[key]!==undefined)!==hasGenealogy))
+      throw new Error('Incomplete crystal genealogy in world checkpoint.');
+    if(hasGenealogy){
+      const validBirth=a=>valid(a,this.capacity,0xffffffff);
+      if(!validBirth(data.birthIds)||!validBirth(data.parentBirthIds)||
+         !validBirth(data.families)||!valid(data.genes,this.capacity*3,255)||
+         !Number.isSafeInteger(data.nextBirthId)||data.nextBirthId<1||
+         data.nextBirthId>0x100000000)
+        throw new Error('Invalid crystal genealogy.');
+      for(let i=0;i<this.capacity;i++){
+        const id=data.birthIds[i],parent=data.parentBirthIds[i],family=data.families[i];
+        if((data.cells[i]>0&&!id)||(id===0&&(parent!==0||family!==0))||
+          (id>0&&(!family||family>id||parent>=id))||
+          (id>0&&!parent&&family!==id)||
+          id>=data.nextBirthId){
+          throw new Error('Invalid crystal genealogy ancestry.');
+        }
+      }
+    }
     if(!data||!data.settings||!Number.isInteger(data.generation)||data.generation<0||
        !Number.isInteger(data.population)||data.population<0||data.population>this.maxCells||
        !valid(data.cells,this.capacity,2)||
@@ -214,7 +280,9 @@ export class CrystalColony {
     // they already contain CLEAVE pressure marks. Opt in via the UI later.
     const historical=data.strain===undefined;
     this.setSettings(historical?
-      {...data.settings,strainEnabled:false}:data.settings);
+      {...data.settings,strainEnabled:false,ancestryEnabled:false}:
+      (data.birthIds===undefined?
+        {...data.settings,ancestryEnabled:false}:data.settings));
     this.generation=data.generation;
     this.population=data.population;
     this.cells.set(data.cells);
@@ -222,6 +290,16 @@ export class CrystalColony {
     this.colors.set(data.colors);
     if(data.strain)this.strain.set(data.strain);else this.strain.fill(0);
     if(data.damage)this.damage.set(data.damage);else this.damage.fill(0);
+    if(data.birthIds){
+      this.birthIds.set(data.birthIds);
+      this.parentBirthIds.set(data.parentBirthIds);
+      this.families.set(data.families);
+      this.genes.set(data.genes);
+      this.nextBirthId=data.nextBirthId;
+    }else{
+      this.birthIds.fill(0);this.parentBirthIds.fill(0);
+      this.families.fill(0);this.genes.fill(0);this.nextBirthId=1;
+    }
     this.strainScratch.fill(0);
     this.strainActive=this.strain.some(n=>n>0);
     this.changed=true;
