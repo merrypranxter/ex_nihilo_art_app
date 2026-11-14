@@ -386,7 +386,8 @@ function syncCrystals(){
       colony.genes[i*3],colony.genes[i*3+1],colony.genes[i*3+2]
     ],family,colony.ages[i],{
       mode:engine.config.crystalHeritage,
-      strength:engine.config.crystalHeritageStrength
+      strength:engine.config.crystalHeritageStrength,
+      index:i
     });
     if(engine.config.crystalRelief>0){
       crystalOutward.set(...surface.direction);
