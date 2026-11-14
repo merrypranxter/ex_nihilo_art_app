@@ -199,6 +199,10 @@ export class SurfaceGrowth {
     }
     this.frontier=fresh;
     this.population+=births;
+    // Age is real retained mineral history, not the animation clock.
+    for(let i=0;i<this.capacity;i++){
+      if(this.owner[i]&&this.age[i]<255)this.age[i]++;
+    }
     this.generation++;
     this.changed=true;
     return births>0;
