@@ -71,7 +71,8 @@ export class SurfaceGrowth {
   touchMarks(){
     this.gestureRevision++;
     this.gestureField=null;
-    this.changed=true;
+    // A draft field stroke only changes future birth rules and editing handles.
+    // Do not invalidate a costly optical image until actual mineral is born.
   }
   gestureFor(wrap=false){
     const key=this.gestureRevision+':'+Number(!!wrap);
