@@ -200,6 +200,19 @@
 - [ ] Production Vite build and physical iPhone Safari WebGL2 optical-quality/FPS examination.
 - [ ] Refine eye-catching crystal lighting according to real screenshots and FPS diagnostics, avoiding unsupported heavy GPU optics.
 
+## Phase 03N — Crystal Bloodlines / Real Ancestry and Inherited Material Traits
+
+- [x] Actual synchronous crystal birth parent identity (immutable birth-event ID), founder-family identity and three stored 8-bit inherited mineral genes.
+- [x] Deterministic mutation preserving base simulation RNG and separate family roots from hand-seeded crystals.
+- [x] Optional bounded gene/3D direction factor in future CA birth probabilities; genuinely affects crystal growth topology instead of just appearance.
+- [x] Reversible inherited facet elongation and a single capped 1,100-instance mesh of small physically shaded genealogical mineral-stratum rings.
+- [x] Modes OFF / Crystal Brocade / Genealogical Strata / Hereditary Abnormalities and artist controls for morphology intensity, real growth influence and future mutation.
+- [x] Complete DNA/world save of birth-event identity, parent, family and genes with strict validation; preserve legacy untracked crystals without fictional ancestors.
+- [x] 199 original MATHEMAGICAL + EX NIHILO palettes, frozen birth color, 3D crystal-growth/fracture and prior iPhone touch controls preserved.
+- [x] Headless parentage, mutation, CA topology effect, cell reuse, separate founder lines, exact continuing replay and mixed-era save testing.
+- [ ] Actual Vite production build, iPhone Safari WebGL2 lineage band rendering / FPS QA.
+- [ ] Family-selection/highlight and lineage tracing; consider multilateral mineral genealogy only after mobile validation.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
