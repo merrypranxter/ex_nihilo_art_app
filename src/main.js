@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
+import { lineageLighting, lineageHaloScale } from './filigree.js';
 import './styles.css';
 
 const $ = id => document.getElementById(id);
@@ -221,12 +222,34 @@ const quaternion=new THREE.Quaternion();
 const transform=new THREE.Matrix4();
 const scale=new THREE.Vector3();
 let geometryDirty=false;
+const strandTint=new THREE.Color();
+function tintStrand(color,generation=0){
+  const values=lineageLighting([color.r,color.g,color.b],generation,engine.config.filigreeContrast);
+  strandTint.setRGB(...values);
+  return strandTint;
+}
+function updateFiligreeDisplay(){
+  // Regenerate only the VIEW colors from saved historical pigment+ancestry.
+  // No geometry, simulation history, palette, or chemical state is altered.
+  const rgb=engine.segmentColors,gens=engine.segmentGenerations;
+  for(let i=0;i<engine.segmentCount;i++){
+    const j=i*3,k=i*6;
+    const generation=gens[i];
+    const tone=tintStrand(strandTint.setRGB(rgb[j]/255,rgb[j+1]/255,rgb[j+2]/255),generation);
+    fibers.setColorAt(i,tone);
+    const bloom=1.65*lineageHaloScale(generation,engine.config.filigreeContrast);
+    haloColors.set([tone.r*bloom,tone.g*bloom,tone.b*bloom,
+      tone.r*bloom,tone.g*bloom,tone.b*bloom],k);
+  }
+  if(fibers.instanceColor)fibers.instanceColor.needsUpdate=true;
+  haloColorAttribute.needsUpdate=true;
+}
 engine.onReset=()=>{
   fibers.count=0;
   haloGeometry.setDrawRange(0,0);
   geometryDirty=true;
 };
-engine.onDeposit=(slot,a,b,color,radius)=>{
+engine.onDeposit=(slot,a,b,color,radius,generation=0)=>{
   delta.subVectors(b,a);
   const length=delta.length();
   if(length<.00001)return;
@@ -235,11 +258,13 @@ engine.onDeposit=(slot,a,b,color,radius)=>{
   scale.set(radius,length,radius);
   transform.compose(mid,quaternion,scale);
   fibers.setMatrixAt(slot,transform);
-  fibers.setColorAt(slot,color);
+  const tone=tintStrand(color,generation);
+  fibers.setColorAt(slot,tone);
   const k=slot*6;
   haloPositions.set([a.x,a.y,a.z,b.x,b.y,b.z],k);
-  haloColors.set([color.r*1.65,color.g*1.65,color.b*1.65,
-                  color.r*1.65,color.g*1.65,color.b*1.65],k);
+  const bloom=1.65*lineageHaloScale(generation,engine.config.filigreeContrast);
+  haloColors.set([tone.r*bloom,tone.g*bloom,tone.b*bloom,
+                  tone.r*bloom,tone.g*bloom,tone.b*bloom],k);
   fibers.count=engine.segmentCount===engine.maxSegments?engine.maxSegments:Math.max(fibers.count,slot+1);
   haloGeometry.setDrawRange(0,Math.max(haloGeometry.drawRange.count,(slot+1)*2));
   geometryDirty=true;
@@ -506,6 +531,8 @@ function updateArtistControls(){
   $('formTwist-value').textContent=Math.round(c.formTwist*100)+'%';
   $('lineageColor').value=Math.round(c.lineageColor*100);
   $('lineageColor-value').textContent=Math.round(c.lineageColor*100)+'%';
+  $('filigreeContrast').value=Math.round(c.filigreeContrast*100);
+  $('filigreeContrast-value').textContent=Math.round(c.filigreeContrast*100)+'%';
   $('finish').value=c.finish;
   $('glow').value=Math.round(c.glow*100);
   $('glow-value').textContent=Math.round(c.glow*100)+'%';
@@ -514,14 +541,16 @@ function readArtistControls(){
   engine.setConfig({
     form:$('form').value,formStrength:Number($('formStrength').value)/100,
     formTwist:Number($('formTwist').value)/100,
-    lineageColor:Number($('lineageColor').value)/100,finish:$('finish').value,
+    lineageColor:Number($('lineageColor').value)/100,
+    filigreeContrast:Number($('filigreeContrast').value)/100,finish:$('finish').value,
     glow:Number($('glow').value)/100
   });
   updateArtistControls();
   updateBranchControls();
   applyArtistFinish();
+  updateFiligreeDisplay();
 }
-['form','formStrength','formTwist','lineageColor','finish','glow'].forEach(
+['form','formStrength','formTwist','lineageColor','filigreeContrast','finish','glow'].forEach(
   id=>$(id).addEventListener('input',readArtistControls)
 );
 
@@ -568,6 +597,9 @@ $('compose-frame').addEventListener('click',frameArtwork);
 function updateBranchControls(){
   const c=engine.config;
   $('branchMode').value=c.branchMode;
+  $('branchOrdering').value=c.branchOrdering;
+  $('branchPersistence').value=String(Math.round(c.branchPersistence*100));
+  $('branchPersistence-value').textContent=Math.round(c.branchPersistence*100)+'%';
   $('branchAngle').value=String(Math.round(c.branchAngle));
   $('branchAngle-value').textContent=Math.round(c.branchAngle)+'°';
   $('branchTaper').value=String(Math.round(c.branchTaper*100));
@@ -581,6 +613,8 @@ function updateBranchControls(){
 function readBranchControls(){
   engine.setConfig({
     branchMode:$('branchMode').value,
+    branchOrdering:$('branchOrdering').value,
+    branchPersistence:Number($('branchPersistence').value)/100,
     branchAngle:Number($('branchAngle').value),
     branchTaper:Number($('branchTaper').value)/100,
     rhythmMode:$('rhythmMode').value,
@@ -589,7 +623,7 @@ function readBranchControls(){
   });
   updateBranchControls();
 }
-['branchMode','branchAngle','branchTaper','rhythmMode','rhythmDepth','rhythmRate']
+['branchMode','branchOrdering','branchPersistence','branchAngle','branchTaper','rhythmMode','rhythmDepth','rhythmRate']
   .forEach(id=>$(id).addEventListener('input',readBranchControls));
 
 const ranges={
@@ -628,7 +662,9 @@ function updateControlsFromDNA(){
   updateMorphControls();
   updateStructuralControls();
   updateArtistControls();
+  updateBranchControls();
   applyArtistFinish();
+  updateFiligreeDisplay();
 }
 for(const key of Object.keys(ranges))$(key).addEventListener('input',readControls);
 $('palette').addEventListener('change',readControls);
