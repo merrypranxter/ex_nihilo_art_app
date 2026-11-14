@@ -89,6 +89,7 @@ surfacePixelsCanvas.height=SURFACE_SIZE;
 const surfacePixelContext=surfacePixelsCanvas.getContext('2d',{alpha:false});
 let surfaceClock=0,surfaceNeedsPresent=true,surfacePointerId=null;
 let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
+let surfaceOpticsRenderCost=0;
 let surfaceLastX=null,surfaceLastY=null;
 function surfaceDisplayRect(){
   const width=surfaceCanvas.width,height=surfaceCanvas.height;
@@ -111,6 +112,7 @@ function drawSurface(force=false){
   if(engine.config.compositionDomain!=='surface')return;
   if(!surfaceCanvas.width||!surfaceCanvas.height)fitSurfaceCanvas();
   if(force||engine.surface.changed||surfaceOpticsDirty){
+    const opticalStart=performance.now();
     const c=engine.config;
     const background=BACKGROUNDS[$('background').value]||BACKGROUNDS.void;
     const base=surfacePixels(engine.surface,{
@@ -125,6 +127,11 @@ function drawSurface(force=false){
     const image=surfacePixelContext.createImageData(SURFACE_SIZE,SURFACE_SIZE);
     image.data.set(pixels);
     surfacePixelContext.putImageData(image,0,0);
+    const cost=performance.now()-opticalStart;
+    // Self-throttle expensive finishes on mobile instead of spending the
+    // entire frame budget continuously recomputing CPU illumination.
+    surfaceOpticsRenderCost=surfaceOpticsRenderCost===0?cost:
+      .65*surfaceOpticsRenderCost+.35*cost;
     engine.surface.changed=false;
     surfaceOpticsDirty=false;
     surfaceNeedsPresent=true;
@@ -2735,7 +2742,8 @@ function frame(now){
     // crystalline history. No simulation RNG or birth state is touched.
     if(engine.config.surfaceOpticsMotion&&engine.config.surfaceOpticsMode!=='off'){
       surfaceOpticsTime+=elapsed;
-      if(now-lastSurfaceOpticsRedraw>85){
+      const adaptiveInterval=Math.max(85,Math.min(450,surfaceOpticsRenderCost*2.15));
+      if(now-lastSurfaceOpticsRedraw>adaptiveInterval){
         surfaceOpticsDirty=true;
         lastSurfaceOpticsRedraw=now;
       }
