@@ -47,7 +47,7 @@ export function tickCrystalStrain({
   const breaking=clamp(breakThreshold,MIN_BREAK,MAX_BREAK);
   const crackPoint=breaking*CRACK_RATIO;
   let active=false,damaged=0,shattered=0;
-  const strideY=size,strideZ=size*size,half=extent/size;
+  const strideY=size,strideZ=size*size,cellSize=extent/size;
   next.fill(0);
   for(let i=0;i<cells.length;i++){
     if(!cells[i])continue;
@@ -65,8 +65,8 @@ export function tickCrystalStrain({
     }
     const previous=strain[i];
     const shared=neighbors?neighborsStrain/neighbors:previous;
-    const pos={x:(x+.5)*2*half-extent/2,y:(y+.5)*2*half-extent/2,
-      z:(z+.5)*2*half-extent/2};
+    const pos={x:(x+.5)*cellSize-extent/2,y:(y+.5)*cellSize-extent/2,
+      z:(z+.5)*cellSize-extent/2};
     const source=hasSource?strainSourceAt(pos,marks):0;
     const value=clamp(previous*.985+conduct*(shared-previous)+.165*source,0,1.35);
     next[i]=value<.00003?0:value;
