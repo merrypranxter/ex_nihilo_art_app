@@ -115,6 +115,37 @@
               <button type="button" class="choice" id="surface-reseed">↻ NEW SURFACE SEED</button>
               <button type="button" class="choice" id="surface-png">↓ 2048px ART PNG</button>
             </div>
+            <details id="surface-gesture-lab" class="morph-advanced" open>
+              <summary>✋ GESTURE WITCH · TOUCH THE GROWTH LAWS</summary>
+              <div class="morph-advanced-grid">
+                <p class="help first">Choose a spell, then DRAW DIRECTLY ON THE ARTWORK. Gestures create persistent mathematical fields, not paint. Existing mineral deposits survive; future crystal births react to your marks. In EDIT mode, drag an existing mark to move it; pinch and twist it with two fingers to change its radius and orientation.</p>
+                <label class="control select-control"><span>What your finger does</span>
+                  <select id="surface-touch-mode">
+                    <option value="seed">✳ PLANT CRYSTAL NUCLEI · ORIGINAL</option>
+                    <option value="attract">◎ ATTRACT GROWTH · FEED THE FRONTS</option>
+                    <option value="block">⊘ KEEP EMPTY · PROTECT NEGATIVE SPACE</option>
+                    <option value="guide">➰ COMB GROWTH · FOLLOW YOUR STROKE</option>
+                    <option value="edit">✋ EDIT MARK · DRAG / PINCH / TWIST</option>
+                  </select>
+                </label>
+                <div class="control-grid">
+                  <label class="control"><span>Gesture reach <output id="surface-touch-radius-value">8%</output></span>
+                    <input id="surface-touch-radius" type="range" min="2" max="25" step="1" value="8"/>
+                  </label>
+                  <label class="control"><span>Gesture influence <output id="surface-touch-strength-value">90%</output></span>
+                    <input id="surface-touch-strength" type="range" min="0" max="100" step="5" value="90"/>
+                  </label>
+                </div>
+                <div class="small-actions ecology-actions">
+                  <button type="button" class="choice" id="surface-touch-undo" disabled>↶ UNDO TOUCH</button>
+                  <button type="button" class="choice" id="surface-touch-redo" disabled>↷ REDO TOUCH</button>
+                  <button type="button" class="choice active" id="surface-touch-overlay" aria-pressed="true">◉ SHOW FIELDS</button>
+                  <button type="button" class="mini danger" id="surface-touch-clear">CLEAR FIELD MARKS</button>
+                </div>
+                <p class="help" id="surface-touch-status" aria-live="polite">PLANT CRYSTALS · Touch the artwork to create real nuclei.</p>
+                <p class="help">Finger-up saves ONE reversible edit. A canceled gesture reverts. New touches invalidate redo. Undo after further growth restores the earlier *surface checkpoint*, including growth that occurred afterward. The 3D organism is never part of these surface edits. At most 20 persistent marks are permitted to protect mobile performance; editing handles stay out of PNG exports.</p>
+              </div>
+            </details>
             <p class="help" id="surface-stats" aria-live="polite">0% COVERED · 0 NUCLEI · 0 GROWTH GENERATIONS</p>
             <div class="control-grid">
               <label class="control select-control"><span>Material growth physics</span>
