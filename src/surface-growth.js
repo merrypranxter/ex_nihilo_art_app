@@ -91,7 +91,8 @@ export class SurfaceGrowth {
       unique.set(ix+iy*this.size,[x,y]);
     }
     if(!unique.size||this.seeds.length+unique.size>Math.min(MAX_SEEDS,limit))return false;
-    const threshold=Math.round(clamp(Number(options.voids??.55),0,1)*220);
+    const threshold=(options.voids??.55)<=0?-1:
+      Math.round(clamp(Number(options.voids??.55),0,1)*220);
     for(const [i,[x,y]] of unique){
       if(this.owner[i])return false;
       if(options.boundary&&options.boundary!=='open'&&
