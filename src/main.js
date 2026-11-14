@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
+import { surfacePixels,SURFACE_SIZE } from './surface-growth.js';
 import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
@@ -70,6 +71,144 @@ orbit.enabled=false;
 orbit.update();
 
 const engine = new GrowthEngine();
+
+// SURFACE ART has an independent, full-frame 2D material-growth canvas.
+// The original THREE organism, its camera and living world remain untouched.
+const surfaceCanvas=$('surface-canvas');
+const surfaceContext=surfaceCanvas.getContext('2d',{alpha:false});
+const surfacePixelsCanvas=document.createElement('canvas');
+surfacePixelsCanvas.width=SURFACE_SIZE;
+surfacePixelsCanvas.height=SURFACE_SIZE;
+const surfacePixelContext=surfacePixelsCanvas.getContext('2d',{alpha:false});
+let surfaceClock=0,surfaceNeedsPresent=true,surfacePointerId=null;
+let surfaceLastX=null,surfaceLastY=null;
+function surfaceDisplayRect(){
+  const width=surfaceCanvas.width,height=surfaceCanvas.height;
+  const extent=Math.max(width,height);
+  return {left:(width-extent)*.5,top:(height-extent)*.5,
+    size:extent};
+}
+function fitSurfaceCanvas(){
+  const bounds=surfaceCanvas.getBoundingClientRect();
+  if(!bounds.width||!bounds.height)return;
+  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  const w=Math.max(1,Math.round(bounds.width*dpr));
+  const h=Math.max(1,Math.round(bounds.height*dpr));
+  if(surfaceCanvas.width!==w||surfaceCanvas.height!==h){
+    surfaceCanvas.width=w;surfaceCanvas.height=h;
+    surfaceNeedsPresent=true;
+  }
+}
+function drawSurface(force=false){
+  if(engine.config.compositionDomain!=='surface')return;
+  if(!surfaceCanvas.width||!surfaceCanvas.height)fitSurfaceCanvas();
+  if(engine.surface.changed){
+    const image=surfacePixelContext.createImageData(SURFACE_SIZE,SURFACE_SIZE);
+    image.data.set(surfacePixels(engine.surface,{
+      contrast:engine.config.surfaceContrast,
+      background:BACKGROUNDS[$('background').value]||BACKGROUNDS.void,
+      wrap:engine.config.surfaceWrap
+    }));
+    surfacePixelContext.putImageData(image,0,0);
+    engine.surface.changed=false;
+    surfaceNeedsPresent=true;
+  }
+  if(force||surfaceNeedsPresent){
+    const rect=surfaceDisplayRect();
+    surfaceContext.imageSmoothingEnabled=true;
+    surfaceContext.imageSmoothingQuality='high';
+    surfaceContext.clearRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
+    surfaceContext.drawImage(surfacePixelsCanvas,rect.left,rect.top,rect.size,rect.size);
+    surfaceNeedsPresent=false;
+  }
+}
+function refreshSurfaceStats(){
+  const p=engine.surface;
+  const coverage=(p.population/p.capacity*100).toFixed(1);
+  const value=coverage+'% COVERED · '+p.seeds.length+' NUCLEI · '+
+    p.generation+' REAL GROWTH GENERATIONS · '+p.frontier.size+
+    ' ACTIVE FRONT CELLS'+
+    (engine.config.surfaceWrap?' · PERIODIC EDGES':'');
+  $('surface-stats').textContent=value;
+  if(engine.config.compositionDomain==='surface'){
+    $('stats').textContent=coverage+'% COVERAGE · '+p.seeds.length+' CRYSTAL FAMILIES';
+  }
+}
+function seedSurfaceIfEmpty(){
+  if(engine.surface.population>0)return;
+  const c=engine.config;
+  engine.surface.seedArrangement(c.surfaceSeedCount,c.surfaceNucleation,
+    engine.currentPalette());
+  refreshSurfaceStats();
+}
+function setCompositionDomain(next){
+  engine.setConfig({compositionDomain:next});
+  const active=engine.config.compositionDomain==='surface';
+  canvas.style.visibility=active?'hidden':'visible';
+  canvas.style.pointerEvents=active?'none':'auto';
+  surfaceCanvas.hidden=!active;
+  surfaceCanvas.style.pointerEvents=active?'auto':'none';
+  orbit.enabled=!active&&tool==='orbit';
+  for(const domain of ['object','surface']){
+    $('domain-'+domain).classList.toggle('active',domain===engine.config.compositionDomain);
+    $('domain-'+domain).setAttribute('aria-pressed',
+      String(domain===engine.config.compositionDomain));
+  }
+  $('surface-start').textContent=active?
+    '◆ RETURN TO 3D OBJECT':'▦ SWITCH TO FULL-CANVAS GROWTH';
+  $('hint').textContent=active?
+    'TAP / DRAG TO GERMINATE NEW MINERAL NUCLEI · PAUSE TO FREEZE':
+    (hints[tool]||'DRAG TO ATTRACT GROWTH');
+  if(active){
+    seedSurfaceIfEmpty();
+    fitSurfaceCanvas();
+    engine.surface.changed=true;
+    drawSurface(true);
+    refreshSurfaceStats();
+  }else{
+    surfaceClock=0;
+    $('stats').textContent=engine.segmentCount.toLocaleString()+
+      ' STRANDS / '+engine.colony.population+' CRYSTAL CELLS';
+  }
+}
+function surfaceNormalizedPoint(e){
+  const bounds=surfaceCanvas.getBoundingClientRect();
+  if(!bounds.width||!bounds.height)return null;
+  const dprX=surfaceCanvas.width/bounds.width,dprY=surfaceCanvas.height/bounds.height;
+  const r=surfaceDisplayRect();
+  const x=((e.clientX-bounds.left)*dprX-r.left)/r.size;
+  const y=((e.clientY-bounds.top)*dprY-r.top)/r.size;
+  return x>=0&&x<1&&y>=0&&y<1?{x,y}:null;
+}
+function plantSurface(e){
+  const p=surfaceNormalizedPoint(e);
+  if(!p)return;
+  const dx=surfaceLastX===null?999:(e.clientX-surfaceLastX);
+  const dy=surfaceLastY===null?999:(e.clientY-surfaceLastY);
+  if(Math.hypot(dx,dy)<22)return;
+  if(engine.surface.seedAt(p.x,p.y,engine.currentPalette())){
+    surfaceLastX=e.clientX;surfaceLastY=e.clientY;
+    drawSurface();refreshSurfaceStats();
+  }
+}
+surfaceCanvas.addEventListener('pointerdown',e=>{
+  if(engine.config.compositionDomain!=='surface')return;
+  e.preventDefault();
+  if(surfacePointerId!==null)return;
+  surfacePointerId=e.pointerId;surfaceLastX=null;surfaceLastY=null;
+  surfaceCanvas.setPointerCapture(e.pointerId);
+  plantSurface(e);
+});
+surfaceCanvas.addEventListener('pointermove',e=>{
+  if(surfacePointerId===e.pointerId)plantSurface(e);
+});
+function endSurfacePointer(e){
+  if(surfacePointerId!==e.pointerId)return;
+  surfacePointerId=null;surfaceLastX=null;surfaceLastY=null;
+}
+surfaceCanvas.addEventListener('pointerup',endSurfacePointer);
+surfaceCanvas.addEventListener('pointercancel',endSurfacePointer);
+surfaceCanvas.addEventListener('lostpointercapture',endSurfacePointer);
 
 // Morphogenesis is a geometric isosurface of the live Gray–Scott B field.
 // CPU mesh extraction is capped and throttled, with adjustable stride.
