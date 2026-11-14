@@ -3,8 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { surfacePixels,SURFACE_SIZE,SurfaceGrowth } from './surface-growth.js';
 import {loopPlan,framePhase,phaseAtSeconds,supportedMp4Mime} from './surface-loop-plan.js';
-import {cinematicDimensions,paintCinematicFrame,drawCinematicGuides,
-  pickCinematicSource}
+import {cinematicDimensions,cinematicFrameRect,paintCinematicFrame,
+  drawCinematicGuides,pickCinematicSource}
   from './surface-cinematic.js';
 import {renderSurfaceLoopFrame} from './surface-loop-renderer.js';
 import {SURFACE_CAMERA_MOVES,cameraPoseFromConfig,cameraGesturePose}
