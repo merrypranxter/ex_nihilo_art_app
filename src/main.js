@@ -89,7 +89,7 @@ surfacePixelsCanvas.height=SURFACE_SIZE;
 const surfacePixelContext=surfacePixelsCanvas.getContext('2d',{alpha:false});
 let surfaceClock=0,surfaceNeedsPresent=true,surfacePointerId=null;
 let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
-let surfaceOpticsRenderCost=0;
+let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
 let surfaceLastX=null,surfaceLastY=null;
 function surfaceDisplayRect(){
   const width=surfaceCanvas.width,height=surfaceCanvas.height;
@@ -132,6 +132,7 @@ function drawSurface(force=false){
     // entire frame budget continuously recomputing CPU illumination.
     surfaceOpticsRenderCost=surfaceOpticsRenderCost===0?cost:
       .65*surfaceOpticsRenderCost+.35*cost;
+    lastSurfaceVisualPaint=performance.now();
     engine.surface.changed=false;
     surfaceOpticsDirty=false;
     surfaceNeedsPresent=true;
@@ -2489,7 +2490,7 @@ $('surface-reseed').addEventListener('click',()=>{
 });
 function exportSurfacePNG(){
   if(engine.config.compositionDomain!=='surface')setCompositionDomain('surface');
-  drawSurface();
+  drawSurface(true);
   const dim=2048,n=engine.surface.size,px=dim/n;
   const exportCanvas=document.createElement('canvas');
   exportCanvas.width=dim;exportCanvas.height=dim;
@@ -2765,7 +2766,10 @@ function frame(now){
       }
       if(advances===6)surfaceClock=0;
     }
-    drawSurface();
+    // Decouple biology from CPU-bound optics rendering. Live material keeps
+    // advancing while the presentation yields time back to iPhone gestures.
+    const minPaintGap=Math.max(50,Math.min(450,surfaceOpticsRenderCost*1.9));
+    if(now-lastSurfaceVisualPaint>=minPaintGap)drawSurface();
     if(now-lastStatus>450){refreshSurfaceStats();lastStatus=now;}
     return;
   }
