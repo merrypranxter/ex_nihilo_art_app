@@ -20,7 +20,7 @@
     </header>
     <main>
       <section class="stage" aria-label="Interactive 3D growth canvas">
-        <canvas id="world" aria-label="Living 3D mathematical organism"></canvas>
+        <canvas id="world" tabindex="0" aria-label="Living 3D mathematical organism. Use Sculpt to place and move vortices; or Orbit to navigate."></canvas>
         <div class="stage-top">
           <div class="tag"><span class="pulse"></span><span id="live">GERMINATING</span></div>
           <div class="tag coordinates" id="stats">0 STRANDS</div>
@@ -228,6 +228,7 @@
               <div class="control-grid">
                 <label class="control"><span>Influence radius <output id="gesture-radius-value">1.10</output></span><input id="gesture-radius" type="range" min=".25" max="2.8" step=".05" value="1.1" disabled/></label>
                 <label class="control"><span>Vortex twist <output id="gesture-spin-value">1.20</output></span><input id="gesture-spin" type="range" min="-2.5" max="2.5" step=".05" value="1.2" disabled/></label>
+                <label class="control"><span>Attract/repel force <output id="gesture-strength-value">3.50</output></span><input id="gesture-strength" type="range" min=".25" max="12" step=".25" value="3.5" disabled/></label>
               </div>
             </div>
             <p class="help">A drag edits one named source. Lift commits; Escape, interrupted gestures, and canceled touches roll back the field edit. Undo/redo reverses field-source edits, not the historical organism already grown from them. SAVE WORLD preserves full biology. Keyboard: S sculpt, O orbit, Ctrl/⌘+Z undo.</p>
