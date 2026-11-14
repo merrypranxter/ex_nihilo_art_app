@@ -1079,8 +1079,10 @@ function renderPaletteStops(){
     color.addEventListener('input',()=>{
       const next=[...engine.currentPalette()];
       next[index]=color.value;
-      applyPaletteStops(next);
+      engine.setConfig({paletteStops:next});
+      // Do not destroy/recreate the native iPhone color picker while open.
     });
+    color.addEventListener('change',renderPaletteStops);
     const shuffle=document.createElement('button');
     shuffle.type='button';shuffle.textContent='⚄ '+(index+1);
     shuffle.title='Randomize only color stop '+(index+1);
