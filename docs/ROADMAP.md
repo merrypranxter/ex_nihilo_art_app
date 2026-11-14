@@ -162,6 +162,19 @@
 - [ ] Build and inspect actual WebGL2 visuals, material calibration, physical iPhone frame rate and native Safari interaction.
 - [ ] Consider trapped inclusions, facet-scale interference and material-age optical response only after visual QA.
 
+## Phase 03K — iPhone Stage Reliability / Real Device Diagnostics
+
+- [x] Remove obsolete 62px fixed header on narrow portrait phones to prevent the five top-bar controls overlapping the canvas.
+- [x] Short landscape layout: compact one-line header, left artwork, right scrollable control deck, no old 580px/250px minimum heights.
+- [x] Honor iPhone notch/home-indicator safe-area insets and reduced-height Safari visual viewports.
+- [x] Pre-module JavaScript exception diagnostics so blank-canvas import crashes can display and copy a real error without resetting state.
+- [x] WebGL context-loss, restore and renderer error reporting; keep the world paused and preservable.
+- [x] Opt-in actual FPS, draw calls, GPU geometry/texture counts and live-world size with copyable report.
+- [x] Simulated failure and token-redaction tests, DOM ID/JS syntax and responsive CSS override source checks.
+- [ ] Actual npm/Vite production build and real WebGL2 screenshots.
+- [ ] iPhone Safari portrait/landscape multi-touch QA and FPS report capture.
+- [ ] Optimize visuals based on measurements, then pursue more ambitious crystal optical depth.
+
 ## Phase 04 — Wolfram Oracle
 
 - Exact prepared query templates specific to each engine.
