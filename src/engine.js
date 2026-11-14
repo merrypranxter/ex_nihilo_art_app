@@ -259,12 +259,24 @@ export class GrowthEngine {
     // Artistic silhouette is an advective force, never a prebuilt path/mesh.
     const grammar=formField(pos,this.time,c);
     f.add(v(grammar.x,grammar.y,grammar.z));
-    // Field nodes are actual forces, persisted and independently editable.
+    // Hand-authored field sources are persistent causes of future growth.
     for(const node of this.nodes){
       const delta=node.pos.clone().sub(pos);
-      const r2=delta.lengthSq()+.35;
-      const amp=(node.type==='attract'?1:-1)*node.strength/(r2*Math.sqrt(r2));
-      f.addScaledVector(delta,amp);
+      if(node.type==='vortex'){
+        // A bounded 3D swirl around the world Y axis, spatially localized
+        // by an artist-authored Gaussian kernel. The pinch edits support
+        // radius, and the twist edits signed angular strength (chirality).
+        const radius=clamp(node.radius??1.1,.25,2.8);
+        const dist2=delta.lengthSq();
+        const envelope=Math.exp(-dist2/(2*radius*radius));
+        const spin=clamp(node.spin??1.2,-2.5,2.5);
+        f.add(v(delta.z,0,-delta.x).multiplyScalar(spin*envelope*2.5));
+      }else{
+        // Preserve the historical inverse-distance attract/repel physics.
+        const r2=delta.lengthSq()+.35;
+        const amp=(node.type==='attract'?1:-1)*node.strength/(r2*Math.sqrt(r2));
+        f.addScaledVector(delta,amp);
+      }
     }
     return f.multiplyScalar(c.force);
   }
@@ -425,19 +437,29 @@ export class GrowthEngine {
   }
 
   snapshotNodes() {
-    return this.nodes.map(n=>({id:n.id,type:n.type,pos:[n.pos.x,n.pos.y,n.pos.z],strength:n.strength}));
+    return this.nodes.map(n=>({
+      id:n.id,type:n.type,pos:[n.pos.x,n.pos.y,n.pos.z],
+      strength:n.strength,radius:n.radius??1.1,spin:n.spin??1.2
+    }));
   }
   restoreNodes(snapshot){
-    this.nodes=snapshot.map(n=>({id:n.id,type:n.type,pos:v(...n.pos),strength:n.strength}));
+    this.nodes=snapshot.map(n=>({
+      id:n.id,type:n.type,pos:v(...n.pos),
+      strength:n.strength,radius:n.radius??1.1,spin:n.spin??1.2
+    }));
   }
   recordNodeEdit(){
     this.nodeUndo.push(this.snapshotNodes());
     if(this.nodeUndo.length>25)this.nodeUndo.shift();
     this.nodeRedo=[];
   }
-  addNode(type,pos){
-    this.recordNodeEdit();
-    const node={id:Math.floor(this.random()*1e9),type,pos:pos.clone(),strength:3.5};
+  addNode(type,pos,{record=true}={}){
+    if(!['attract','repel','vortex'].includes(type))throw new Error('Invalid field source type.');
+    if(record)this.recordNodeEdit();
+    const node={
+      id:Math.floor(this.random()*1e9),type,pos:pos.clone(),
+      strength:3.5,radius:1.1,spin:1.2
+    };
     this.nodes.push(node);
     if(this.nodes.length>15)this.nodes.shift();
     return node;
@@ -528,7 +550,10 @@ export class GrowthEngine {
       (a.branchSerial===undefined||(Number.isInteger(a.branchSerial)&&a.branchSerial>=0&&a.branchSerial<=100000000))&&
       (a.familyPhase===undefined||(finite(a.familyPhase)&&a.familyPhase>=0&&a.familyPhase<=Math.PI*2));
     const node=n=>n&&Number.isInteger(n.id)&&
-      (n.type==='attract'||n.type==='repel')&&point(n.pos)&&finite(n.strength);
+      ['attract','repel','vortex'].includes(n.type)&&point(n.pos)&&
+      finite(n.strength)&&n.strength>=0&&n.strength<=12&&
+      (n.radius===undefined||(finite(n.radius)&&n.radius>=.25&&n.radius<=2.8))&&
+      (n.spin===undefined||(finite(n.spin)&&n.spin>=-2.5&&n.spin<=2.5));
     const isV2=data?.format==='ex-nihilo/checkpoint-v2';
     const isV3=data?.format==='ex-nihilo/checkpoint-v3';
     const hasColony=isV2||isV3;
