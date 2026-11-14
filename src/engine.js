@@ -412,6 +412,11 @@ export class GrowthEngine {
       while(this.colonyElapsed>=.32){
         this.colony.update(this.nutrients,this.currentPalette(),()=>this.random(),
           this.morphogenesis,this.pressures);
+        // Ages advance even when no new voxels are born. Opt-in skins and
+        // inclusions must visibly mature without changing the CA physics or
+        // rebuilding thousands of buffers on every 60fps screen frame.
+        if(this.config.crystalInterior!=='off'&&this.colony.population>0&&
+          this.colony.generation%6===0)this.colony.changed=true;
         this.colonyElapsed-=.32;
       }
     }
