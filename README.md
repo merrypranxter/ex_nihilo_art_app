@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03J — CRYSTAL PRISM OPTICS:** Crystal colonies now have seven selectable genuine 3D cell silhouettes (including hexagonal quartz, mineral prism, tetrahedral shard and dodecahedral gem), five physical optical material treatments, and meaningful anisotropic 3D relief aligned to real exposed lattice faces. A bounded second instanced mesh adds palette-authentic facets to **actual surviving fracture rims**, without inventing new crystal cells. All choices are reversible and saved in DNA/checkpoints; old saved worlds retain their original octahedral look. See [Crystal Prism Optics design and QA](docs/PHASE-03J-PRISM-OPTICS.md).
+
+
 **Phase 03I — Crystal Fracture Memory:** true accumulated stress through connected 3D mineral voxels; touch-authored STRAIN and CLEAVE marks transmit fatigue over time, create visible microcracks and permanent missing-cell scars. Fracture is rate-limited to protect a living nucleus; existing saved worlds stay non-fatiguing until the artist enables it. Physics and damage persist in world checkpoints, with the entire exact 199-choice MATHEMAGICAL + EX NIHILO palette library unchanged. See [material equations and test notes](docs/PHASE-03I-FRACTURE-MEMORY.md).
 
 
