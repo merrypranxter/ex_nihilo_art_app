@@ -47,6 +47,7 @@ export class SurfaceGrowth {
     this.stallTicks=0;
     this.compositionKey=null;this.compositionField=null;
     this.changed=true;
+    this.visualRevision=(this.visualRevision??0)+1;
   }
   random(){
     let x=this.rngState>>>0;
@@ -78,6 +79,7 @@ export class SurfaceGrowth {
     this.stallTicks=0;
     this.population++;
     this.changed=true;
+    this.visualRevision++;
     return true;
   }
   // Seed orbits are REAL independent nuclei, not an image reflection.
@@ -274,6 +276,7 @@ export class SurfaceGrowth {
     }
     this.generation++;
     this.changed=true;
+    this.visualRevision++;
     return births>0;
   }
   snapshot(){
@@ -322,6 +325,7 @@ export class SurfaceGrowth {
     this.frontier=new Set(s.frontier);
     this.compositionKey=null;this.compositionField=null;
     this.changed=true;
+    this.visualRevision++;
   }
 }
 
