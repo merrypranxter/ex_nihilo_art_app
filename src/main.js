@@ -351,7 +351,7 @@ function cancelSurfaceTouch(){
   presentGestureChanges();
 }
 function beginSurfaceTouch(e){
-  if(engine.config.compositionDomain!=='surface')return;
+  if(engine.config.compositionDomain!=='surface'||surfaceLoopBusy)return;
   const uv=surfaceNormalizedPoint(e);
   if(!uv)return;
   e.preventDefault();
@@ -2856,6 +2856,9 @@ for(const id of ['surface-loop-seconds','surface-loop-fps','surface-loop-size',
 $('surface-loop-cancel').addEventListener('click',()=>{
   if(surfaceLoopController){surfaceLoopController.abort();loopStatusText('Canceling export…');}
 });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden&&surfaceLoopController)surfaceLoopController.abort();
+});
 $('surface-loop-export').addEventListener('click',async()=>{
   if(surfaceLoopBusy||surfaceGestureEditor.active)return;
   let plan;
@@ -2903,7 +2906,7 @@ $('surface-loop-export').addEventListener('click',async()=>{
     $('surface-loop-export').disabled=false;
     $('surface-loop-cancel').disabled=true;
     $('surface-loop-preview').disabled=false;
-    setPaused(previousPaused);
+    setPaused(document.hidden?true:previousPaused);
     surfaceOpticsDirty=true;surfaceNeedsPresent=true;
     drawSurface(true);
   }
