@@ -342,3 +342,20 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
   #surface-loop-forge .morph-advanced-grid{padding-bottom:18px}
   #surface-loop-forge .control-grid{gap:12px}
 }
+
+
+/* Phase 04H — Camera Choreography stays accessible on narrow iPhone screens.
+   Touch capture is scoped to the artwork while preview-camera mode is armed. */
+#surface-camera-choreography .control-grid{margin:12px 0 16px;align-items:end}
+#surface-camera-choreography input[type="range"]{width:100%;min-height:34px;accent-color:#ffb1e7}
+#surface-camera-choreography select{width:100%;min-height:44px}
+#surface-camera-choreography .small-actions button{min-height:44px;flex:1 1 125px;white-space:normal}
+#surface-camera-status{border-left:2px solid #ffb1e7;padding-left:10px;line-height:1.5}
+#surface-camera-scrub{accent-color:#a8ffed}
+#surface-camera-grab[aria-pressed="true"],#surface-camera-pick[aria-pressed="true"]{
+  border-color:#ffca83;box-shadow:inset 0 0 0 1px rgba(255,202,131,.42)
+}
+@media(max-width:550px){
+  #surface-camera-choreography .control-grid{gap:12px}
+  #surface-camera-choreography .small-actions button{font-size:11px}
+}
