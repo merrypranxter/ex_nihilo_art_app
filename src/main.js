@@ -506,11 +506,32 @@ function positionFromEvent(e){
   if(!raycaster.ray.intersectPlane(pointerPlane,point))return new THREE.Vector3();
   return point.clone().clampLength(0,3.35);
 }
-
+// Prefer the actual crystal surface for first contact. Once picked, edit
+// against its camera-parallel depth plane so a drag doesn't jump in Z.
+function pressureStartFromEvent(e){
+  const rect=canvas.getBoundingClientRect();
+  pointer.set(((e.clientX-rect.left)/rect.width)*2-1,
+    -((e.clientY-rect.top)/rect.height)*2+1);
+  raycaster.setFromCamera(pointer,camera);
+  const hit=crystals.count>0?raycaster.intersectObject(crystals,false)[0]:null;
+  return hit?hit.point.clone().clampLength(0,3.35):positionFromEvent(e);
+}
+function pressureProjectFromClient(x,y){
+  const rect=canvas.getBoundingClientRect();
+  pointer.set(((x-rect.left)/rect.width)*2-1,
+    -((y-rect.top)/rect.height)*2+1);
+  raycaster.setFromCamera(pointer,camera);
+  const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(
+    camera.getWorldDirection(new THREE.Vector3()),
+    pressureAnchor||orbit.target);
+  const hit=raycaster.ray.intersectPlane(plane,new THREE.Vector3());
+  return (hit||new THREE.Vector3()).clampLength(0,3.35);
+}
 let tool='attract',paused=false,gestureSuspended=false;
 const fingers=new Map();
 const fieldEdit=new FieldGestureTransaction(engine);
 const strokeEdit=new GrowthStrokeTransaction(engine);
+const pressureEdit=new CrystalPressureTransaction(engine);
 let pendingEraseStrokeId=null;
 let sliderEdit=null,gestureMode='idle',primaryPointer=null,lensAnchor=null;
 let transientSnapshot=null;
@@ -518,6 +539,9 @@ const hints={
   sculpt:'DRAG A VORTEX EYE · PINCH RADIUS · TWIST CHIRALITY',
   stitch:'DRAW A PATH YOUR GROWING FIBERS WILL FOLLOW',
   warp:'DRAG TO PAINT A PERSISTENT LOCAL GROWTH FORCE',
+  'pressure-grow':'TOUCH THE COLONY TO ENCOURAGE NEW CRYSTAL BIRTHS',
+  'pressure-shield':'TOUCH TO PROTECT A REGION FROM NEW CRYSTAL BIRTHS',
+  'pressure-cleave':'DRAG A SPLIT AXIS · PRESS INTO THE CRYSTAL FRONT',
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
@@ -528,6 +552,8 @@ const hints={
   erase:'TAP A FIELD NODE TO ERASE IT'
 };
 function updateSculptButton(){
+  $('pressure-quick').setAttribute('aria-pressed',String(tool.startsWith('pressure-')));
+  $('pressure-quick').classList.toggle('active',tool.startsWith('pressure-'));
   $('sculpt-quick').setAttribute('aria-pressed',String(tool==='sculpt'));
   $('sculpt-quick').classList.toggle('active',tool==='sculpt');
 }
@@ -550,6 +576,11 @@ function finishGesture(cancel=false){
     if(cancel)strokeEdit.cancel();
     else strokeEdit.commit();
   }
+  if(pressureEdit.active){
+    if(cancel)pressureEdit.cancel();
+    else pressureEdit.commit();
+  }
+  syncPressures();
   if(gestureMode==='erase-stroke'&&!cancel&&pendingEraseStrokeId!==null)
     engine.deleteStroke(pendingEraseStrokeId);
   pendingEraseStrokeId=null;
@@ -580,17 +611,27 @@ function finishGesture(cancel=false){
   transientSnapshot=null;
   primaryPointer=null;
   lensAnchor=null;
+  pressureAnchor=null;
   gestureSuspended=fingers.size>0;
   refreshGestureView();
 }
+function cancelPressureSliderEdit(){
+  if(!pressureSliderEdit)return;
+  pressureSliderEdit.cancel();
+  pressureSliderEdit=null;
+  syncPressures();
+}
 function cancelGesture(){
-  if(gestureMode==='idle'&&!fieldEdit.active&&!strokeEdit.active&&!sliderEdit)return;
+  if(gestureMode==='idle'&&!fieldEdit.active&&!strokeEdit.active&&
+    !pressureEdit.active&&!sliderEdit&&!pressureSliderEdit)return;
+  cancelPressureSliderEdit();
   if(sliderEdit)cancelSliderEdit();
   finishGesture(true);
   gestureMode=fingers.size?'blocked':'idle';
 }
 function setTool(next){
-  if(fingers.size||fieldEdit.active||strokeEdit.active||sliderEdit)cancelGesture();
+  if(fingers.size||fieldEdit.active||strokeEdit.active||pressureEdit.active||
+    sliderEdit||pressureSliderEdit)cancelGesture();
   tool=next;
   orbit.enabled=tool==='orbit';
   $('hint').textContent=hints[tool];
@@ -601,6 +642,7 @@ function setTool(next){
 document.querySelectorAll('[data-tool]').forEach(btn=>
   btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
 $('sculpt-quick').addEventListener('click',()=>setTool('sculpt'));
+$('pressure-quick').addEventListener('click',()=>setTool('pressure-grow'));
 $('food-tool').addEventListener('click',()=>setTool('feed'));
 $('food-view').addEventListener('click',()=>{
   showFood=!showFood;
@@ -671,9 +713,24 @@ canvas.addEventListener('pointerdown',e=>{
   gestureSuspended=true;
   if(fingers.size===1){
     cancelSliderEdit();
+    cancelPressureSliderEdit();
     primaryPointer=e.pointerId;
-    const pos=positionFromEvent(e);
-    if(tool==='stitch'||tool==='warp'){
+    const pressureTool=tool.startsWith('pressure-');
+    const pos=pressureTool?pressureStartFromEvent(e):positionFromEvent(e);
+    if(pressureTool){
+      const mode=tool.slice('pressure-'.length);
+      const nearby=engine.nearestPressure(pos,.62);
+      try{
+        pressureEdit.begin(mode,pos,{id:nearby?.mode===mode?nearby.id:null});
+        selectedPressureId=pressureEdit.mark.id;
+        pressureAnchor=new THREE.Vector3(...pressureEdit.mark.center);
+        gestureMode='pressure';
+        syncPressures();
+      }catch(err){
+        gestureMode='blocked';
+        $('pressure-selection').textContent=err.message;
+      }
+    }else if(tool==='stitch'||tool==='warp'){
       try{
         strokeEdit.begin(tool==='stitch'?'guide':'push',pos);
         gestureMode='stroke';
@@ -694,6 +751,15 @@ canvas.addEventListener('pointerdown',e=>{
       applyTransient(pos,true);
     }
   }else if(fingers.size===2){
+    if(pressureEdit.active){
+      const [a,b]=[...fingers.values()];
+      if(pressureEdit.beginLens(a,b)){
+        const midpoint=pressureProjectFromClient((a.x+b.x)*.5,(a.y+b.y)*.5);
+        lensAnchor={center:midpoint,origin:new THREE.Vector3(...pressureEdit.mark.center)};
+        gestureMode='pressure-lens';
+      }else gestureMode='blocked';
+      return;
+    }
     if(!fieldEdit.active){
       // A second finger cancels path painting; it never creates a
       // mysterious second field feature or commits an interrupted brush.
@@ -713,7 +779,19 @@ canvas.addEventListener('pointermove',e=>{
   if(!fingers.has(e.pointerId)||tool==='orbit')return;
   e.preventDefault();
   fingers.set(e.pointerId,screenPoint(e));
-  if(gestureMode==='stroke'&&e.pointerId===primaryPointer&&strokeEdit.active){
+  if(gestureMode==='pressure'&&e.pointerId===primaryPointer&&pressureEdit.active){
+    pressureEdit.move(pressureProjectFromClient(e.clientX,e.clientY));
+    syncPressures();
+  }else if(gestureMode==='pressure-lens'&&pressureEdit.active&&fingers.size===2){
+    const [a,b]=[...fingers.values()];
+    pressureEdit.lensPreview(a,b);
+    if(lensAnchor){
+      const midpoint=pressureProjectFromClient((a.x+b.x)*.5,(a.y+b.y)*.5);
+      const at=lensAnchor.origin.clone().add(midpoint.sub(lensAnchor.center));
+      pressureEdit.translate(at.clampLength(0,3.35));
+    }
+    syncPressures();
+  }else if(gestureMode==='stroke'&&e.pointerId===primaryPointer&&strokeEdit.active){
     strokeEdit.append(positionFromEvent(e));
     syncStrokes();
   }else if(gestureMode==='single'&&e.pointerId===primaryPointer&&fieldEdit.active){
