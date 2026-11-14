@@ -224,6 +224,31 @@
               <p id="crystal-evolution-stats" role="status" class="help">OPTICAL LIFE CYCLE OFF · ORIGINAL CRYSTALS</p>
               <p class="help">Young cells keep a glasslike finish; mature crystals develop an opaline optical response; cracked, stressed or fracture-adjacent survivors become iridescent fault mineral. These are distinct 3D lighting materials driven by persistent cell history, not a color cycle. OFF keeps the original shader and costs no extra GPU draws.</p>
             </details>
+            <details class="morph-advanced" open>
+              <summary>CRYSTAL BLOODLINES — HEREDITARY MINERAL TRAITS</summary>
+              <p class="help">Every new crystal now records its actual birth identity, parent identity and original founder family. Children inherit three mineral traits; occasional mutations produce related but visibly distinct descendants. Switch on hereditary growth to let those traits also influence future crystal branching.</p>
+              <div class="control-grid morph-advanced-grid">
+                <label class="control select-control"><span>Inherited crystal anatomy</span>
+                  <select id="crystal-heritage">
+                    <option value="off">OFF — ORIGINAL MINERAL ANATOMY</option>
+                    <option value="brocade">INHERITED CRYSTAL BROCADE</option>
+                    <option value="strata">GENEALOGICAL STRATA</option>
+                    <option value="mutant">HEREDITARY ABNORMALITIES</option>
+                  </select>
+                </label>
+                <label class="control"><span>Inherited shape and band intensity <output id="heritage-strength-value">65%</output></span>
+                  <input id="heritage-strength" type="range" min="0" max="100" step="5" value="65"/>
+                </label>
+                <label class="control"><span>Gene-guided crystal growth <output id="heritage-growth-value">45%</output></span>
+                  <input id="heritage-growth" type="range" min="0" max="100" step="5" value="45"/>
+                </label>
+                <label class="control"><span>Mutation frequency for future children <output id="heritage-mutation-value">18%</output></span>
+                  <input id="heritage-mutation" type="range" min="0" max="100" step="2" value="18"/>
+                </label>
+              </div>
+              <p class="help" id="heritage-stats" role="status" aria-live="polite">NO RECORDED CRYSTAL FAMILIES</p>
+              <p class="help">The core pigment of each crystal stays frozen. Physical facet elongation and thin prismatic bands express inherited genes without changing old cells. Existing saved worlds with no parent records remain historical; newly grown children begin tracked families. A saved world retains exact birth identities even when a parent fractures.</p>
+            </details>
             <details class="morph-advanced">
               <summary>GHOST MINERAL — GROWN INCLUSIONS &amp; OPAL SKINS</summary>
               <div class="control-grid morph-advanced-grid">
