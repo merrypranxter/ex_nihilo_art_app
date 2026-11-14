@@ -2629,8 +2629,8 @@ $('surface-start').addEventListener('click',()=>{
 });
 $('surface-reseed').addEventListener('click',()=>{
   if(!window.confirm('Replace this 2D mineral surface with a NEW growth experiment? The separate 3D OBJECT world will remain untouched.'))return;
-  const next=(engine.surface.random()*4294967296)>>>0;
   surfaceGestureEditor.atomicMutation(()=>{
+    const next=(engine.surface.random()*4294967296)>>>0;
     engine.surface.reset(next||1);
     seedSurfaceIfEmpty();
   });
