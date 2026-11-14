@@ -1251,6 +1251,11 @@ function updateCrystalControls(){
   $('crystal-relief-value').textContent=Math.round(visual.crystalRelief*100)+'%';
   $('crystal-glints').value=Math.round(visual.crystalGlints*100);
   $('crystal-glints-value').textContent=Math.round(visual.crystalGlints*100)+'%';
+  $('crystal-interior').value=visual.crystalInterior;
+  $('crystal-skin').value=Math.round(visual.crystalSkin*100);
+  $('crystal-skin-value').textContent=Math.round(visual.crystalSkin*100)+'%';
+  $('crystal-inclusions').value=Math.round(visual.crystalInclusions*100);
+  $('crystal-inclusions-value').textContent=Math.round(visual.crystalInclusions*100)+'%';
   updatePressureControls();
 }
 function readCrystalControls(){
@@ -1287,25 +1292,33 @@ $('crystal-clear').addEventListener('click',()=>{
 });
 function readCrystalOptics(){
   const previousLens=engine.config.crystalLens;
+  const previousInterior=engine.config.crystalInterior;
   engine.setConfig({
     crystalShape:$('colony-geometry').value,
     crystalLens:$('crystal-lens').value,
     crystalRelief:Number($('crystal-relief').value)/100,
-    crystalGlints:Number($('crystal-glints').value)/100
+    crystalGlints:Number($('crystal-glints').value)/100,
+    crystalInterior:$('crystal-interior').value,
+    crystalSkin:Number($('crystal-skin').value)/100,
+    crystalInclusions:Number($('crystal-inclusions').value)/100
   });
   const shape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==shape)crystals.geometry=shape;
+  if(mineralSkins.geometry!==shape)mineralSkins.geometry=shape;
   // Coalesce repeated iPhone slider events into a single normal animation-
   // frame rebuild. This touches ONLY view buffers, never the living state.
   engine.colony.changed=true;
   // A shader/material refresh is needed for lens choices only, not each
   // relief or glint density adjustment.
-  if(previousLens!==engine.config.crystalLens)applyArtistFinish();
+  if(previousLens!==engine.config.crystalLens||
+    previousInterior!==engine.config.crystalInterior)applyArtistFinish();
   updateCrystalControls();
 }
-['colony-geometry','crystal-lens','crystal-relief','crystal-glints'].forEach(
-  id=>$(id).addEventListener(id==='colony-geometry'||id==='crystal-lens'?
-    'change':'input',readCrystalOptics));
+['colony-geometry','crystal-lens','crystal-relief','crystal-glints',
+  'crystal-interior','crystal-skin','crystal-inclusions'].forEach(
+  id=>$(id).addEventListener(
+    ['colony-geometry','crystal-lens','crystal-interior'].includes(id)?
+      'change':'input',readCrystalOptics));
 
 const morphologyControls={
   feed:{id:'morph-feed',format:n=>n.toFixed(4),read:n=>n},
@@ -1414,6 +1427,21 @@ function applyArtistFinish(){
   facetMaterial.iridescence=Math.max(.30,crystalMaterial.iridescence);
   crystalMaterial.needsUpdate=true;
   facetMaterial.needsUpdate=true;
+  const style=INTERIOR_STYLES[engine.config.crystalInterior]||
+    INTERIOR_STYLES.off;
+  mineralSkinMaterial.roughness=style.roughness;
+  mineralSkinMaterial.metalness=style.metalness;
+  mineralSkinMaterial.iridescence=style.iridescence;
+  mineralSkinMaterial.clearcoat=style.clearcoat;
+  mineralSkinMaterial.clearcoatRoughness=Math.max(.06,style.roughness*.54);
+  mineralSkinMaterial.opacity=style.skinOpacity*
+    (.40+.60*engine.config.crystalSkin);
+  mineralSeedMaterial.roughness=Math.max(.07,style.roughness*.62);
+  mineralSeedMaterial.metalness=Math.min(.72,.16+style.metalness*.4);
+  mineralSeedMaterial.iridescence=Math.max(.10,style.iridescence);
+  mineralSeedMaterial.clearcoat=style.clearcoat;
+  mineralSkinMaterial.needsUpdate=true;
+  mineralSeedMaterial.needsUpdate=true;
   const profile=FIBER_PROFILES[engine.config.fiberProfile]||FIBER_PROFILES.legacy;
   const geometry=fiberGeometryProfiles[engine.config.fiberProfile]||fiberGeometryProfiles.legacy;
   if(fibers.geometry!==geometry)fibers.geometry=geometry;
@@ -1674,6 +1702,7 @@ function updateControlsFromDNA(){
   // Restore the actual mesh on LOAD WORLD / LOAD DNA, not just the dropdown.
   const selectedShape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==selectedShape)crystals.geometry=selectedShape;
+  if(mineralSkins.geometry!==selectedShape)mineralSkins.geometry=selectedShape;
   engine.colony.changed=true;
   syncCrystals();
   updateMorphControls();
@@ -1889,6 +1918,8 @@ function samplePerformance(now){
     'Fibers: '+engine.segmentCount.toLocaleString(),
     'Crystal cells: '+engine.colony.population.toLocaleString(),
     'Visible facets: '+facetGems.count.toLocaleString(),
+    'Mineral skins: '+mineralSkins.count.toLocaleString(),
+    'Trapped inclusions: '+mineralSeeds.count.toLocaleString(),
     'Fracture scars: '+engine.colony.damage.reduce((n,v)=>n+(v===2),0),
     'World state: '+(paused?'PAUSED':'GROWING'),
     'Version: 03K · iPhone Stage Reliability'
