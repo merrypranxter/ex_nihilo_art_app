@@ -137,12 +137,15 @@ const crystalCrackedTint=new THREE.Color('#ddd8ef');
 // material threshold. Missing cells leave persistent hairline scar marks.
 const maxScarLines=8000;
 const scarCoords=new Float32Array(maxScarLines*6);
+const scarColors=new Float32Array(maxScarLines*6);
 const scarGeometry=new THREE.BufferGeometry();
 const scarPosition=new THREE.BufferAttribute(scarCoords,3).setUsage(THREE.DynamicDrawUsage);
+const scarPigment=new THREE.BufferAttribute(scarColors,3).setUsage(THREE.DynamicDrawUsage);
 scarGeometry.setAttribute('position',scarPosition);
+scarGeometry.setAttribute('color',scarPigment);
 scarGeometry.setDrawRange(0,0);
 const scarLines=new THREE.LineSegments(scarGeometry,new THREE.LineBasicMaterial({
-  color:'#d4f8f5',transparent:true,opacity:.46,depthTest:false,depthWrite:false
+  vertexColors:true,transparent:true,opacity:.68,depthTest:false,depthWrite:false
 }));
 scarLines.frustumCulled=false;
 scarLines.renderOrder=4;
@@ -166,6 +169,15 @@ function syncCrystals(){
         const k=scarLinesDrawn++*6;
         scarCoords.set([p.x-dx,p.y-dy,p.z-dz,
                         p.x+dx,p.y+dy,p.z+dz],k);
+        // Pigment remains frozen at crystal birth, including after death.
+        // Fractures carry that precise user-selected palette history.
+        const j=i*3;
+        const pigment=[
+          .20+colony.colors[j]/255*.86,
+          .20+colony.colors[j+1]/255*.86,
+          .20+colony.colors[j+2]/255*.86
+        ];
+        scarColors.set([...pigment,...pigment],k);
       }
     }
     if(!colony.cells[i])continue;
@@ -192,6 +204,7 @@ function syncCrystals(){
   }
   scarGeometry.setDrawRange(0,scarLinesDrawn*2);
   scarPosition.needsUpdate=true;
+  scarPigment.needsUpdate=true;
   $('strain-stats').textContent=cracked.toLocaleString()+
     ' CRACKED CELLS · '+shattered.toLocaleString()+' FRACTURE SCARS'+
     (scarLinesDrawn>=maxScarLines?' · SCAR DISPLAY CAPPED':'');
