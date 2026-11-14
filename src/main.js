@@ -2624,8 +2624,30 @@ function samplePerformance(now){
 }
 function frame(now){
   requestAnimationFrame(frame);
-  if(graphicsLost)return;
+  if(graphicsLost&&engine.config.compositionDomain!=='surface')return;
   let elapsed=Math.min((now-last)/1000,.1);last=now;
+  if(engine.config.compositionDomain==='surface'){
+    // Separate material-growth clock. The original 3D physics sleeps while
+    // composing 2D art; switching back resumes its exact saved organism.
+    if(!paused){
+      surfaceClock+=elapsed;
+      const interval=.15/engine.config.surfaceSpeed;
+      let advances=0;
+      while(surfaceClock>=interval&&advances<6){
+        engine.surface.advance(engine.currentPalette(),{
+          morphology:engine.config.surfaceMorphology,
+          wrap:engine.config.surfaceWrap,
+          growth:engine.config.surfaceGrowth,
+          coverage:engine.config.surfaceCoverage
+        });
+        surfaceClock-=interval;advances++;
+      }
+      if(advances===6)surfaceClock=0;
+    }
+    drawSurface();
+    if(now-lastStatus>450){refreshSurfaceStats();lastStatus=now;}
+    return;
+  }
   if(!paused&&!gestureSuspended&&!sliderEdit&&!pressureSliderEdit){
     accumulator+=elapsed;
     const fixed=1/60;
