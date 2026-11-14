@@ -4,6 +4,7 @@ import { GrowthEngine, PALETTES } from './engine.js';
 import { extractIsosurface } from './surface.js';
 import { FINISHES } from './art-direction.js';
 import { lineageLighting, lineageHaloScale } from './filigree.js';
+import { FIBER_PROFILES, mineralOptics } from './mineral-optics.js';
 import './styles.css';
 
 const $ = id => document.getElementById(id);
@@ -156,10 +157,18 @@ function syncCrystals(){
   colony.changed=false;
 }
 
-const fiberGeometry = new THREE.CylinderGeometry(1,1,1,5,1,true);
-const fiberMaterial = new THREE.MeshStandardMaterial({
-  color:'#ffffff',side:THREE.DoubleSide,metalness:.20,roughness:.35,
-  emissive:'#12071d',emissiveIntensity:.22
+// All profiles share one instanced draw; changing the cross-section changes
+// the actual light-catching geometry without rebuilding any grown segment.
+const fiberGeometryProfiles=Object.fromEntries(Object.entries(FIBER_PROFILES).map(
+  ([key,profile])=>[key,new THREE.CylinderGeometry(
+    profile.top,profile.bottom,1,profile.facets,1,true)]
+));
+const fiberGeometry=fiberGeometryProfiles.needle;
+const fiberMaterial=new THREE.MeshPhysicalMaterial({
+  color:'#ffffff',side:THREE.DoubleSide,metalness:.20,roughness:.27,
+  clearcoat:.85,clearcoatRoughness:.15,iridescence:.70,iridescenceIOR:1.32,
+  iridescenceThicknessRange:[100,400],
+  emissive:'#12071d',emissiveIntensity:.18
 });
 const fibers = new THREE.InstancedMesh(fiberGeometry,fiberMaterial,engine.maxSegments);
 fibers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -223,42 +232,45 @@ const transform=new THREE.Matrix4();
 const scale=new THREE.Vector3();
 let geometryDirty=false;
 const strandTint=new THREE.Color();
-function tintStrand(color,generation=0){
-  const values=lineageLighting([color.r,color.g,color.b],generation,engine.config.filigreeContrast);
-  strandTint.setRGB(...values);
-  return strandTint;
+function toneAndHalo(color,generation=0,bornAt=engine.time){
+  const lineage=lineageLighting([color.r,color.g,color.b],
+    generation,engine.config.filigreeContrast);
+  const mineral=mineralOptics(lineage,Math.max(0,engine.time-bornAt),engine.config);
+  strandTint.setRGB(...mineral.color);
+  return mineral.halo;
+}
+// Refresh visible optics progressively, instead of 60,000 setColorAt calls in
+// one frame on iPhone. The segment's stored RGB and birth time remain intact.
+let filigreeRefreshPending=false,filigreeCursor=0,lastMineralRefresh=0;
+function requestFiligreeRefresh(){
+  filigreeRefreshPending=true;
+  filigreeCursor=0;
 }
 function updateFiligreeDisplay(){
-  // Regenerate only the VIEW colors from saved historical pigment+ancestry.
-  // No geometry, simulation history, palette, or chemical state is altered.
+  if(!filigreeRefreshPending)return;
+  const end=Math.min(engine.segmentCount,filigreeCursor+2200);
   const rgb=engine.segmentColors,gens=engine.segmentGenerations;
-  for(let i=0;i<engine.segmentCount;i++){
-    const j=i*3,k=i*6;
-    const generation=gens[i];
-    const tone=tintStrand(strandTint.setRGB(rgb[j]/255,rgb[j+1]/255,rgb[j+2]/255),generation);
-    fibers.setColorAt(i,tone);
-    const bloom=1.65*lineageHaloScale(generation,engine.config.filigreeContrast);
-    haloColors.set([tone.r*bloom,tone.g*bloom,tone.b*bloom,
-      tone.r*bloom,tone.g*bloom,tone.b*bloom],k);
+  const born=engine.segmentBornAt;
+  for(let i=filigreeCursor;i<end;i++){
+    const j=i*3,k=i*6,generation=gens[i];
+    const input=strandTint.setRGB(rgb[j]/255,rgb[j+1]/255,rgb[j+2]/255);
+    const opacity=toneAndHalo(input,generation,born[i]);
+    fibers.setColorAt(i,strandTint);
+    const bloom=1.65*opacity*lineageHaloScale(generation,engine.config.filigreeContrast);
+    haloColors.set([strandTint.r*bloom,strandTint.g*bloom,strandTint.b*bloom,
+      strandTint.r*bloom,strandTint.g*bloom,strandTint.b*bloom],k);
   }
+  filigreeCursor=end;
   if(fibers.instanceColor)fibers.instanceColor.needsUpdate=true;
   haloColorAttribute.needsUpdate=true;
-}
-let filigreeRefreshPending=false;
-function requestFiligreeRefresh(){
-  if(filigreeRefreshPending)return;
-  filigreeRefreshPending=true;
-  requestAnimationFrame(()=>{
-    filigreeRefreshPending=false;
-    updateFiligreeDisplay();
-  });
+  if(filigreeCursor>=engine.segmentCount)filigreeRefreshPending=false;
 }
 engine.onReset=()=>{
   fibers.count=0;
   haloGeometry.setDrawRange(0,0);
   geometryDirty=true;
 };
-engine.onDeposit=(slot,a,b,color,radius,generation=0)=>{
+engine.onDeposit=(slot,a,b,color,radius,generation=0,bornAt=engine.time)=>{
   delta.subVectors(b,a);
   const length=delta.length();
   if(length<.00001)return;
@@ -267,13 +279,13 @@ engine.onDeposit=(slot,a,b,color,radius,generation=0)=>{
   scale.set(radius,length,radius);
   transform.compose(mid,quaternion,scale);
   fibers.setMatrixAt(slot,transform);
-  const tone=tintStrand(color,generation);
-  fibers.setColorAt(slot,tone);
+  const opacity=toneAndHalo(color,generation,bornAt);
+  fibers.setColorAt(slot,strandTint);
   const k=slot*6;
   haloPositions.set([a.x,a.y,a.z,b.x,b.y,b.z],k);
-  const bloom=1.65*lineageHaloScale(generation,engine.config.filigreeContrast);
-  haloColors.set([tone.r*bloom,tone.g*bloom,tone.b*bloom,
-                  tone.r*bloom,tone.g*bloom,tone.b*bloom],k);
+  const bloom=1.65*opacity*lineageHaloScale(generation,engine.config.filigreeContrast);
+  haloColors.set([strandTint.r*bloom,strandTint.g*bloom,strandTint.b*bloom,
+                  strandTint.r*bloom,strandTint.g*bloom,strandTint.b*bloom],k);
   fibers.count=engine.segmentCount===engine.maxSegments?engine.maxSegments:Math.max(fibers.count,slot+1);
   haloGeometry.setDrawRange(0,Math.max(haloGeometry.drawRange.count,(slot+1)*2));
   geometryDirty=true;
@@ -525,8 +537,14 @@ function applyArtistFinish(){
     material.iridescence=finish.iridescence;
     material.needsUpdate=true;
   }
-  fiberMaterial.metalness=Math.min(.65,finish.metalness+.09);
-  fiberMaterial.roughness=Math.max(.2,Math.min(.7,finish.roughness+.14));
+  const profile=FIBER_PROFILES[engine.config.fiberProfile]||FIBER_PROFILES.legacy;
+  const geometry=fiberGeometryProfiles[engine.config.fiberProfile]||fiberGeometryProfiles.legacy;
+  if(fibers.geometry!==geometry)fibers.geometry=geometry;
+  fiberMaterial.metalness=Math.min(.73,finish.metalness*.54+profile.metalness*.46);
+  fiberMaterial.roughness=Math.max(.08,Math.min(.75,finish.roughness*.56+profile.roughness*.44));
+  fiberMaterial.clearcoat=Math.min(1,finish.clearcoat*.55+profile.clearcoat*.45);
+  fiberMaterial.clearcoatRoughness=Math.max(.06,fiberMaterial.roughness*.63);
+  fiberMaterial.iridescence=finish.iridescence*.52+profile.iridescence*.48;
   fiberMaterial.needsUpdate=true;
   halos.material.opacity=.07+.75*engine.config.glow;
   tipShader.uniforms.pointScale.value=(window.devicePixelRatio>1?8:6)+10*engine.config.glow;
@@ -545,22 +563,35 @@ function updateArtistControls(){
   $('finish').value=c.finish;
   $('glow').value=Math.round(c.glow*100);
   $('glow-value').textContent=Math.round(c.glow*100)+'%';
+  $('fiberProfile').value=c.fiberProfile;
+  $('mineralStrength').value=Math.round(c.mineralStrength*100);
+  $('mineralStrength-value').textContent=Math.round(c.mineralStrength*100)+'%';
+  $('mineralHalfLife').value=Math.round(c.mineralHalfLife);
+  $('mineralHalfLife-value').textContent=Math.round(c.mineralHalfLife)+' s';
 }
 function readArtistControls(){
   const previousRelief=engine.config.filigreeContrast;
+  const previousStrength=engine.config.mineralStrength;
+  const previousHalfLife=engine.config.mineralHalfLife;
   engine.setConfig({
     form:$('form').value,formStrength:Number($('formStrength').value)/100,
     formTwist:Number($('formTwist').value)/100,
     lineageColor:Number($('lineageColor').value)/100,
     filigreeContrast:Number($('filigreeContrast').value)/100,finish:$('finish').value,
-    glow:Number($('glow').value)/100
+    glow:Number($('glow').value)/100,
+    fiberProfile:$('fiberProfile').value,
+    mineralStrength:Number($('mineralStrength').value)/100,
+    mineralHalfLife:Number($('mineralHalfLife').value)
   });
   updateArtistControls();
   updateBranchControls();
   applyArtistFinish();
-  if(previousRelief!==engine.config.filigreeContrast)requestFiligreeRefresh();
+  if(previousRelief!==engine.config.filigreeContrast||
+    previousStrength!==engine.config.mineralStrength||
+    previousHalfLife!==engine.config.mineralHalfLife)requestFiligreeRefresh();
 }
-['form','formStrength','formTwist','lineageColor','filigreeContrast','finish','glow'].forEach(
+['form','formStrength','formTwist','lineageColor','filigreeContrast','finish','glow',
+ 'fiberProfile','mineralStrength','mineralHalfLife'].forEach(
   id=>$(id).addEventListener('input',readArtistControls)
 );
 
@@ -674,7 +705,7 @@ function updateControlsFromDNA(){
   updateArtistControls();
   updateBranchControls();
   applyArtistFinish();
-  updateFiligreeDisplay();
+  requestFiligreeRefresh();
 }
 for(const key of Object.keys(ranges))$(key).addEventListener('input',readControls);
 $('palette').addEventListener('change',readControls);
@@ -820,6 +851,14 @@ function frame(now){
     while(accumulator>=fixed&&steps<5){engine.step(fixed);accumulator-=fixed;steps++;}
     if(steps===5)accumulator=0;
   }else accumulator=0;
+  // Evolving age optics are updated every few simulated seconds and processed
+  // in capped chunks so camera interaction stays responsive.
+  if(engine.config.mineralStrength>0 && engine.segmentCount>0 &&
+    engine.time-lastMineralRefresh>=4){
+    requestFiligreeRefresh();
+    lastMineralRefresh=engine.time;
+  }
+  updateFiligreeDisplay();
   if(geometryDirty){
     fibers.instanceMatrix.needsUpdate=true;
     if(fibers.instanceColor)fibers.instanceColor.needsUpdate=true;
