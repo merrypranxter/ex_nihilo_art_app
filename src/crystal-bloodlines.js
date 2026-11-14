@@ -43,7 +43,7 @@ export function hereditaryBirthBias(genes,step,strength=0){
   const projection=(vec[0]*step[0]+vec[1]*step[1]+vec[2]*step[2])/norm;
   return clamp(1+projection*power*.42,.58,1.42);
 }
-export function inheritedFacet(genes,family,age,{mode='off',strength=.65}={}){
+export function inheritedFacet(genes,family,age,{mode='off',strength=.65,index=0}={}){
   if(mode==='off'||!Object.hasOwn(HERITAGE_MODES,mode)||!family)
     return {axial:1,lateral:1,band:false,position:0,rotation:0,shade:0};
   const intensity=clamp(Number(strength)||0,0,1);
@@ -58,8 +58,14 @@ export function inheritedFacet(genes,family,age,{mode='off',strength=.65}={}){
   // not make it blink in and out as the renderer refreshes.
   const bandIndex=Math.floor((phase*.19+familyPhase)%bandPeriod);
   const probability=mode==='strata'?.68:mode==='mutant'?.43:.5;
-  const band=(bandIndex/(bandPeriod-1)<probability)&&
-    (((hash32(family^Math.imul(phase+1,0x6a09e667))&1023)/1023)<.86);
+  // Family genes govern layer density; descendants differ by a stable
+  // voxel-ID sample, preventing a whole lineage from being all-ring/no-ring.
+  // No flicker from advancing age and no changes to simulation RNG.
+  const familyPreference=1-bandIndex/(bandPeriod-1);
+  const bandChance=clamp(probability*(.47+.60*familyPreference),.12,.82);
+  const cellHash=hash32((index+1)^Math.imul(family,0x6a09e667)^
+    Math.imul(phase+1,0x85ebca6b));
+  const band=(cellHash/4294967296)<bandChance;
   return {
     axial,lateral,band:band&&intensity>0,
     position:clamp((phase/255-.5)*.38,-.21,.21),
