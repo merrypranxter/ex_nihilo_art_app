@@ -374,7 +374,8 @@ const pressureCoreGeometry=new THREE.SphereGeometry(.095,10,8);
 const pressurePalette={
   grow:new THREE.MeshBasicMaterial({color:'#81ffba',transparent:true,opacity:.77,side:THREE.DoubleSide,depthWrite:false}),
   shield:new THREE.MeshBasicMaterial({color:'#ffd66f',transparent:true,opacity:.79,side:THREE.DoubleSide,depthWrite:false}),
-  cleave:new THREE.MeshBasicMaterial({color:'#fc69dc',transparent:true,opacity:.83,side:THREE.DoubleSide,depthWrite:false})
+  cleave:new THREE.MeshBasicMaterial({color:'#fc69dc',transparent:true,opacity:.83,side:THREE.DoubleSide,depthWrite:false}),
+  strain:new THREE.MeshBasicMaterial({color:'#54e9ff',transparent:true,opacity:.87,side:THREE.DoubleSide,depthWrite:false})
 };
 const pressureLineMaterials={
   cleave:new THREE.LineBasicMaterial({color:'#ffa4ef',transparent:true,opacity:.81,depthWrite:false})
@@ -385,11 +386,12 @@ function updatePressureControls(){
   const mark=selectedPressure();
   const radius=mark?.radius??engine.config.pressureRadius;
   const strength=mark?.strength??engine.config.pressureStrength;
-  const dormant=!engine.colony.settings.enabled||engine.colony.population===0;
+  const dormant=!engine.colony.settings.enabled||engine.colony.population===0||
+    (mark?.mode==='strain'&&!engine.colony.settings.strainEnabled);
   $('pressure-selection').textContent=(mark
     ?mark.mode.toUpperCase()+' #'+mark.id+' · DRAG TO MOVE · PINCH REACH · TWIST AXIS'
     :'NO PRESSURE MARK SELECTED — CONTROLS SET NEXT STAMP')+
-    (dormant?' · START / SEED CRYSTALS TO ACTIVATE':'');
+    (dormant?' · START CRYSTALS / ENABLE FRACTURE MEMORY TO ACTIVATE':'');
   if(!pressureSliderEdit){
     $('pressure-radius').value=String(radius);
     $('pressure-strength').value=String(strength);
@@ -586,6 +588,7 @@ const hints={
   'pressure-grow':'TOUCH THE COLONY TO ENCOURAGE NEW CRYSTAL BIRTHS',
   'pressure-shield':'TOUCH TO PROTECT A REGION FROM NEW CRYSTAL BIRTHS',
   'pressure-cleave':'DRAG A SPLIT AXIS · PRESS INTO THE CRYSTAL FRONT',
+  'pressure-strain':'DRAG A STRESS SOURCE · CRACKS BUILD UP IN LIVING CRYSTALS',
   attract:'DRAG TO CREATE OR MOVE AN ATTRACTOR',
   repel:'DRAG TO CREATE OR MOVE A REPULSOR',
   seed:'TOUCH TO GERMINATE MORE STRANDS',
@@ -686,7 +689,7 @@ function setTool(next){
 document.querySelectorAll('[data-tool]').forEach(btn=>
   btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
 $('sculpt-quick').addEventListener('click',()=>setTool('sculpt'));
-$('pressure-quick').addEventListener('click',()=>setTool('pressure-grow'));
+$('pressure-quick').addEventListener('click',()=>setTool('pressure-strain'));
 $('food-tool').addEventListener('click',()=>setTool('feed'));
 $('food-view').addEventListener('click',()=>{
   showFood=!showFood;
@@ -1018,19 +1021,32 @@ function updateCrystalControls(){
   $('colony-crystallization-value').textContent=c.crystallization+' steps';
   $('colony-toggle').textContent=c.enabled?'Ⅱ PAUSE CRYSTAL GROWTH':'◇ START CRYSTAL COLONY';
   $('colony-toggle').setAttribute('aria-pressed',String(c.enabled));
+  $('strain-transfer').value=Math.round(c.strainTransfer*100);
+  $('strain-transfer-value').textContent=Math.round(c.strainTransfer*100)+'%';
+  $('strain-break').value=Math.round(c.breakThreshold*100);
+  $('strain-break-value').textContent=Math.round(c.breakThreshold*100)+'%';
+  $('strain-enable').textContent=c.strainEnabled?'⚡ FRACTURE MEMORY ON':'◇ FRACTURE MEMORY OFF';
+  $('strain-enable').setAttribute('aria-pressed',String(c.strainEnabled));
   updatePressureControls();
 }
 function readCrystalControls(){
   engine.colony.setSettings({
     growth:Number($('colony-growth').value)/100,
     erosion:Number($('colony-erosion').value)/100,
-    crystallization:Number($('colony-crystallization').value)
+    crystallization:Number($('colony-crystallization').value),
+    strainTransfer:Number($('strain-transfer').value)/100,
+    breakThreshold:Number($('strain-break').value)/100
   });
   updateCrystalControls();
   updateMorphControls();
 }
-['colony-growth','colony-erosion','colony-crystallization'].forEach(id=>
+['colony-growth','colony-erosion','colony-crystallization',
+  'strain-transfer','strain-break'].forEach(id=>
   $(id).addEventListener('input',readCrystalControls));
+$('strain-enable').addEventListener('click',()=>{
+  engine.colony.setSettings({strainEnabled:!engine.colony.settings.strainEnabled});
+  updateCrystalControls();
+});
 $('colony-toggle').addEventListener('click',()=>{
   const enabled=!engine.colony.settings.enabled;
   engine.colony.setSettings({enabled});
