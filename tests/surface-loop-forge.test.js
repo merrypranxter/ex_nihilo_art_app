@@ -180,6 +180,6 @@ test('Loop Forge UI is wired to preview, cancellation, GIF and true MP4 output',
   assert.match(main,/exportSurfaceGIF/);
   assert.match(main,/exportSurfaceMP4/);
   assert.match(main,/new SurfaceGrowth\(engine\.surface\.seed/);
-  assert.match(main,/setPaused\(previousPaused\)/);
+  assert.match(main,/setPaused\(document.hidden\?true:previousPaused\)/);
   assert.match(main,/downloadSurfaceLoop/);
 });
