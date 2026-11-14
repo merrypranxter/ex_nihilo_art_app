@@ -370,10 +370,12 @@
     let latest='',lastReported='';
     const redact=input=>String(input||'Unknown graphics error')
       .replace(/sk-[a-zA-Z0-9_-]{12,}/g,'[REDACTED TOKEN]')
+      .replace(/([?&](?:token|access_token|key|app_id|authorization)=)[^&\\s]+/gi,'$1[REDACTED]')
+      .replace(/Bearer\\s+[A-Za-z0-9._~+/-]+/gi,'Bearer [REDACTED]')
       .slice(0,550);
     function report(detail){
       const message=redact(detail);
-      if(message===lastReported)return;
+      if(message===lastReported&&!panel.hidden)return;
       lastReported=message;
       latest='EX NIHILO runtime diagnostic: '+message;
       text.textContent=message;
