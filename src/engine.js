@@ -17,6 +17,7 @@ import { SURFACE_BOUNDARIES,SURFACE_REGIONS,SURFACE_SEED_SYMMETRY } from './surf
 import { SURFACE_OPTICS,SURFACE_OPTICS_LOOPS } from './surface-optics.js';
 import {SURFACE_MICROSTRUCTURES} from './surface-microstructure.js';
 import {LOOP_SECONDS,LOOP_FPS,LOOP_SIZES,LOOP_MOTIONS,LOOP_PLAYBACK} from './surface-loop-plan.js';
+import {LOOP_ASPECTS,LOOP_FRAMINGS,LOOP_BITRATES} from './surface-cinematic.js';
 import { SURFACE_TOUCH_MODES } from './surface-gesture-field.js';
 import { PALETTES, activeStops, isPaletteStops } from './palettes.js';
 import { validStrokes, strokeFieldAt, appendStrokePoint, MAX_STROKES } from './field-strokes.js';
@@ -67,7 +68,11 @@ export class GrowthEngine {
       surfaceFilmIndex:1.46,surfaceSubstrateIndex:1.62,
       surfacePolarization:.5,
       surfaceLoopSeconds:3,surfaceLoopFps:12,surfaceLoopSize:512,
-      surfaceLoopMotion:'hybrid',surfaceLoopPlayback:'cycle'
+      surfaceLoopMotion:'hybrid',surfaceLoopPlayback:'cycle',
+      surfaceLoopAspect:'1:1',surfaceLoopFraming:'cover',
+      surfaceLoopFocusX:.5,surfaceLoopFocusY:.5,
+      surfaceLoopZoom:1,surfaceLoopBitrate:'high',
+      surfaceLoopGuides:true
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -239,6 +244,16 @@ export class GrowthEngine {
       candidate.surfaceLoopMotion='hybrid';
     if(!Object.hasOwn(LOOP_PLAYBACK,candidate.surfaceLoopPlayback))
       candidate.surfaceLoopPlayback='cycle';
+    if(!Object.hasOwn(LOOP_ASPECTS,candidate.surfaceLoopAspect))
+      candidate.surfaceLoopAspect='1:1';
+    if(!Object.hasOwn(LOOP_FRAMINGS,candidate.surfaceLoopFraming))
+      candidate.surfaceLoopFraming='cover';
+    candidate.surfaceLoopFocusX=clamp(safe(+candidate.surfaceLoopFocusX),0,1);
+    candidate.surfaceLoopFocusY=clamp(safe(+candidate.surfaceLoopFocusY),0,1);
+    candidate.surfaceLoopZoom=clamp(safe(+candidate.surfaceLoopZoom),1,2.5);
+    if(!Object.hasOwn(LOOP_BITRATES,candidate.surfaceLoopBitrate))
+      candidate.surfaceLoopBitrate='high';
+    candidate.surfaceLoopGuides=!!candidate.surfaceLoopGuides;
     candidate.surfaceOpticsMotion=!!candidate.surfaceOpticsMotion;
     if(!Object.hasOwn(SURFACE_TOUCH_MODES,candidate.surfaceTouchMode))
       candidate.surfaceTouchMode='seed';
@@ -331,6 +346,10 @@ export class GrowthEngine {
       surfacePolarization:.5,
       surfaceLoopSeconds:3,surfaceLoopFps:12,surfaceLoopSize:512,
       surfaceLoopMotion:'hybrid',surfaceLoopPlayback:'cycle',
+      surfaceLoopAspect:'1:1',surfaceLoopFraming:'cover',
+      surfaceLoopFocusX:.5,surfaceLoopFocusY:.5,
+      surfaceLoopZoom:1,surfaceLoopBitrate:'high',
+      surfaceLoopGuides:true,
       ...historicalSurface});
     if(dna.strokes)this.restoreStrokes(dna.strokes);
     if(dna.pressures)this.restorePressures(dna.pressures);
@@ -894,6 +913,10 @@ export class GrowthEngine {
       surfacePolarization:.5,
       surfaceLoopSeconds:3,surfaceLoopFps:12,surfaceLoopSize:512,
       surfaceLoopMotion:'hybrid',surfaceLoopPlayback:'cycle',
+      surfaceLoopAspect:'1:1',surfaceLoopFraming:'cover',
+      surfaceLoopFocusX:.5,surfaceLoopFocusY:.5,
+      surfaceLoopZoom:1,surfaceLoopBitrate:'high',
+      surfaceLoopGuides:true,
       ...historicalSurface});
     this.reset(data.dna.seed);
     this.time=data.time;
