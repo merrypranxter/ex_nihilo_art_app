@@ -5,6 +5,7 @@ import { MorphogenesisVolume } from './morphogenesis.js';
 import { resolveCrystalMovement, traceChemicalMembrane } from './structural.js';
 import { formField, FORM_NAMES, FINISHES } from './art-direction.js';
 import { branchVector, growthRhythm, BRANCH_MODES, RHYTHM_MODES } from './branching.js';
+import { lineageSteering } from './filigree.js';
 
 export const PALETTES = {
   acid: ['#00ffc8', '#ff37c7', '#a45cff', '#ffeb83'],
@@ -31,7 +32,8 @@ export class GrowthEngine {
       contactMode: 'slide', contactBranching: .32, wallPermeability: .08, membraneTrace: .55,
       form:'coral',formStrength:.85,formTwist:.6,finish:'opal',glow:.6,
       branchMode:'golden',branchAngle:56,branchTaper:.84,lineageColor:.65,
-      rhythmMode:'beats',rhythmDepth:.62,rhythmRate:.55
+      rhythmMode:'beats',rhythmDepth:.62,rhythmRate:.55,
+      branchOrdering:'family',branchPersistence:.78,filigreeContrast:.70
     };
     this.onDeposit = () => {};
     this.onReset = () => {};
@@ -57,6 +59,7 @@ export class GrowthEngine {
     this.segments = new Float32Array(this.maxSegments * 6);
     this.segmentColors = new Uint8Array(this.maxSegments * 3);
     this.segmentRadii = new Float32Array(this.maxSegments);
+    this.segmentGenerations = new Uint8Array(this.maxSegments);
     this.nutrients = new NutrientField(GRID,WORLD);
     this.nutrientElapsed = 0;
     if(!this.colony)this.colony=new CrystalColony(GRID,WORLD);
@@ -94,13 +97,16 @@ export class GrowthEngine {
     return v(this.segments[k+3],this.segments[k+4],this.segments[k+5]);
   }
 
-  addAgent(position, direction = this.randomVector(), generation=0) {
+  addAgent(position, direction = this.randomVector(), generation=0, heritage=null) {
     if (this.agents.length >= this.config.agents) return;
-    const p = position.clone();
+    const p=position.clone();
+    const life=8+this.random()*22,identity=this.random();
     this.agents.push({
-      p, prev: p.clone(), dir: direction.clone().normalize(),
-      traveled: 0, age: 0, life: 8 + this.random() * 22,
-      identity: this.random(),generation:Math.min(12,Math.max(0,Math.floor(generation)))
+      p, prev:p.clone(),dir:direction.clone().normalize(),
+      traveled:0,age:0,life,identity,
+      generation:Math.min(12,Math.max(0,Math.floor(generation))),
+      familyPhase:heritage?.familyPhase ?? identity*Math.PI*2,
+      branchSerial:0
     });
   }
 
@@ -132,6 +138,9 @@ export class GrowthEngine {
     candidate.lineageColor=clamp(safe(+candidate.lineageColor),0,1);
     candidate.rhythmDepth=clamp(safe(+candidate.rhythmDepth),0,1);
     candidate.rhythmRate=clamp(safe(+candidate.rhythmRate),.05,2);
+    candidate.branchPersistence=clamp(safe(+candidate.branchPersistence),0,1);
+    candidate.filigreeContrast=clamp(safe(+candidate.filigreeContrast),0,1);
+    if(!['global','family'].includes(candidate.branchOrdering))candidate.branchOrdering='global';
     if(!BRANCH_MODES[candidate.branchMode])candidate.branchMode='random';
     if(!RHYTHM_MODES[candidate.rhythmMode])candidate.rhythmMode='steady';
     if(!FINISHES[candidate.finish])candidate.finish='opal';
@@ -159,7 +168,10 @@ export class GrowthEngine {
       ?{...historicalForm,branchMode:'random',branchTaper:1,branchAngle:56,
         rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55,lineageColor:0}
       :historicalForm;
-    this.setConfig(historicalBranches);
+    const historicalAnatomy=historicalBranches.branchOrdering===undefined
+      ?{...historicalBranches,branchOrdering:'global',branchPersistence:0,filigreeContrast:0}
+      :historicalBranches;
+    this.setConfig(historicalAnatomy);
     if(dna.colony)this.colony.setSettings(dna.colony);
     if(dna.morphogenesis)this.morphogenesis.setSettings(dna.morphogenesis);
     // DNA changes the laws going forward. It cannot erase this organism's lived state.
@@ -251,7 +263,10 @@ export class GrowthEngine {
   pickColor(agent) {
     const colors=PALETTES[this.config.palette];
     const oldHue=(.16*this.time+agent.identity*.6+agent.p.y*.04) % 1;
-    const ancestralHue=((agent.generation||0)*.1375 + agent.identity*.09
+    const familyPart=this.config.branchOrdering==='family'
+      ?(agent.familyPhase??agent.identity*Math.PI*2)/(Math.PI*2)*.18
+      :agent.identity*.09;
+    const ancestralHue=((agent.generation||0)*.1375+familyPart
       +this.time*.019) % 1;
     // Lineage coloring makes daughters recognizable as related structures.
     // Older checkpoints set lineageColor=0 and retain original colors.
@@ -278,7 +293,9 @@ export class GrowthEngine {
     this.segmentColors[slot*3+1]=Math.round(clamp(color.g,0,1)*255);
     this.segmentColors[slot*3+2]=Math.round(clamp(color.b,0,1)*255);
     this.segmentRadii[slot]=radius;
-    this.onDeposit(slot,a,b,color,radius);
+    const generation=Math.min(12,agent.generation||0);
+    this.segmentGenerations[slot]=generation;
+    this.onDeposit(slot,a,b,color,radius,generation);
     this.cursor=(this.cursor+1)%this.maxSegments;
     this.segmentCount=Math.min(this.segmentCount+1,this.maxSegments);
     this.totalDeposits++;
@@ -292,11 +309,20 @@ export class GrowthEngine {
       // Historical algorithm retained for old checkpoint reproduction.
       direction=agent.dir.clone().addScaledVector(this.randomVector(),.7);
     }else{
-      const out=branchVector(agent.dir,this.branchEvents,c.branchAngle,
-        c.branchMode,agent.identity*Math.PI*2);
+      // New families use each parent's local branch count, rather than an
+      // unrelated global birth counter. Old saved worlds retain global order.
+      const serial=c.branchOrdering==='family'?(agent.branchSerial||0):this.branchEvents;
+      const phase=c.branchOrdering==='family'
+        ?(agent.familyPhase??agent.identity*Math.PI*2)
+        :agent.identity*Math.PI*2;
+      const out=branchVector(agent.dir,serial,c.branchAngle,c.branchMode,phase);
       direction=v(out.x,out.y,out.z);
     }
-    this.addAgent(agent.p,direction,Math.min(12,(agent.generation||0)+1));
+    this.addAgent(agent.p,direction,Math.min(12,(agent.generation||0)+1),
+      c.branchOrdering==='family'
+        ?{familyPhase:agent.familyPhase??agent.identity*Math.PI*2}
+        :null);
+    if(c.branchOrdering==='family')agent.branchSerial=(agent.branchSerial||0)+1;
     this.branchEvents++;
     return true;
   }
@@ -335,7 +361,10 @@ export class GrowthEngine {
       const field=this.fieldAt(a.p);
       if(field.lengthSq()<.001) field.copy(a.dir);
       field.normalize();
-      a.dir.lerp(field,.09).addScaledVector(this.randomVector(),.017).normalize();
+      // For a new daughter, preserve her actual divergence long enough to
+      // grow a visible branch before she re-enters the environmental flow.
+      const steering=lineageSteering(a.age,a.generation||0,c.branchPersistence);
+      a.dir.lerp(field,steering).addScaledVector(this.randomVector(),.017).normalize();
       const food=this.nutrients.sample(a.p);
       const rhythm=growthRhythm(this.time,a.identity,c);
       const growthRate=dt*c.speed*.95*(.35+.85*food)*rhythm;
@@ -379,6 +408,8 @@ export class GrowthEngine {
         a.dir.copy(this.randomVector());
         // Regeneration is a new root, not a continuation of the old lineage.
         a.traveled=0;a.age=0;a.generation=0;a.life=8+this.random()*22;
+        a.branchSerial=0;
+        a.familyPhase=a.identity*Math.PI*2;
       }
     }
   }
@@ -454,7 +485,9 @@ export class GrowthEngine {
     const agentRecord=a=>({
       p:a.p.toArray(),prev:a.prev.toArray(),dir:a.dir.toArray(),
       traveled:a.traveled,age:a.age,life:a.life,identity:a.identity,
-      generation:a.generation||0
+      generation:a.generation||0,
+      branchSerial:a.branchSerial||0,
+      familyPhase:a.familyPhase??a.identity*Math.PI*2
     });
     return {
       format:'ex-nihilo/checkpoint-v3',
@@ -464,6 +497,7 @@ export class GrowthEngine {
       segments:Array.from(this.segments.subarray(0,n*6)),
       colors:Array.from(this.segmentColors.subarray(0,n*3)),
       radii:Array.from(this.segmentRadii.subarray(0,n)),
+      segmentGenerations:Array.from(this.segmentGenerations.subarray(0,n)),
       density:Array.from(this.density),
       nutrients:Array.from(this.nutrients.values),
       colony:this.colony.snapshot(),
@@ -479,7 +513,9 @@ export class GrowthEngine {
     const point=p=>validArray(p,3,n=>finite(n)&&Math.abs(n)<=100);
     const agent=a=>a&&point(a.p)&&point(a.prev)&&point(a.dir)&&
       ['traveled','age','life','identity'].every(k=>finite(a[k]))&&
-      (a.generation===undefined||(Number.isInteger(a.generation)&&a.generation>=0&&a.generation<=12));
+      (a.generation===undefined||(Number.isInteger(a.generation)&&a.generation>=0&&a.generation<=12))&&
+      (a.branchSerial===undefined||(Number.isInteger(a.branchSerial)&&a.branchSerial>=0&&a.branchSerial<=100000000))&&
+      (a.familyPhase===undefined||(finite(a.familyPhase)&&a.familyPhase>=0&&a.familyPhase<=Math.PI*2));
     const node=n=>n&&Number.isInteger(n.id)&&
       (n.type==='attract'||n.type==='repel')&&point(n.pos)&&finite(n.strength);
     const isV2=data?.format==='ex-nihilo/checkpoint-v2';
@@ -500,6 +536,8 @@ export class GrowthEngine {
       !validArray(data.segments,data.segmentCount*6,n=>finite(n)&&Math.abs(n)<=100)||
       !validArray(data.colors,data.segmentCount*3,n=>Number.isInteger(n)&&n>=0&&n<=255)||
       !validArray(data.radii,data.segmentCount,n=>finite(n)&&n>=0&&n<=1)||
+      (data.segmentGenerations!==undefined&&!validArray(data.segmentGenerations,data.segmentCount,
+        n=>Number.isInteger(n)&&n>=0&&n<=12))||
       !validArray(data.density,GRID**3,n=>Number.isInteger(n)&&n>=0&&n<=MAX_DENSITY)||
       !validArray(data.nutrients,GRID**3,n=>finite(n)&&n>=0&&n<=1)||
       !Array.isArray(data.nodes)||data.nodes.length>15||!data.nodes.every(node)||
@@ -517,7 +555,10 @@ export class GrowthEngine {
       ?{...legacyForm,branchMode:'random',branchTaper:1,branchAngle:56,
         rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55,lineageColor:0}
       :legacyForm;
-    this.setConfig(legacyGrowth);
+    const legacyAnatomy=legacyGrowth.branchOrdering===undefined
+      ?{...legacyGrowth,branchOrdering:'global',branchPersistence:0,filigreeContrast:0}
+      :legacyGrowth;
+    this.setConfig(legacyAnatomy);
     this.reset(data.dna.seed);
     this.time=data.time;
     this.rngState=data.rngState>>>0;
@@ -532,6 +573,7 @@ export class GrowthEngine {
     this.segments.set(data.segments);
     this.segmentColors.set(data.colors);
     this.segmentRadii.set(data.radii);
+    if(data.segmentGenerations)this.segmentGenerations.set(data.segmentGenerations);
     this.density.set(data.density);
     this.nutrients.setValues(data.nutrients);
     if(hasColony)this.colony.restore(data.colony);
@@ -542,7 +584,9 @@ export class GrowthEngine {
     this.agents=data.agents.map(a=>({
       p:v(...a.p),prev:v(...a.prev),dir:v(...a.dir),
       traveled:a.traveled,age:a.age,life:a.life,identity:a.identity,
-      generation:a.generation??0
+      generation:a.generation??0,
+      branchSerial:a.branchSerial??0,
+      familyPhase:a.familyPhase??a.identity*Math.PI*2
     }));
     // Restore the *actual historical* colors and widths, not today's palette.
     const a=v(),b=v(),color=new THREE.Color();
@@ -551,7 +595,7 @@ export class GrowthEngine {
       a.set(this.segments[k],this.segments[k+1],this.segments[k+2]);
       b.set(this.segments[k+3],this.segments[k+4],this.segments[k+5]);
       color.setRGB(this.segmentColors[j]/255,this.segmentColors[j+1]/255,this.segmentColors[j+2]/255);
-      this.onDeposit(i,a,b,color,this.segmentRadii[i]);
+      this.onDeposit(i,a,b,color,this.segmentRadii[i],this.segmentGenerations[i]);
     }
     this.nodeUndo=[];
     this.nodeRedo=[];
