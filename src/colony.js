@@ -236,6 +236,8 @@ export class CrystalColony {
   validateSnapshot(data){
     const valid=(a,length,max)=>Array.isArray(a)&&a.length===length&&
       a.every(n=>Number.isInteger(n)&&n>=0&&n<=max);
+    if(!data||typeof data!=='object')
+      throw new Error('Corrupted or incompatible cellular-colony checkpoint.');
     const hasGenealogy=data.birthIds!==undefined;
     const ancestryFields=['birthIds','parentBirthIds','families','genes','nextBirthId'];
     if(ancestryFields.some(key=>(data[key]!==undefined)!==hasGenealogy))
@@ -249,7 +251,11 @@ export class CrystalColony {
         throw new Error('Invalid crystal genealogy.');
       for(let i=0;i<this.capacity;i++){
         const id=data.birthIds[i],parent=data.parentBirthIds[i],family=data.families[i];
-        if((data.cells[i]>0&&!id)||(id===0&&(parent!==0||family!==0))||
+        // Legacy worlds have occupied-but-untracked cells. Those old cells
+        // must remain valid when re-saved alongside newly tracked descendants.
+        const k=i*3;
+        if((id===0&&(parent!==0||family!==0||
+             data.genes[k]||data.genes[k+1]||data.genes[k+2]))||
           (id>0&&(!family||family>id||parent>=id))||
           (id>0&&!parent&&family!==id)||
           id>=data.nextBirthId){
