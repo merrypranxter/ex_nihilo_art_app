@@ -30,6 +30,9 @@ const index=(x,y,z,n)=>x+n*(y+n*z);
 const inside=(x,y,z,n)=>x>=0&&y>=0&&z>=0&&x<n&&y<n&&z<n;
 
 export function crystalSurface(cells,damage,i,size){
+  if(!cells[i])return {
+    direction:[0,1,0],exposed:0,fractureFaces:0,fractureDirection:null
+  };
   const x=i%size,y=Math.floor(i/size)%size,z=Math.floor(i/(size*size));
   let nx=0,ny=0,nz=0,exposed=0,broken=0;
   let fractureDirection=null;
@@ -64,8 +67,11 @@ export function mineralCellDisplay(cell,options={}){
   const stressedCompression=cracked?.88:1;
   // Pure, history-aware optional color enhancement. Renderer owns Color3
   // conversion; returning a channel mix avoids destructive RGB modifications.
-  const pearlescence=bright*(.08+.18*exposure)+stress*.045;
-  const pale=clamp(pearlescence+(cracked?.10:0),0,.42);
+  const opticsActive=depth>0||bright>0;
+  // Keep artist pigments saturated: only a little high-value facet tint.
+  // Full OFF must display the same historic colors as before this phase.
+  const pearlescence=opticsActive?bright*(.045+.10*exposure)+stress*.025:0;
+  const pale=clamp(pearlescence+(cracked&&opticsActive?.06:0),0,.25);
   const fractureGlint=surface.fractureFaces>0;
   return {
     axial,
