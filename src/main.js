@@ -1416,6 +1416,14 @@ function updateCrystalControls(){
   $('crystal-maturity-value').textContent=visual.crystalMaturity+' generations';
   $('crystal-stress-optics').value=Math.round(visual.crystalStressOptics*100);
   $('crystal-stress-optics-value').textContent=Math.round(visual.crystalStressOptics*100)+'%';
+  $('crystal-heritage').value=visual.crystalHeritage;
+  $('heritage-strength').value=Math.round(visual.crystalHeritageStrength*100);
+  $('heritage-strength-value').textContent=
+    Math.round(visual.crystalHeritageStrength*100)+'%';
+  $('heritage-growth').value=Math.round(c.ancestryInfluence*100);
+  $('heritage-growth-value').textContent=Math.round(c.ancestryInfluence*100)+'%';
+  $('heritage-mutation').value=Math.round(c.ancestryMutation*100);
+  $('heritage-mutation-value').textContent=Math.round(c.ancestryMutation*100)+'%';
   updatePressureControls();
 }
 function readCrystalControls(){
@@ -1490,6 +1498,24 @@ function readCrystalOptics(){
     ['colony-geometry','crystal-lens','crystal-interior',
      'crystal-evolution'].includes(id)?
       'change':'input',readCrystalOptics));
+function readCrystalHeritage(){
+  const mode=$('crystal-heritage').value;
+  engine.setConfig({
+    crystalHeritage:mode,
+    crystalHeritageStrength:Number($('heritage-strength').value)/100
+  });
+  engine.colony.setSettings({
+    ancestryEnabled:mode!=='off',
+    ancestryInfluence:Number($('heritage-growth').value)/100,
+    ancestryMutation:Number($('heritage-mutation').value)/100
+  });
+  // Normal render-frame refresh; no CPU CA reset or color rewrite.
+  engine.colony.changed=true;
+  updateCrystalControls();
+}
+['crystal-heritage','heritage-strength','heritage-growth',
+  'heritage-mutation'].forEach(id=>$(id).addEventListener(
+    id==='crystal-heritage'?'change':'input',readCrystalHeritage));
 
 const morphologyControls={
   feed:{id:'morph-feed',format:n=>n.toFixed(4),read:n=>n},
