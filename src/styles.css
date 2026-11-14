@@ -251,3 +251,17 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
   .runtime-diagnostic p{margin:7px 0;font-size:10px}
   .runtime-diagnostic .diagnostic-help{display:none}
 }
+
+/* iOS viewport-fit=cover: don't let the notch hide buttons or the home
+   indicator cover the last setting in the control scroller. */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:560px){
+  .masthead{
+    padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right))
+  }
+  .console{padding-right:env(safe-area-inset-right)}
+  .panels{padding-bottom:max(20px,env(safe-area-inset-bottom))}
+}
+@media (pointer:coarse) and (orientation:portrait){
+  .panels{padding-bottom:max(30px,calc(env(safe-area-inset-bottom) + 24px))}
+}
