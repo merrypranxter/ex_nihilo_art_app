@@ -282,3 +282,28 @@ select,.control input[type=password]{background:#181529;color:#f9e6ff;border:1px
   #family-pick,#family-clear,
   #family-mode-family,#family-mode-descendants{min-height:44px;white-space:normal}
 }
+
+/* PHASE 04A: two distinct growth domains, one shared pinned artwork stage.
+   2D material fills the available screen; the 3D canvas is preserved behind.
+*/
+#surface-canvas{
+  position:absolute;inset:0;width:100%;height:100%;display:block;
+  z-index:1;touch-action:none;cursor:crosshair;
+  -webkit-tap-highlight-color:transparent;
+}
+#surface-canvas[hidden]{display:none!important}
+.stage-top,.stage-bottom{z-index:3}
+#surface-stats{
+  background:#122932c4;border-left:2px solid #a6ffe8;
+  padding:11px 12px;color:#c7fdf5;line-height:1.65;
+  border-radius:0 6px 6px 0;
+}
+#domain-object,#domain-surface{flex:1 1 130px;min-height:44px}
+#surface-start{width:100%;margin:0 0 2px;min-height:44px}
+#surface-reseed,#surface-png{min-height:44px}
+#surface-wrap[aria-pressed=true]{
+  color:#c6fff6;border-color:#87ffdf;background:#204b4c;
+}
+@media(pointer:coarse){
+ #surface-start,#surface-wrap{min-height:44px}
+}

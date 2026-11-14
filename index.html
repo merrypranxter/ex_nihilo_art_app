@@ -22,6 +22,7 @@
     <main>
       <section class="stage" aria-label="Interactive 3D growth canvas">
         <canvas id="world" tabindex="0" aria-label="Living 3D mathematical organism. Use Sculpt to place and move vortices; or Orbit to navigate."></canvas>
+        <canvas id="surface-canvas" tabindex="0" hidden aria-label="Living full-canvas mineral growth. Tap to plant a new crystal nucleus, or drag to plant a trail."></canvas>
         <div class="stage-top">
           <div class="tag"><span class="pulse"></span><span id="live">GERMINATING</span></div>
           <div class="tag coordinates" id="stats">0 STRANDS</div>
@@ -47,6 +48,7 @@
         </div>
         <nav class="tabs" aria-label="Control sections">
           <button class="tab active" data-tab="growth" aria-selected="true">GROWTH</button>
+          <button class="tab" data-tab="surface" aria-selected="false">SURFACE ART</button>
           <button class="tab" data-tab="form" aria-selected="false">FORM &amp; FINISH</button>
           <button class="tab" data-tab="field" aria-selected="false">FIELDS</button><button class="tab" data-tab="ecology" aria-selected="false">ECOLOGY</button><button class="tab" data-tab="colony" aria-selected="false">CRYSTALS</button><button class="tab" data-tab="morph" aria-selected="false">MORPH</button>
           <button class="tab" data-tab="touch" aria-selected="false">TOUCH</button>
@@ -55,6 +57,13 @@
         </nav>
         <div class="panels">
           <div class="panel active" data-panel="growth">
+            <div class="morph-advanced" style="padding:13px;margin-top:0">
+              <p class="help first">CHOOSE THE GROWTH DOMAIN — the original 3D organism is preserved while the new 2D surface grows its own independent material history.</p>
+              <div class="small-actions ecology-actions">
+                <button class="choice active" type="button" id="domain-object" aria-pressed="true">◆ 3D OBJECT</button>
+                <button class="choice" type="button" id="domain-surface" aria-pressed="false">▦ FULL-CANVAS PATTERN</button>
+              </div>
+            </div>
             <div class="control-grid">
               <label class="control"><span>Growth speed <output id="speed-value">1.0×</output></span><input id="speed" type="range" min="0.1" max="3.0" step="0.1" value="1.0"></label>
               <label class="control"><span>Active tips <output id="agents-value">180</output></span><input id="agents" type="range" min="30" max="360" step="10" value="180"></label>
@@ -98,6 +107,51 @@
               </div>
               <pre class="results" id="performance-report" aria-live="polite">Performance monitor is off. Artwork remains fully interactive.</pre>
             </details>
+          </div>
+          <div class="panel" data-panel="surface" hidden>
+            <p class="help first">A completely separate 2D mineral-growth world. Real nuclei expand, inherit their founder territory, consume empty space, and freeze crystalline precipitation colors at birth. Grow dense patterns across the ENTIRE canvas, or grow genuinely periodic material for seamless repeat textures. Tap or drag the artwork to plant new nuclei.</p>
+            <div class="small-actions ecology-actions">
+              <button type="button" class="primary" id="surface-start">▦ SWITCH TO FULL-CANVAS GROWTH</button>
+              <button type="button" class="choice" id="surface-reseed">↻ NEW SURFACE SEED</button>
+              <button type="button" class="choice" id="surface-png">↓ 2048px ART PNG</button>
+            </div>
+            <p class="help" id="surface-stats" aria-live="polite">0% COVERED · 0 NUCLEI · 0 GROWTH GENERATIONS</p>
+            <div class="control-grid">
+              <label class="control select-control"><span>Material growth physics</span>
+                <select id="surface-morphology">
+                  <option value="spherulite">RADIAL SPHERULITES · COMPETING CRYSTAL ROSETTES</option>
+                  <option value="dendrite">DENDRITES · BRANCHING MINERAL VEINS</option>
+                  <option value="strata">GEOLOGICAL STRATA · LAYERED PRECIPITATION</option>
+                </select>
+              </label>
+              <label class="control select-control"><span>How growth centers are arranged (used on NEW SURFACE SEED)</span>
+                <select id="surface-nucleation">
+                  <option value="lattice">HEXAGONALLY SPACED NUCLEI</option>
+                  <option value="scattered">SCATTERED STARTING CRYSTALS</option>
+                  <option value="radial">RADIAL NUCLEATION</option>
+                  <option value="ribbons">BANDED SEED LINES</option>
+                </select>
+              </label>
+              <label class="control"><span>Independent crystal nuclei <output id="surface-seeds-value">28</output></span>
+                <input id="surface-seeds" type="range" min="2" max="84" step="2" value="28"/>
+              </label>
+              <label class="control"><span>Surface birth rate <output id="surface-growth-value">94%</output></span>
+                <input id="surface-growth" type="range" min="15" max="150" step="5" value="94"/>
+              </label>
+              <label class="control"><span>Canvas coverage target <output id="surface-coverage-value">98%</output></span>
+                <input id="surface-coverage" type="range" min="30" max="100" step="2" value="98"/>
+              </label>
+              <label class="control"><span>Growth generations per frame <output id="surface-speed-value">3</output></span>
+                <input id="surface-speed" type="range" min="1" max="6" step="1" value="3"/>
+              </label>
+              <label class="control"><span>Crystalline relief / band contrast <output id="surface-contrast-value">80%</output></span>
+                <input id="surface-contrast" type="range" min="0" max="150" step="5" value="80"/>
+              </label>
+            </div>
+            <div class="small-actions ecology-actions">
+              <button type="button" class="choice" id="surface-wrap" aria-pressed="false">◇ PERIODIC TILE EDGES: OFF</button>
+            </div>
+            <p class="help">PERIODIC TILE EDGES connects the left/right and top/bottom sides of the living lattice. Use this for genuinely repeating 1:1 textures. Existing pigments do not change when you alter the palette; your new births use the currently selected palette from LIGHT. For a perfectly clean new wrapped experiment, enable periodic edges BEFORE pressing NEW SURFACE SEED.</p>
           </div>
           <div class="panel" data-panel="form" hidden>
             <p class="help first">Give the growing system a compositional intention. These are physical forces, not prebuilt shapes. Switching forms changes FUTURE growth; your existing artwork stays exactly where it is.</p>
