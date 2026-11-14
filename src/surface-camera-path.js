@@ -28,7 +28,7 @@ export function validCameraPath(path){
     path.points.every((p,i)=>i===0||p[2]>=path.points[i-1][2])&&
     path.points[0][2]===0&&
     path.points.at(-1)[2]===1&&
-    path.points.some((p,i)=>i>0&&distance(p,path.points[0])>.005)));
+    path.points.some((p,i)=>i>0&&distance(p,path.points[0])>.005));
 }
 export function cloneCameraPath(path){
   return path?{version:1,id:path.id,points:path.points.map(p=>[...p])}:null;
