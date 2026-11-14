@@ -2,6 +2,9 @@
 
 **From nothing, mathematics grows matter.**
 
+**Phase 03G — Direct-drawn growth and complete colors:** The TOUCH tab now offers STITCH growth paths and WARP vector-field strokes. Each path is an undoable, persistent 3D causal force. The LIGHT tab includes the artist's exact 194-entry MATHEMAGICAL vault **plus** five original EX NIHILO palettes, searchable by source/name, with editable stops and independent color shuffle/randomization. No palette choice or stroke edit resets existing deposited fibers. Read [phase notes](docs/PHASE-03G-PALETTES-STROKES.md).
+
+
 **Gesture Witch / Touch-First Field Sculpting:** select **🌀 SCULPT** to create and drag an actual vortex eye in the evolving field; pinch to change its support radius, twist to reverse or strengthen its rotation, or move both fingers together to relocate it. Persistent field-source identity, visible radius ring, atomic one-gesture Undo/Redo, robust cancel rollback, and keyboard/slider alternatives are integrated. This changes future mathematical growth, not previously deposited sculpture. See [Gesture Witch interaction contract](docs/GESTURE_WITCH.md).
 
 An interactive, mobile-first 3D mathematical art laboratory. Its first experiment, **Nerve Cathedral**, grows persistent luminous fibers from particle trajectories moving through actual vector fields. A second engine, **Crystal Colony**, grows a genuinely three-dimensional cellular automaton with local birth, maturation and erosion rules. The third engine, **Morphogenesis Chamber**, solves a coupled 3D Gray–Scott reaction–diffusion system and extracts its evolving chemical isosurface. The artwork is *constructed over time*, not loaded as a prebuilt 3D model. **FORM & FINISH** offers real-time mathematical growth grammars and physically based material choices: sculptural intention without prebuilt sculptures.
