@@ -113,8 +113,9 @@ export class SurfaceGrowth {
     if(!unique.size||this.seeds.length+unique.size>Math.min(MAX_SEEDS,limit))return false;
     const threshold=(options.voids??.55)<=0?-1:
       Math.round(clamp(Number(options.voids??.55),0,1)*220);
+    const barriers=this.gestureFor(!!options.wrap).blocked;
     for(const [i,[x,y]] of unique){
-      if(this.owner[i])return false;
+      if(this.owner[i]||barriers[i])return false;
       if(options.boundary&&options.boundary!=='open'&&
          compositionSample(x,y,options).gate<=threshold)return false;
     }
