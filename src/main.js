@@ -1088,6 +1088,49 @@ function positionFromEvent(e){
 }
 // Prefer the actual crystal surface for first contact. Once picked, edit
 // against its camera-parallel depth plane so a drag doesn't jump in Z.
+function inspectFamilyFromEvent(e){
+  // Wait until the tap ends, so moving/second-finger gestures are inert.
+  // Raycast only the *visible original* crystal instances, never the beacons.
+  syncCrystals();
+  const rect=canvas.getBoundingClientRect();
+  if(!rect.width||!rect.height)return;
+  pointer.set(((e.clientX-rect.left)/rect.width)*2-1,
+    -((e.clientY-rect.top)/rect.height)*2+1);
+  raycaster.setFromCamera(pointer,camera);
+  const stageOn=isMineralMetamorphosisActive({
+    preset:engine.config.crystalEvolution
+  });
+  const targets=stageOn?
+    METAMORPHOSIS_STAGES.map(t=>crystalAgeMeshes[t]).filter(m=>m.visible&&m.count>0):
+    (crystals.visible&&crystals.count>0?[crystals]:[]);
+  const hits=raycaster.intersectObjects(targets,false);
+  let voxel=-1;
+  for(const hit of hits){
+    const i=crystalVoxelForHit(hit,crystals,crystalSlotToVoxel,
+      crystalAgeMeshes,ageSlotToVoxel);
+    if(i>=0&&i<engine.colony.capacity&&engine.colony.cells[i]){
+      voxel=i;break;
+    }
+  }
+  if(voxel<0){
+    familyInspectorNote='NO LIVING CRYSTAL UNDER YOUR FINGER · TAP A VISIBLE MINERAL CELL';
+    if(!engine.config.crystalFocusBirthId)refreshFamilyInspector();
+    return;
+  }
+  const colony=engine.colony,birthId=colony.birthIds[voxel];
+  if(!birthId){
+    engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
+    familyInspectorNote='HISTORICAL CRYSTAL AT VOXEL #'+voxel+
+      ' HAS NO RECORDED PARENT · NO ANCESTRY INVENTED';
+  }else{
+    engine.setConfig({
+      crystalFocusBirthId:birthId,
+      crystalFocusFamilyId:colony.families[voxel]
+    });
+    familyInspectorNote='';
+  }
+  refreshFamilyInspector();
+}
 function pressureStartFromEvent(e){
   const rect=canvas.getBoundingClientRect();
   pointer.set(((e.clientX-rect.left)/rect.width)*2-1,
@@ -1118,6 +1161,7 @@ const strokeEdit=new GrowthStrokeTransaction(engine);
 const pressureEdit=new CrystalPressureTransaction(engine);
 let pendingEraseStrokeId=null;
 let sliderEdit=null,gestureMode='idle',primaryPointer=null,lensAnchor=null;
+let familyTapOrigin=null;
 let transientSnapshot=null;
 const hints={
   sculpt:'DRAG A VORTEX EYE · PINCH RADIUS · TWIST CHIRALITY',
@@ -1134,6 +1178,7 @@ const hints={
   crystal:'TOUCH TO SEED THREE-DIMENSIONAL CELLS',
   feed:'DRAG TO INJECT NUTRIENTS INTO 3D SPACE',
   orbit:'DRAG TO ORBIT · PINCH TO ZOOM THE CAMERA',
+  family:'TAP A LIVING CRYSTAL TO REVEAL ITS REAL FAMILY · NO SCULPTING',
   erase:'TAP A FIELD NODE TO ERASE IT'
 };
 function updateSculptButton(){
@@ -1194,6 +1239,7 @@ function finishGesture(cancel=false){
     }
   }
   transientSnapshot=null;
+  familyTapOrigin=null;
   primaryPointer=null;
   lensAnchor=null;
   pressureAnchor=null;
@@ -1218,6 +1264,7 @@ function setTool(next){
   if(fingers.size||fieldEdit.active||strokeEdit.active||pressureEdit.active||
     sliderEdit||pressureSliderEdit)cancelGesture();
   tool=next;
+  familyTapOrigin=null;
   orbit.enabled=tool==='orbit';
   $('hint').textContent=hints[tool];
   for(const btn of document.querySelectorAll('[data-tool]'))
@@ -1226,6 +1273,18 @@ function setTool(next){
 }
 document.querySelectorAll('[data-tool]').forEach(btn=>
   btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
+$('family-pick').addEventListener('click',()=>setTool('family'));
+for(const mode of ['family','descendants']){
+  $('family-mode-'+mode).addEventListener('click',()=>{
+    engine.setConfig({crystalFocusMode:mode});
+    refreshFamilyInspector();
+  });
+}
+$('family-clear').addEventListener('click',()=>{
+  engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
+  familyInspectorNote='';
+  refreshFamilyInspector();
+});
 $('sculpt-quick').addEventListener('click',()=>setTool('sculpt'));
 $('pressure-quick').addEventListener('click',()=>setTool('pressure-strain'));
 $('food-tool').addEventListener('click',()=>setTool('feed'));
@@ -1302,7 +1361,10 @@ canvas.addEventListener('pointerdown',e=>{
     primaryPointer=e.pointerId;
     const pressureTool=tool.startsWith('pressure-');
     const pos=pressureTool?pressureStartFromEvent(e):positionFromEvent(e);
-    if(pressureTool){
+    if(tool==='family'){
+      familyTapOrigin=screenPoint(e);
+      gestureMode='inspect-family';
+    }else if(pressureTool){
       const mode=tool.slice('pressure-'.length);
       const nearby=engine.nearestPressure(pos,.62);
       try{
@@ -1398,8 +1460,14 @@ canvas.addEventListener('pointermove',e=>{
 });
 function onPointerEnd(e,canceled=false){
   if(!fingers.has(e.pointerId))return;
+  const familyTap=!canceled&&gestureMode==='inspect-family'&&
+    tool==='family'&&e.pointerId===primaryPointer&&fingers.size===1&&
+    familyTapOrigin&&Math.hypot(e.clientX-familyTapOrigin.x,
+      e.clientY-familyTapOrigin.y)<=14;
+  if(familyTap)inspectFamilyFromEvent(e);
   if(canceled)finishGesture(true);
   else if(gestureMode!=='blocked')finishGesture(false);
+  familyTapOrigin=null;
   fingers.delete(e.pointerId);
   gestureMode=fingers.size?'blocked':'idle';
   gestureSuspended=fingers.size>0;
@@ -2063,6 +2131,7 @@ function updateControlsFromDNA(){
   renderPaletteStops();
   $('topology').value=engine.config.topology;
   updateCrystalControls();
+  familyInspectorNote='';
   // Restore the actual mesh on LOAD WORLD / LOAD DNA, not just the dropdown.
   const selectedShape=crystalShapes[engine.config.crystalShape]||crystalShapes.octa;
   if(crystals.geometry!==selectedShape)crystals.geometry=selectedShape;
@@ -2106,6 +2175,9 @@ function setPaused(next){
 $('pause').addEventListener('click',()=>setPaused(!paused));
 $('new').addEventListener('click',()=>{
   if(!window.confirm('Erase this living organism and start a NEW universe? This cannot be undone.'))return;
+  // A new universe must not accidentally bind to a reused old birth ID.
+  engine.setConfig({crystalFocusBirthId:0,crystalFocusFamilyId:0});
+  familyInspectorNote='';
   engine.reset((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
   if(engine.colony.settings.enabled)engine.seedCrystal(new THREE.Vector3());
   if(engine.morphogenesis.settings.enabled)engine.seedChemical(new THREE.Vector3(),.72);
@@ -2285,6 +2357,8 @@ function samplePerformance(now){
     'Fibers: '+engine.segmentCount.toLocaleString(),
     'Crystal cells: '+engine.colony.population.toLocaleString(),
     'Visible facets: '+facetGems.count.toLocaleString(),
+    'Family beacons: '+familyBeacons.count.toLocaleString(),
+    'Family connections: '+familyLinesGeometry.drawRange.count/2,
     'Hereditary bands: '+bloodlineBands.count.toLocaleString(),
     'Crystal families: '+new Set(Array.from(engine.colony.families)
       .filter((f,i)=>f&&engine.colony.cells[i])).size.toLocaleString(),
