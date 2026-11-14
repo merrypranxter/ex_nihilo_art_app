@@ -23,12 +23,14 @@ const mod=(a,n)=>(a%n+n)%n;
 // pixel centers; every parameter is a whole-number-frequency toroidal field
 // or a reflection-symmetric centered radial field.
 export function compositionSample(u,v,{boundary='open',regions='single',voids=.55,wrap=false}={}){
-  const x=u-.5,y=v-.5,r=Math.hypot(x,y)*2;
+  const x=wrap?.5*Math.sin(TAU*u):u-.5;
+  const y=wrap?.5*Math.sin(TAU*v):v-.5;
+  const r=Math.hypot(x,y)*2;
   const theta=Math.atan2(y,x);
   let gate=1;
   if(boundary==='rose'){
-    const petals=Math.cos(theta*12+.85*Math.sin(r*8));
-    const vault=Math.cos(Math.PI*r*9+.65*Math.sin(theta*8));
+    const petals=Math.cos(theta*12)*Math.cos(r*6);
+    const vault=Math.cos(Math.PI*r*9)*(.7+.3*Math.cos(theta*8));
     gate=clamp(.51+.28*petals+.25*vault);
   }else if(boundary==='rivers'){
     const meander=3*v+.38*Math.sin(TAU*2*u)+.16*Math.sin(TAU*5*u);
