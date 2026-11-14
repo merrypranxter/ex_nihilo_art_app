@@ -30,7 +30,7 @@ export class GrowthEngine {
       nutrientDrive: 1.2, diffusion: .6, supply: .5,
       contactMode: 'slide', contactBranching: .32, wallPermeability: .08, membraneTrace: .55,
       form:'coral',formStrength:.85,formTwist:.6,finish:'opal',glow:.6,
-      branchMode:'golden',branchAngle:56,branchTaper:.84,
+      branchMode:'golden',branchAngle:56,branchTaper:.84,lineageColor:.65,
       rhythmMode:'beats',rhythmDepth:.62,rhythmRate:.55
     };
     this.onDeposit = () => {};
@@ -129,6 +129,7 @@ export class GrowthEngine {
     candidate.glow=clamp(safe(+candidate.glow),0,1);
     candidate.branchAngle=clamp(safe(+candidate.branchAngle),0,85);
     candidate.branchTaper=clamp(safe(+candidate.branchTaper),.45,1);
+    candidate.lineageColor=clamp(safe(+candidate.lineageColor),0,1);
     candidate.rhythmDepth=clamp(safe(+candidate.rhythmDepth),0,1);
     candidate.rhythmRate=clamp(safe(+candidate.rhythmRate),.05,2);
     if(!BRANCH_MODES[candidate.branchMode])candidate.branchMode='random';
@@ -156,7 +157,7 @@ export class GrowthEngine {
       :dna.config;
     const historicalBranches=historicalForm.branchMode===undefined
       ?{...historicalForm,branchMode:'random',branchTaper:1,branchAngle:56,
-        rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55}
+        rhythmMode:'steady',rhythmDepth:0,rhythmRate:.55,lineageColor:0}
       :historicalForm;
     this.setConfig(historicalBranches);
     if(dna.colony)this.colony.setSettings(dna.colony);
@@ -249,7 +250,13 @@ export class GrowthEngine {
 
   pickColor(agent) {
     const colors=PALETTES[this.config.palette];
-    const ageHue=(.16*this.time+agent.identity*.6+agent.p.y*.04) % 1;
+    const oldHue=(.16*this.time+agent.identity*.6+agent.p.y*.04) % 1;
+    const ancestralHue=((agent.generation||0)*.1375 + agent.identity*.09
+      +this.time*.019) % 1;
+    // Lineage coloring makes daughters recognizable as related structures.
+    // Older checkpoints set lineageColor=0 and retain original colors.
+    const ageHue=(1-this.config.lineageColor)*oldHue
+      +this.config.lineageColor*ancestralHue;
     const scaled=Math.abs(ageHue)*colors.length, left=Math.floor(scaled)%colors.length;
     return new THREE.Color(colors[left]).lerp(new THREE.Color(colors[(left+1)%colors.length]),scaled-Math.floor(scaled));
   }
