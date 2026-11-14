@@ -3,9 +3,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GrowthEngine, PALETTES } from './engine.js';
 import { surfacePixels,SURFACE_SIZE,SurfaceGrowth } from './surface-growth.js';
 import {loopPlan,framePhase,phaseAtSeconds,supportedMp4Mime} from './surface-loop-plan.js';
-import {cinematicDimensions,paintCinematicFrame,drawCinematicGuides}
+import {cinematicDimensions,paintCinematicFrame,drawCinematicGuides,
+  pickCinematicSource}
   from './surface-cinematic.js';
 import {renderSurfaceLoopFrame} from './surface-loop-renderer.js';
+import {SURFACE_CAMERA_MOVES,cameraPoseFromConfig,cameraGesturePose}
+  from './surface-camera-choreography.js';
 import {exportSurfaceGIF,exportSurfaceMP4} from './surface-loop-export.js';
 import {surfaceOpticsPixels} from './surface-optics.js';
 import {paintSurfaceMicrostructure} from './surface-microstructure.js';
@@ -99,6 +102,9 @@ let surfaceClock=0,surfaceNeedsPresent=true,surfacePointerId=null;
 let surfaceOpticsDirty=true,surfaceOpticsTime=0,lastSurfaceOpticsRedraw=0;
 let surfaceOpticsRenderCost=0,lastSurfaceVisualPaint=0;
 let surfaceLoopPreview=false,surfaceLoopElapsed=0,surfaceLoopPriorPause=true;
+let surfaceLoopScrubbing=false,surfaceCameraTouchTool='off';
+let surfaceCameraDrag=null;
+const surfaceCameraPointers=new Map();
 let surfaceLoopController=null,surfaceLoopBusy=false;
 const surfaceLoopPreviewCanvas=document.createElement('canvas');
 const surfaceLoopMaterialCanvas=document.createElement('canvas');
@@ -190,14 +196,30 @@ function fitSurfaceCanvas(){
     surfaceNeedsPresent=true;
   }
 }
+function cinematicPreviewGeometry(){
+  const rect=surfaceDisplayRect();
+  const edge=Math.max(192,Math.min(640,Math.round(rect.size)));
+  const aspect=$('surface-loop-aspect').value;
+  const dims=cinematicDimensions(edge,aspect);
+  const scale=Math.min(rect.size/dims.width,rect.size/dims.height);
+  const dw=dims.width*scale,dh=dims.height*scale;
+  return {rect,edge,aspect,dims,dw,dh,
+    dx:rect.left+(rect.size-dw)/2,
+    dy:rect.top+(rect.size-dh)/2};
+}
+function currentCameraLoopPhase(){
+  const seconds=Number($('surface-loop-seconds').value);
+  const playback=$('surface-loop-playback').value;
+  const time=surfaceLoopScrubbing?
+    seconds*Number($('surface-camera-scrub').value)/100:surfaceLoopElapsed;
+  return phaseAtSeconds(time,seconds,playback);
+}
 function drawSurface(force=false){
   if(engine.config.compositionDomain!=='surface')return;
   if(!surfaceCanvas.width||!surfaceCanvas.height)fitSurfaceCanvas();
   if(surfaceLoopPreview){
-    const started=performance.now(),rect=surfaceDisplayRect();
-    const edge=Math.max(192,Math.min(640,Math.round(rect.size)));
-    const aspect=$('surface-loop-aspect').value;
-    const dims=cinematicDimensions(edge,aspect);
+    const started=performance.now();
+    const {edge,aspect,dims,dw,dh,dx,dy}=cinematicPreviewGeometry();
     if(surfaceLoopPreviewCanvas.width!==dims.width||
        surfaceLoopPreviewCanvas.height!==dims.height){
       surfaceLoopPreviewCanvas.width=dims.width;
@@ -207,28 +229,28 @@ function drawSurface(force=false){
       surfaceLoopMaterialCanvas.width=edge;
       surfaceLoopMaterialCanvas.height=edge;
     }
-    const seconds=Number($('surface-loop-seconds').value);
-    const playback=$('surface-loop-playback').value,
-      motion=$('surface-loop-motion').value;
+    const motion=$('surface-loop-motion').value;
+    const phase=currentCameraLoopPhase();
+    if(!surfaceLoopScrubbing){
+      const seconds=Number($('surface-loop-seconds').value);
+      const fraction=((surfaceLoopElapsed%seconds)+seconds)%seconds/seconds;
+      $('surface-camera-scrub').value=Math.round(fraction*100);
+      $('surface-camera-scrub-value').textContent=Math.round(fraction*100)+'%';
+    }
+    const pose=cameraPoseFromConfig(phase,engine.config);
     const background=BACKGROUNDS[$('background').value]||BACKGROUNDS.void;
     renderSurfaceLoopFrame(
       surfaceLoopMaterialCanvas.getContext('2d',{alpha:false}),surfaceLoopTileContext,
       engine.surface,engine.config,{
-        size:edge,phase:phaseAtSeconds(surfaceLoopElapsed,seconds,playback),
-        motion,background,quality:'preview'
+        size:edge,phase,motion,background,quality:'preview'
       });
     paintCinematicFrame(surfaceLoopPreviewCanvas.getContext('2d',{alpha:false}),
       surfaceLoopMaterialCanvas,{
         width:dims.width,height:dims.height,
         framing:$('surface-loop-framing').value,
-        focusX:Number($('surface-loop-focus-x').value)/100,
-        focusY:Number($('surface-loop-focus-y').value)/100,
-        zoom:Number($('surface-loop-zoom').value)/100,background
+        focusX:pose.focusX,focusY:pose.focusY,
+        zoom:pose.zoom,background
       });
-    const scale=Math.min(rect.size/dims.width,rect.size/dims.height);
-    const dw=dims.width*scale,dh=dims.height*scale,
-      dx=rect.left+(rect.size-dw)/2,
-      dy=rect.top+(rect.size-dh)/2;
     surfaceContext.fillStyle=background;
     surfaceContext.fillRect(0,0,surfaceCanvas.width,surfaceCanvas.height);
     surfaceContext.drawImage(surfaceLoopPreviewCanvas,dx,dy,dw,dh);
@@ -2959,9 +2981,10 @@ $('surface-loop-export').addEventListener('click',async()=>{
     renderSurfaceLoopFrame(materialContext,tileCtx,frozen,config,{
       size:plan.size,phase,motion:plan.motion,background,quality:'export'
     });
+    const pose=cameraPoseFromConfig(phase,config);
     paintCinematicFrame(context,materialCanvas,{
       width:plan.width,height:plan.height,framing:plan.framing,
-      focusX:plan.focusX,focusY:plan.focusY,zoom:plan.zoom,background
+      focusX:pose.focusX,focusY:pose.focusY,zoom:pose.zoom,background
     });
   };
   const progress=(i,total)=>loopStatusText(
@@ -3216,7 +3239,7 @@ function frame(now){
   let elapsed=Math.min((now-last)/1000,.1);last=now;
   if(engine.config.compositionDomain==='surface'){
     if(surfaceLoopPreview){
-      surfaceLoopElapsed+=elapsed;
+      if(!surfaceLoopScrubbing)surfaceLoopElapsed+=elapsed;
       const minGap=Math.max(85,Math.min(450,surfaceOpticsRenderCost*2.15));
       if(now-lastSurfaceVisualPaint>=minGap)drawSurface();
       return;
