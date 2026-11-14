@@ -1,8 +1,9 @@
 // EX NIHILO / PHASE 04F — loop phase planner, no browser dependencies.
 // Every rendered phase is sampled from integer frame count, not wall time.
+import {LOOP_ASPECTS,LOOP_FRAMINGS,LOOP_BITRATES,cinematicDimensions} from './surface-cinematic.js';
 export const LOOP_SECONDS=Object.freeze([2,3,5,10]);
 export const LOOP_FPS=Object.freeze([12,18,24]);
-export const LOOP_SIZES=Object.freeze([512,768,1024]);
+export const LOOP_SIZES=Object.freeze([512,768,1024,1920]);
 export const LOOP_MOTIONS=Object.freeze({
   orbit:'LIGHT ORBIT · MOVING REFLECTIONS',
   film:'FILM TIDE · OPTICAL COATING THICKNESS',
@@ -14,23 +15,33 @@ export const LOOP_PLAYBACK=Object.freeze({
 });
 const TAU=Math.PI*2;
 export function loopPlan({seconds=3,fps=12,size=512,
-  playback='cycle',motion='hybrid',format='gif'}={}){
+  playback='cycle',motion='hybrid',format='gif',
+  aspect='1:1',framing='cover',focusX=.5,focusY=.5,zoom=1,
+  bitrate='high'}={}){
   const int=(value,choices)=>Number.isInteger(value)&&choices.includes(value);
   if(!int(seconds,LOOP_SECONDS)||!int(fps,LOOP_FPS)||
      !int(size,LOOP_SIZES)||
      !Object.hasOwn(LOOP_PLAYBACK,playback)||
      !Object.hasOwn(LOOP_MOTIONS,motion)||
-     !['gif','mp4'].includes(format))
+     !['gif','mp4'].includes(format)||
+     !Object.hasOwn(LOOP_ASPECTS,aspect)||
+     !Object.hasOwn(LOOP_FRAMINGS,framing)||
+     !Object.hasOwn(LOOP_BITRATES,bitrate)||
+     ![focusX,focusY,zoom].every(Number.isFinite)||
+     focusX<0||focusX>1||focusY<0||focusY>1||
+     zoom<1||zoom>2.5)
     throw Error('Invalid Loop Forge settings');
   const frames=seconds*fps;
-  // A GIF over ~48M pixels risks bloating iPhone memory; prevent accidental
-  // giant jobs before creating any canvas or allocating encoded frame memory.
-  if(format==='gif'&&size*size*frames>50_000_000)
-    throw Error('That GIF exceeds the iPhone-safe frame budget. Use a smaller size, lower frame rate, or shorter loop.');
-  // MP4 is realtime encoded, but has a significant 2D canvas render budget.
-  if(format==='mp4'&&size===1024&&fps===24&&seconds===10)
-    throw Error('10 seconds at 1024px / 24fps is too expensive for live mobile MP4. Reduce resolution or fps.');
-  return Object.freeze({seconds,fps,size,playback,motion,format,frames});
+  const {width,height}=cinematicDimensions(size,aspect);
+  const pixelFrames=width*height*frames;
+  // Prevent runaway iPhone GPU/CPU frame allocation before rendering starts.
+  if(format==='gif'&&pixelFrames>50_000_000)
+    throw Error('That GIF exceeds the mobile pixel-frame budget. Try 512px, 12fps, or a shorter loop.');
+  if(format==='mp4'&&pixelFrames>200_000_000)
+    throw Error('That MP4 is too large for reliable live phone recording. Lower dimensions, fps, or duration.');
+  return Object.freeze({seconds,fps,size,playback,motion,format,frames,
+    aspect,framing,focusX,focusY,zoom,bitrate,
+    videoBitsPerSecond:LOOP_BITRATES[bitrate],width,height,pixelFrames});
 }
 export function framePhase(index,count,playback='cycle'){
   if(!Number.isInteger(index)||!Number.isInteger(count)||count<1||
