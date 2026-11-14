@@ -528,7 +528,7 @@ function handleCameraPathPointerDown(e){
     updateCameraPathStatus('OUTSIDE MINERAL · Touch inside the actual artwork, not a background bar.');
     return true;
   }
-  if(!surfaceCameraPathEditor.begin(at.x,at.y,performance.now()))return true;
+  if(!surfaceCameraPathEditor.begin(at.x,at.y,0))return true;
   surfaceCameraPathPointerId=e.pointerId;
   surfaceCameraPathStartMs=performance.now();
   surfaceCameraPathDrawingGeometry=g;
@@ -597,7 +597,8 @@ function applyCameraBase(pose){
 function updateCameraTouchToolButtons(){
   for(const [id,mode,normal,active] of [
     ['surface-camera-grab','grab','✋ GRAB CAMERA · DRAG / PINCH','◉ GRAB CAMERA: ON'],
-    ['surface-camera-pick','pick','🎯 PICK DIVE TARGET','◎ TAP A MINERAL DETAIL']
+    ['surface-camera-pick','pick','🎯 PICK DIVE TARGET','◎ TAP A MINERAL DETAIL'],
+    ['surface-camera-path-draw','draw','✍ DRAW PATH ON ART','◉ DRAW CAMERA ROUTE: ON']
   ]){
     const button=$(id);
     button.setAttribute('aria-pressed',String(surfaceCameraTouchTool===mode));
@@ -613,6 +614,7 @@ function handleCameraPointerDown(e){
   if(!surfaceLoopPreview||surfaceCameraTouchTool==='off')return false;
   const p=previewCameraPointer(e);if(!p)return true;
   e.preventDefault();
+  if(surfaceCameraTouchTool==='draw')return handleCameraPathPointerDown(e);
   if(p.x<0||p.x>1||p.y<0||p.y>1)return true;
   if(surfaceCameraTouchTool==='pick'){
     const {g}=p,pose=cameraPoseFromConfig(currentCameraLoopPhase(),engine.config);
@@ -653,6 +655,7 @@ function handleCameraPointerDown(e){
   return true;
 }
 function handleCameraPointerMove(e){
+  if(handleCameraPathPointerMove(e))return true;
   if(!surfaceCameraPointers.has(e.pointerId))return false;
   const p=previewCameraPointer(e);if(!p)return true;
   e.preventDefault();
@@ -684,6 +687,7 @@ function handleCameraPointerMove(e){
   return true;
 }
 function handleCameraPointerEnd(e){
+  if(handleCameraPathPointerEnd(e))return true;
   if(!surfaceCameraPointers.has(e.pointerId))return false;
   surfaceCameraPointers.delete(e.pointerId);
   if(!surfaceCameraPointers.size)surfaceCameraDrag=null;
@@ -752,21 +756,23 @@ surfaceCanvas.addEventListener('pointerdown',beginSurfaceTouch);
 surfaceCanvas.addEventListener('pointermove',moveSurfaceTouch);
 surfaceCanvas.addEventListener('pointerup',endSurfaceTouch);
 surfaceCanvas.addEventListener('pointercancel',e=>{
+  if(surfaceCameraPathPointerId===e.pointerId)cancelDrawnCameraPath();
   if(surfaceCameraPointers.has(e.pointerId))cancelCameraTouch();
   else cancelSurfaceTouch();
 });
 surfaceCanvas.addEventListener('lostpointercapture',e=>{
+  if(surfaceCameraPathPointerId===e.pointerId)cancelDrawnCameraPath();
   if(surfaceCameraPointers.has(e.pointerId))cancelCameraTouch();
   if(surfacePointerPositions.has(e.pointerId))cancelSurfaceTouch();
 });
 window.addEventListener('blur',()=>{
-  cancelSurfaceTouch();cancelCameraTouch();
+  cancelSurfaceTouch();cancelCameraTouch();cancelDrawnCameraPath();
 });
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){cancelSurfaceTouch();cancelCameraTouch();}
+  if(document.hidden){cancelSurfaceTouch();cancelCameraTouch();cancelDrawnCameraPath();}
 });
 window.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){cancelSurfaceTouch();cancelCameraTouch();return;}
+  if(e.key==='Escape'){cancelSurfaceTouch();cancelCameraTouch();cancelDrawnCameraPath();return;}
   const tag=document.activeElement?.tagName?.toLowerCase();
   if(['input','select','textarea'].includes(tag))return;
   if(engine.config.compositionDomain!=='surface'||!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
@@ -3291,13 +3297,14 @@ function syncSurfaceLoopRecipe(){
 }
 function setSurfaceCameraTouchTool(mode){
   if(surfaceLoopBusy)return;
-  if(mode!=='grab'&&mode!=='pick')mode='off';
+  if(!['grab','pick','draw'].includes(mode))mode='off';
   if(!surfaceLoopPreview&&mode!=='off'){
     $('surface-loop-preview').click();
     if(!surfaceLoopPreview)return;
   }
-  cancelCameraTouch();
+  cancelCameraTouch();cancelDrawnCameraPath();
   surfaceCameraTouchTool=surfaceCameraTouchTool===mode?'off':mode;
+  if(surfaceCameraTouchTool==='draw')surfaceCameraPathVisible=true;
   if(surfaceCameraTouchTool!=='off'){
     surfaceCameraPreviewDirty=true;
     const seconds=Number($('surface-loop-seconds').value);
@@ -3314,6 +3321,8 @@ function setSurfaceCameraTouchTool(mode){
     'CAMERA GRAB · Drag to pan; pinch with two fingers to zoom. Crystal growth is untouched.':
     surfaceCameraTouchTool==='pick'?
     'TARGET PICKER · Tap a visible mineral point, not the background bars.':
+    surfaceCameraTouchTool==='draw'?
+    'PATH DRAW · Trace your lens journey across the mineral canvas; release to save one undoable route.':
     'Camera touch tools off. The mineral growth brush is available outside preview.';
   $('surface-camera-status').textContent=help;
   if(surfaceLoopPreview)drawSurface();
