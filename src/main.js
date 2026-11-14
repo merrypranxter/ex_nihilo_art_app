@@ -2343,6 +2343,7 @@ function updateSurfaceControls(){
   refreshSurfaceStats();
 }
 function readSurfaceControls(){
+  const previousMorphology=engine.config.surfaceMorphology;
   const values={
     surfaceMorphology:$('surface-morphology').value,
     surfaceNucleation:$('surface-nucleation').value
@@ -2350,6 +2351,8 @@ function readSurfaceControls(){
   for(const [id,key,parse] of surfaceSettings)
     values[key]=parse(Number($(id).value));
   engine.setConfig(values);
+  if(previousMorphology!==engine.config.surfaceMorphology)
+    engine.surface.rebuildFrontier(engine.config.surfaceWrap);
   updateSurfaceControls();
   engine.surface.changed=true;
 }
@@ -2358,6 +2361,7 @@ for(const id of ['surface-morphology','surface-nucleation'])
 for(const [id] of surfaceSettings)$(id).addEventListener('input',readSurfaceControls);
 $('surface-wrap').addEventListener('click',()=>{
   engine.setConfig({surfaceWrap:!engine.config.surfaceWrap});
+  engine.surface.rebuildFrontier(engine.config.surfaceWrap);
   updateSurfaceControls();engine.surface.changed=true;
 });
 $('domain-object').addEventListener('click',()=>setCompositionDomain('object'));
